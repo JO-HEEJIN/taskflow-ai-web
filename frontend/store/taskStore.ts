@@ -1,0 +1,109 @@
+import { create } from 'zustand';
+import { Task } from '@/types';
+import { api } from '@/lib/api';
+
+interface TaskStore {
+  tasks: Task[];
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
+  fetchTasks: () => Promise<void>;
+  createTask: (title: string, description?: string) => Promise<void>;
+  updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  addSubtasks: (taskId: string, subtasks: string[]) => Promise<void>;
+  toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  generateAIBreakdown: (taskId: string) => Promise<{ suggestions: any[] }>;
+}
+
+export const useTaskStore = create<TaskStore>((set, get) => ({
+  tasks: [],
+  isLoading: false,
+  error: null,
+
+  fetchTasks: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { tasks } = await api.getTasks();
+      set({ tasks, isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  createTask: async (title: string, description?: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { task } = await api.createTask(title, description);
+      set((state) => ({
+        tasks: [...state.tasks, task],
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  updateTask: async (id: string, updates: Partial<Task>) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { task } = await api.updateTask(id, updates);
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === id ? task : t)),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  deleteTask: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.deleteTask(id);
+      set((state) => ({
+        tasks: state.tasks.filter((t) => t.id !== id),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  addSubtasks: async (taskId: string, subtasks: string[]) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { task } = await api.addSubtasks(taskId, subtasks);
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === taskId ? task : t)),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  toggleSubtask: async (taskId: string, subtaskId: string) => {
+    try {
+      const { task } = await api.toggleSubtask(taskId, subtaskId);
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === taskId ? task : t)),
+      }));
+    } catch (error: any) {
+      set({ error: error.message });
+    }
+  },
+
+  generateAIBreakdown: async (taskId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await api.breakdownTask(taskId);
+      set({ isLoading: false });
+      return result;
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+}));
