@@ -140,6 +140,66 @@ router.post('/:id/subtasks', async (req: Request, res: Response) => {
   }
 });
 
+// Reorder subtasks (MUST be before /:subtaskId routes!)
+router.patch('/:taskId/subtasks/reorder', async (req: Request, res: Response) => {
+  try {
+    const { taskId } = req.params;
+    const { subtaskOrders } = req.body;
+    const syncCode = req.headers['x-sync-code'] as string;
+
+    console.log('🔄 Reorder request received:', { taskId, subtaskOrders });
+
+    if (!syncCode) {
+      return res.status(400).json({ error: 'Missing x-sync-code header' });
+    }
+
+    if (!Array.isArray(subtaskOrders)) {
+      return res.status(400).json({ error: 'subtaskOrders must be an array' });
+    }
+
+    const task = await taskService.reorderSubtasks(taskId, syncCode, subtaskOrders);
+
+    if (!task) {
+      console.error('❌ Task not found for reorder');
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    console.log('✅ Reorder successful, updated subtasks:', task.subtasks.map(st => ({ id: st.id, order: st.order })));
+    res.json({ task });
+  } catch (error) {
+    console.error('Error reordering subtasks:', error);
+    res.status(500).json({ error: 'Failed to reorder subtasks' });
+  }
+});
+
+// Archive/unarchive subtask (MUST be before /:subtaskId routes!)
+router.patch('/:taskId/subtasks/:subtaskId/archive', async (req: Request, res: Response) => {
+  try {
+    const { taskId, subtaskId } = req.params;
+    const { archived } = req.body;
+    const syncCode = req.headers['x-sync-code'] as string;
+
+    if (!syncCode) {
+      return res.status(400).json({ error: 'Missing x-sync-code header' });
+    }
+
+    if (typeof archived !== 'boolean') {
+      return res.status(400).json({ error: 'archived must be a boolean' });
+    }
+
+    const task = await taskService.archiveSubtask(taskId, syncCode, subtaskId, archived);
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task or subtask not found' });
+    }
+
+    res.json({ task });
+  } catch (error) {
+    console.error('Error archiving subtask:', error);
+    res.status(500).json({ error: 'Failed to archive subtask' });
+  }
+});
+
 // Toggle subtask completion
 router.patch('/:taskId/subtasks/:subtaskId', async (req: Request, res: Response) => {
   try {
@@ -183,66 +243,6 @@ router.delete('/:taskId/subtasks/:subtaskId', async (req: Request, res: Response
   } catch (error) {
     console.error('Error deleting subtask:', error);
     res.status(500).json({ error: 'Failed to delete subtask' });
-  }
-});
-
-// Reorder subtasks
-router.patch('/:taskId/subtasks/reorder', async (req: Request, res: Response) => {
-  try {
-    const { taskId } = req.params;
-    const { subtaskOrders } = req.body;
-    const syncCode = req.headers['x-sync-code'] as string;
-
-    console.log('🔄 Reorder request received:', { taskId, subtaskOrders });
-
-    if (!syncCode) {
-      return res.status(400).json({ error: 'Missing x-sync-code header' });
-    }
-
-    if (!Array.isArray(subtaskOrders)) {
-      return res.status(400).json({ error: 'subtaskOrders must be an array' });
-    }
-
-    const task = await taskService.reorderSubtasks(taskId, syncCode, subtaskOrders);
-
-    if (!task) {
-      console.error('❌ Task not found for reorder');
-      return res.status(404).json({ error: 'Task not found' });
-    }
-
-    console.log('✅ Reorder successful, updated subtasks:', task.subtasks.map(st => ({ id: st.id, order: st.order })));
-    res.json({ task });
-  } catch (error) {
-    console.error('Error reordering subtasks:', error);
-    res.status(500).json({ error: 'Failed to reorder subtasks' });
-  }
-});
-
-// Archive/unarchive subtask
-router.patch('/:taskId/subtasks/:subtaskId/archive', async (req: Request, res: Response) => {
-  try {
-    const { taskId, subtaskId } = req.params;
-    const { archived } = req.body;
-    const syncCode = req.headers['x-sync-code'] as string;
-
-    if (!syncCode) {
-      return res.status(400).json({ error: 'Missing x-sync-code header' });
-    }
-
-    if (typeof archived !== 'boolean') {
-      return res.status(400).json({ error: 'archived must be a boolean' });
-    }
-
-    const task = await taskService.archiveSubtask(taskId, syncCode, subtaskId, archived);
-
-    if (!task) {
-      return res.status(404).json({ error: 'Task or subtask not found' });
-    }
-
-    res.json({ task });
-  } catch (error) {
-    console.error('Error archiving subtask:', error);
-    res.status(500).json({ error: 'Failed to archive subtask' });
   }
 });
 
