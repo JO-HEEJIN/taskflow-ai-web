@@ -121,13 +121,13 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
                 <button
                   onClick={handleGenerate}
                   disabled={isGenerating}
-                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
                 >
                   🔄 Regenerate
                 </button>
                 <button
                   onClick={onClose}
-                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
                 >
                   Cancel
                 </button>

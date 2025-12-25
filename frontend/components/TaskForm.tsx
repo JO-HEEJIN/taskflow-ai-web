@@ -72,7 +72,7 @@ export function TaskForm({ onClose }: TaskFormProps) {
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium"
           >
             Cancel
           </button>
