@@ -230,8 +230,21 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      {/* Modal backdrop - click/touch outside to close */}
+      <div
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4"
+        onClick={onClose}
+        onTouchEnd={(e) => {
+          e.preventDefault();
+          onClose();
+        }}
+      >
+        {/* Modal content - prevent close when clicking inside */}
+        <div
+          className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+          onClick={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+        >
           <div className="p-6">
             {/* Header */}
             <div className="flex justify-between items-start mb-6">

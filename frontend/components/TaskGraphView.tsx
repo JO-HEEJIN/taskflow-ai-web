@@ -8,6 +8,7 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 interface TaskGraphViewProps {
   tasks: Task[];
   onTaskClick: (taskId: string) => void;
+  onBackgroundClick?: () => void;
 }
 
 interface TaskPosition {
@@ -19,7 +20,7 @@ interface TaskPosition {
   depth: number; // New: track nesting depth
 }
 
-export function TaskGraphView({ tasks, onTaskClick }: TaskGraphViewProps) {
+export function TaskGraphView({ tasks, onTaskClick, onBackgroundClick }: TaskGraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -187,7 +188,28 @@ export function TaskGraphView({ tasks, onTaskClick }: TaskGraphViewProps) {
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    // Check if this was a click (not a drag) on the background
+    const wasDragging = Math.abs(e.clientX - dragStart.x - pan.x) > 5 ||
+                        Math.abs(e.clientY - dragStart.y - pan.y) > 5;
+
+    if (!wasDragging && (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background'))) {
+      // This was a click on the background, not a drag
+      if (onBackgroundClick) {
+        onBackgroundClick();
+      }
+    }
+
+    setIsDragging(false);
+  };
+
+  // Touch handlers for mobile
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background')) {
+      if (!isDragging && onBackgroundClick) {
+        onBackgroundClick();
+      }
+    }
     setIsDragging(false);
   };
 
@@ -207,7 +229,7 @@ export function TaskGraphView({ tasks, onTaskClick }: TaskGraphViewProps) {
 
   return (
     <div
-      className="relative w-full h-[800px] rounded-lg border border-gray-800 overflow-hidden"
+      className="relative w-screen h-screen overflow-hidden"
       style={{
         background: 'linear-gradient(134deg, rgba(72, 54, 153, 0.8) 0%, rgba(6, 1, 28, 0.9) 100%), #161616',
       }}
@@ -257,6 +279,7 @@ export function TaskGraphView({ tasks, onTaskClick }: TaskGraphViewProps) {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchEnd={handleTouchEnd}
       >
         <div
           style={{

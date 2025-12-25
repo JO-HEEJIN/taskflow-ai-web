@@ -8,42 +8,38 @@ export default function Home() {
   const [showTaskForm, setShowTaskForm] = useState(false);
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                TaskFlow AI
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                AI-Powered Task Management
-              </p>
+    <main className="min-h-screen overflow-hidden">
+      {/* Task Form Modal */}
+      {showTaskForm && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowTaskForm(false)}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            setShowTaskForm(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Create New Task</h2>
+              <button
+                onClick={() => setShowTaskForm(false)}
+                className="text-gray-400 hover:text-gray-600 text-2xl"
+              >
+                ✕
+              </button>
             </div>
-            <button
-              onClick={() => setShowTaskForm(!showTaskForm)}
-              className="bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 font-medium shadow-md hover:shadow-lg transition-shadow"
-            >
-              + New Task
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Task Form */}
-        {showTaskForm && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4">Create New Task</h2>
             <TaskForm onClose={() => setShowTaskForm(false)} />
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Task List */}
-        <TaskList />
-      </div>
+      {/* Full screen task graph - click/tap background to create new task */}
+      <TaskList onBackgroundClick={() => setShowTaskForm(true)} />
     </main>
   );
 }
