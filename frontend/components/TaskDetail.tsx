@@ -224,12 +224,15 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                           draggedSubtaskId === subtask.id ? 'opacity-50' : ''
                         }`}
                       >
-                        {/* Mobile-friendly up/down buttons */}
-                        <div className="flex flex-col gap-1">
+                        {/* Desktop: Drag handle */}
+                        <span className="hidden md:block text-gray-400 cursor-grab active:cursor-grabbing mt-1">☰</span>
+
+                        {/* Mobile: Up/Down buttons */}
+                        <div className="flex flex-col gap-1 md:hidden">
                           <button
                             onClick={() => handleMoveSubtask(subtask.id, 'up')}
                             disabled={index === 0}
-                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-1 text-xs"
                             title="Move up"
                           >
                             ▲
@@ -237,7 +240,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                           <button
                             onClick={() => handleMoveSubtask(subtask.id, 'down')}
                             disabled={index === activeSubtasks.length - 1}
-                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-1 text-xs"
                             title="Move down"
                           >
                             ▼
