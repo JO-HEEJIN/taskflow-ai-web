@@ -10,6 +10,7 @@ interface TaskStore {
   // Actions
   fetchTasks: () => Promise<void>;
   createTask: (title: string, description?: string) => Promise<void>;
+  createLinkedTask: (parentTaskId: string, subtaskId: string, subtaskTitle: string) => Promise<Task>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   addSubtasks: (taskId: string, subtasks: string[]) => Promise<void>;
@@ -45,6 +46,24 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       }));
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
+    }
+  },
+
+  createLinkedTask: async (parentTaskId: string, subtaskId: string, subtaskTitle: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const title = `Follow-up: ${subtaskTitle}`;
+      const { task, parentTask } = await api.createLinkedTask(title, subtaskId);
+
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === parentTaskId ? parentTask : t)).concat(task),
+        isLoading: false,
+      }));
+
+      return task;
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
     }
   },
 

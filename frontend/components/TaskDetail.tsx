@@ -4,7 +4,14 @@ import { Task } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
 import { ProgressBar } from './ProgressBar';
 import { AIBreakdownModal } from './AIBreakdownModal';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import dynamic from 'next/dynamic';
+
+// Lazy load TaskMindMap for code splitting
+const TaskMindMap = dynamic(() => import('./graph/TaskMindMap').then(mod => ({ default: mod.TaskMindMap })), {
+  loading: () => <div className="w-full h-96 flex items-center justify-center text-gray-400">Loading mind map...</div>,
+  ssr: false,
+});
 
 interface TaskDetailProps {
   taskId: string;
@@ -12,12 +19,17 @@ interface TaskDetailProps {
 }
 
 export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
-  const { tasks, toggleSubtask, addSubtasks, deleteSubtask, reorderSubtasks, archiveSubtask } = useTaskStore();
+  const { tasks, toggleSubtask, addSubtasks, deleteSubtask, reorderSubtasks, archiveSubtask, createLinkedTask } = useTaskStore();
   const [showAIModal, setShowAIModal] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [draggedSubtaskId, setDraggedSubtaskId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [hoveredSubtaskId, setHoveredSubtaskId] = useState<string | null>(null);
+  const [showPrompt, setShowPrompt] = useState<string | null>(null);
+  const [showMindMap, setShowMindMap] = useState(false);
+  const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get live task from store (ensures real-time updates)
   const task = tasks.find((t) => t.id === taskId);
@@ -29,6 +41,14 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   // Separate active and archived subtasks
   const activeSubtasks = task.subtasks.filter((st) => !st.isArchived);
   const archivedSubtasks = task.subtasks.filter((st) => st.isArchived);
+
+  // Cleanup hover timers on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+      if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    };
+  }, []);
 
   const handleToggleSubtask = async (subtaskId: string) => {
     await toggleSubtask(task.id, subtaskId);
@@ -129,6 +149,57 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
     }
   };
 
+  const handleSubtaskMouseEnter = (subtaskId: string) => {
+    const subtask = task.subtasks.find(st => st.id === subtaskId);
+    // Don't show prompt if dragging or subtask already linked
+    if (draggedSubtaskId || subtask?.linkedTaskId) return;
+
+    setHoveredSubtaskId(subtaskId);
+    hoverTimerRef.current = setTimeout(() => {
+      setShowPrompt(subtaskId);
+    }, 2000); // 2 second delay
+  };
+
+  const handleSubtaskMouseLeave = () => {
+    if (hoverTimerRef.current) {
+      clearTimeout(hoverTimerRef.current);
+    }
+    setHoveredSubtaskId(null);
+    // Keep prompt visible if already shown (user can click)
+  };
+
+  const handleSubtaskTouchStart = (subtaskId: string) => {
+    const subtask = task.subtasks.find(st => st.id === subtaskId);
+    if (subtask?.linkedTaskId) return;
+
+    longPressTimerRef.current = setTimeout(() => {
+      setShowPrompt(subtaskId);
+      // Haptic feedback if available
+      if (navigator.vibrate) navigator.vibrate(50);
+    }, 500); // 500ms for long press
+  };
+
+  const handleSubtaskTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+  };
+
+  const handleCreateLinkedTask = async (subtaskId: string) => {
+    const subtask = task.subtasks.find(st => st.id === subtaskId);
+    if (!subtask) return;
+
+    setShowPrompt(null);
+    try {
+      const newTask = await createLinkedTask(task.id, subtaskId, subtask.title);
+      // Optionally, could open the new task in a modal here
+      alert(`✅ Created linked task: "${newTask.title}"`);
+    } catch (error) {
+      console.error('Failed to create linked task:', error);
+      alert('Failed to create linked task');
+    }
+  };
+
   const handleMoveSubtask = async (subtaskId: string, direction: 'up' | 'down') => {
     const sortedActive = [...activeSubtasks].sort((a, b) => a.order - b.order);
     const currentIndex = sortedActive.findIndex((st) => st.id === subtaskId);
@@ -194,14 +265,34 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
             <div className="mb-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">Subtasks</h3>
-                {activeSubtasks.length === 0 && (
-                  <button
-                    onClick={() => setShowAIModal(true)}
-                    className="text-sm bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
-                  >
-                    ✨ AI Breakdown
-                  </button>
-                )}
+                <div className="flex gap-2">
+                  {activeSubtasks.length > 0 && (
+                    <button
+                      onClick={() => setShowMindMap(!showMindMap)}
+                      className="text-sm px-3 py-1 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors flex items-center gap-1"
+                    >
+                      {showMindMap ? (
+                        <>
+                          <span>📋</span>
+                          <span>List View</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🗺️</span>
+                          <span>Mind Map</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {activeSubtasks.length === 0 && (
+                    <button
+                      onClick={() => setShowAIModal(true)}
+                      className="text-sm bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
+                    >
+                      ✨ AI Breakdown
+                    </button>
+                  )}
+                </div>
               </div>
 
               {activeSubtasks.length === 0 ? (
@@ -209,6 +300,8 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                   <p>No subtasks yet</p>
                   <p className="text-sm mt-1">Use AI to break down this task!</p>
                 </div>
+              ) : showMindMap ? (
+                <TaskMindMap taskId={task.id} />
               ) : (
                 <div className="space-y-2">
                   {activeSubtasks
@@ -220,7 +313,11 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                         onDragStart={() => handleDragStart(subtask.id)}
                         onDragOver={handleDragOver}
                         onDrop={() => handleDrop(subtask.id)}
-                        className={`flex items-start gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group ${
+                        onMouseEnter={() => handleSubtaskMouseEnter(subtask.id)}
+                        onMouseLeave={handleSubtaskMouseLeave}
+                        onTouchStart={() => handleSubtaskTouchStart(subtask.id)}
+                        onTouchEnd={handleSubtaskTouchEnd}
+                        className={`relative flex items-start gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group ${
                           draggedSubtaskId === subtask.id ? 'opacity-50' : ''
                         }`}
                       >
@@ -254,13 +351,18 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                           className="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer flex-shrink-0"
                         />
                         <span
-                          className={`flex-1 ${
+                          className={`flex-1 flex items-center gap-2 ${
                             subtask.isCompleted
                               ? 'line-through text-gray-400'
                               : 'text-gray-700'
                           }`}
                         >
-                          {subtask.title}
+                          <span>{subtask.title}</span>
+                          {subtask.linkedTaskId && (
+                            <span className="text-xs text-blue-600" title="Linked to another task">
+                              🔗
+                            </span>
+                          )}
                         </span>
                         <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                           <button
@@ -278,6 +380,25 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                             ✕
                           </button>
                         </div>
+
+                        {/* Hover Prompt */}
+                        {showPrompt === subtask.id && !subtask.linkedTaskId && (
+                          <div className="absolute right-2 top-2 z-10 bg-primary-600 text-white px-3 py-1.5 rounded-lg shadow-lg text-xs font-medium flex items-center gap-2 animate-fadeIn">
+                            <button
+                              onClick={() => handleCreateLinkedTask(subtask.id)}
+                              className="hover:underline flex items-center gap-1"
+                            >
+                              <span>✨</span>
+                              <span>New task from this?</span>
+                            </button>
+                            <button
+                              onClick={() => setShowPrompt(null)}
+                              className="text-white/80 hover:text-white"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                 </div>

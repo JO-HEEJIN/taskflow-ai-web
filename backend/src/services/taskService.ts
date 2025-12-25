@@ -36,6 +36,63 @@ class TaskService {
     return task;
   }
 
+  // Create a linked task from a subtask
+  async createLinkedTask(
+    title: string,
+    description: string | undefined,
+    syncCode: string,
+    sourceSubtaskId: string
+  ): Promise<{ task: Task; parentTask: Task }> {
+    // Create the new task with sourceSubtaskId reference
+    const newTask: Task = {
+      id: uuidv4(),
+      title,
+      description,
+      status: TaskStatus.PENDING,
+      progress: 0,
+      subtasks: [],
+      syncCode,
+      sourceSubtaskId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const container = cosmosService.getTasksContainer();
+
+    if (container) {
+      // Use Cosmos DB
+      await container.items.create(newTask);
+    } else {
+      // Use mock storage
+      this.mockTasks.set(newTask.id, newTask);
+    }
+
+    // Find parent task containing this subtask
+    const allTasks = await this.getTasksBySyncCode(syncCode);
+    const parentTask = allTasks.find((t) =>
+      t.subtasks.some((st) => st.id === sourceSubtaskId)
+    );
+
+    if (!parentTask) {
+      throw new Error('Parent task not found for the specified subtask');
+    }
+
+    // Update subtask with linkedTaskId
+    const updatedSubtasks = parentTask.subtasks.map((st) =>
+      st.id === sourceSubtaskId ? { ...st, linkedTaskId: newTask.id } : st
+    );
+
+    const updatedParentTask = await this.updateTask(parentTask.id, syncCode, {
+      subtasks: updatedSubtasks,
+    });
+
+    if (!updatedParentTask) {
+      throw new Error('Failed to update parent task');
+    }
+
+    return { task: newTask, parentTask: updatedParentTask };
+  }
+
   // Get all tasks for a sync code
   async getTasksBySyncCode(syncCode: string): Promise<Task[]> {
     const container = cosmosService.getTasksContainer();

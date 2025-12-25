@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 class CosmosService {
-  private client: CosmosClient;
+  private client: CosmosClient | null = null;
   private database: Database | null = null;
   private tasksContainer: Container | null = null;
   private syncContainer: Container | null = null;

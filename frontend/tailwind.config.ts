@@ -22,6 +22,20 @@ const config: Config = {
           900: '#1e3a8a',
         },
       },
+      animation: {
+        fadeIn: 'fadeIn 0.3s ease-in-out',
+        starPulse: 'starPulse 3s ease-in-out infinite',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0', transform: 'translateY(-4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        starPulse: {
+          '0%, 100%': { opacity: '1', transform: 'scale(1)' },
+          '50%': { opacity: '0.85', transform: 'scale(0.98)' },
+        },
+      },
     },
   },
   plugins: [],

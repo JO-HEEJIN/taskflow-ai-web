@@ -65,6 +65,38 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
+// Create linked task from subtask
+router.post('/linked', async (req: Request, res: Response) => {
+  try {
+    const { title, description, sourceSubtaskId } = req.body;
+    const syncCode = req.headers['x-sync-code'] as string;
+
+    if (!syncCode) {
+      return res.status(400).json({ error: 'Missing x-sync-code header' });
+    }
+
+    if (!title || title.trim().length === 0) {
+      return res.status(400).json({ error: 'Task title is required' });
+    }
+
+    if (!sourceSubtaskId) {
+      return res.status(400).json({ error: 'sourceSubtaskId is required' });
+    }
+
+    const { task, parentTask } = await taskService.createLinkedTask(
+      title,
+      description,
+      syncCode,
+      sourceSubtaskId
+    );
+
+    res.status(201).json({ task, parentTask });
+  } catch (error: any) {
+    console.error('Error creating linked task:', error);
+    res.status(500).json({ error: error.message || 'Failed to create linked task' });
+  }
+});
+
 // Update task
 router.put('/:id', async (req: Request, res: Response) => {
   try {

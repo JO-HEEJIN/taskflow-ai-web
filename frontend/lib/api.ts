@@ -81,6 +81,16 @@ export const api = {
     return res.json();
   },
 
+  async createLinkedTask(title: string, sourceSubtaskId: string, description?: string) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/linked`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify({ title, description, sourceSubtaskId }),
+    });
+    if (!res.ok) throw new Error('Failed to create linked task');
+    return res.json();
+  },
+
   async updateTask(id: string, updates: any) {
     const res = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
       method: 'PUT',

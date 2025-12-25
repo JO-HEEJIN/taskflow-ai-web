@@ -7,6 +7,7 @@ export interface Task {
   progress: number;
   subtasks: Subtask[];
   syncCode: string;
+  sourceSubtaskId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +25,7 @@ export interface Subtask {
   isArchived: boolean;
   parentTaskId: string;
   order: number;
+  linkedTaskId?: string;
 }
 
 // Sync Types

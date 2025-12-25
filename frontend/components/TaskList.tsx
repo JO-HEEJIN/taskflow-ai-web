@@ -1,7 +1,7 @@
 'use client';
 
 import { useTaskStore } from '@/store/taskStore';
-import { TaskCard } from './TaskCard';
+import { TaskGraphView } from './TaskGraphView';
 import { TaskDetail } from './TaskDetail';
 import { useEffect, useState } from 'react';
 import { Task } from '@/types';
@@ -48,15 +48,10 @@ export function TaskList() {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onClick={() => setSelectedTaskId(task.id)}
-          />
-        ))}
-      </div>
+      <TaskGraphView
+        tasks={tasks}
+        onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+      />
 
       {selectedTaskId && (
         <TaskDetail
