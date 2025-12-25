@@ -38,7 +38,7 @@ export function TaskForm({ onClose }: TaskFormProps) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g., Build TaskFlow AI web app"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 placeholder:text-gray-400"
           disabled={isLoading}
           maxLength={200}
         />
@@ -54,7 +54,7 @@ export function TaskForm({ onClose }: TaskFormProps) {
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Add more details about this task..."
           rows={4}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 placeholder:text-gray-400"
           disabled={isLoading}
           maxLength={2000}
         />

@@ -98,7 +98,7 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
                       type="text"
                       value={suggestion.title}
                       onChange={(e) => handleEditSuggestion(index, e.target.value)}
-                      className="flex-1 px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500"
+                      className="flex-1 px-3 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-primary-500 text-gray-900"
                     />
                     <button
                       onClick={() => handleRemoveSuggestion(index)}
