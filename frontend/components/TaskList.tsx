@@ -8,7 +8,7 @@ import { Task } from '@/types';
 
 export function TaskList() {
   const { tasks, fetchTasks, isLoading, error } = useTaskStore();
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTasks();
@@ -53,15 +53,15 @@ export function TaskList() {
           <TaskCard
             key={task.id}
             task={task}
-            onClick={() => setSelectedTask(task)}
+            onClick={() => setSelectedTaskId(task.id)}
           />
         ))}
       </div>
 
-      {selectedTask && (
+      {selectedTaskId && (
         <TaskDetail
-          task={selectedTask}
-          onClose={() => setSelectedTask(null)}
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
         />
       )}
     </>

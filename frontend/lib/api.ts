@@ -119,6 +119,35 @@ export const api = {
     return res.json();
   },
 
+  async deleteSubtask(taskId: string, subtaskId: string) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/${subtaskId}`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete subtask');
+    return res.json();
+  },
+
+  async reorderSubtasks(taskId: string, subtaskOrders: { id: string; order: number }[]) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/reorder`, {
+      method: 'PATCH',
+      headers: await getHeaders(),
+      body: JSON.stringify({ subtaskOrders }),
+    });
+    if (!res.ok) throw new Error('Failed to reorder subtasks');
+    return res.json();
+  },
+
+  async archiveSubtask(taskId: string, subtaskId: string, archived: boolean) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/${subtaskId}/archive`, {
+      method: 'PATCH',
+      headers: await getHeaders(),
+      body: JSON.stringify({ archived }),
+    });
+    if (!res.ok) throw new Error('Failed to archive subtask');
+    return res.json();
+  },
+
   // AI
   async breakdownTask(taskId: string) {
     const res = await fetch(`${API_BASE_URL}/api/ai/breakdown/${taskId}`, {

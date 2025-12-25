@@ -145,6 +145,7 @@ class TaskService {
       id: uuidv4(),
       title,
       isCompleted: false,
+      isArchived: false,
       parentTaskId: taskId,
       order: task.subtasks.length + index,
     }));
@@ -178,6 +179,63 @@ class TaskService {
       subtasks: updatedSubtasks,
       progress,
       status: progress === 100 ? TaskStatus.COMPLETED : TaskStatus.IN_PROGRESS,
+    });
+  }
+
+  // Delete a subtask
+  async deleteSubtask(
+    taskId: string,
+    syncCode: string,
+    subtaskId: string
+  ): Promise<Task | null> {
+    const task = await this.getTaskById(taskId, syncCode);
+    if (!task) return null;
+
+    const updatedSubtasks = task.subtasks.filter((st) => st.id !== subtaskId);
+    const progress = this.calculateProgress(updatedSubtasks);
+
+    return this.updateTask(taskId, syncCode, {
+      subtasks: updatedSubtasks,
+      progress,
+      status: progress === 100 ? TaskStatus.COMPLETED : TaskStatus.IN_PROGRESS,
+    });
+  }
+
+  // Reorder subtasks
+  async reorderSubtasks(
+    taskId: string,
+    syncCode: string,
+    subtaskOrders: { id: string; order: number }[]
+  ): Promise<Task | null> {
+    const task = await this.getTaskById(taskId, syncCode);
+    if (!task) return null;
+
+    const updatedSubtasks = task.subtasks.map((subtask) => {
+      const newOrder = subtaskOrders.find((so) => so.id === subtask.id);
+      return newOrder ? { ...subtask, order: newOrder.order } : subtask;
+    });
+
+    return this.updateTask(taskId, syncCode, {
+      subtasks: updatedSubtasks,
+    });
+  }
+
+  // Archive/unarchive a subtask
+  async archiveSubtask(
+    taskId: string,
+    syncCode: string,
+    subtaskId: string,
+    archived: boolean
+  ): Promise<Task | null> {
+    const task = await this.getTaskById(taskId, syncCode);
+    if (!task) return null;
+
+    const updatedSubtasks = task.subtasks.map((st) =>
+      st.id === subtaskId ? { ...st, isArchived: archived } : st
+    );
+
+    return this.updateTask(taskId, syncCode, {
+      subtasks: updatedSubtasks,
     });
   }
 

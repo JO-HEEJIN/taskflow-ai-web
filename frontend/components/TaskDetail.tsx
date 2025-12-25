@@ -7,16 +7,108 @@ import { AIBreakdownModal } from './AIBreakdownModal';
 import { useState } from 'react';
 
 interface TaskDetailProps {
-  task: Task;
+  taskId: string;
   onClose: () => void;
 }
 
-export function TaskDetail({ task, onClose }: TaskDetailProps) {
-  const { toggleSubtask } = useTaskStore();
+export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
+  const { tasks, toggleSubtask, addSubtasks, deleteSubtask, reorderSubtasks, archiveSubtask } = useTaskStore();
   const [showAIModal, setShowAIModal] = useState(false);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [isAddingSubtask, setIsAddingSubtask] = useState(false);
+  const [draggedSubtaskId, setDraggedSubtaskId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+
+  // Get live task from store (ensures real-time updates)
+  const task = tasks.find((t) => t.id === taskId);
+
+  if (!task) {
+    return null; // Task not found or deleted
+  }
+
+  // Separate active and archived subtasks
+  const activeSubtasks = task.subtasks.filter((st) => !st.isArchived);
+  const archivedSubtasks = task.subtasks.filter((st) => st.isArchived);
 
   const handleToggleSubtask = async (subtaskId: string) => {
     await toggleSubtask(task.id, subtaskId);
+  };
+
+  const handleAddSubtask = async () => {
+    if (!newSubtaskTitle.trim()) return;
+
+    setIsAddingSubtask(true);
+    try {
+      await addSubtasks(task.id, [newSubtaskTitle.trim()]);
+      setNewSubtaskTitle('');
+    } catch (error) {
+      console.error('Failed to add subtask:', error);
+      alert('Failed to add subtask');
+    } finally {
+      setIsAddingSubtask(false);
+    }
+  };
+
+  const handleDeleteSubtask = async (subtaskId: string) => {
+    if (!confirm('Delete this subtask?')) return;
+    try {
+      await deleteSubtask(task.id, subtaskId);
+    } catch (error) {
+      console.error('Failed to delete subtask:', error);
+      alert('Failed to delete subtask');
+    }
+  };
+
+  const handleDragStart = (subtaskId: string) => {
+    setDraggedSubtaskId(subtaskId);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Allow drop
+  };
+
+  const handleDrop = async (targetSubtaskId: string) => {
+    if (!draggedSubtaskId || draggedSubtaskId === targetSubtaskId) {
+      setDraggedSubtaskId(null);
+      return;
+    }
+
+    const sortedSubtasks = [...task.subtasks].sort((a, b) => a.order - b.order);
+    const draggedIndex = sortedSubtasks.findIndex((st) => st.id === draggedSubtaskId);
+    const targetIndex = sortedSubtasks.findIndex((st) => st.id === targetSubtaskId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedSubtaskId(null);
+      return;
+    }
+
+    // Reorder array
+    const reordered = [...sortedSubtasks];
+    const [removed] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIndex, 0, removed);
+
+    // Create new order mapping
+    const subtaskOrders = reordered.map((st, index) => ({
+      id: st.id,
+      order: index,
+    }));
+
+    try {
+      await reorderSubtasks(task.id, subtaskOrders);
+    } catch (error) {
+      console.error('Failed to reorder subtasks:', error);
+    }
+
+    setDraggedSubtaskId(null);
+  };
+
+  const handleArchiveSubtask = async (subtaskId: string, archived: boolean) => {
+    try {
+      await archiveSubtask(task.id, subtaskId, archived);
+    } catch (error) {
+      console.error('Failed to archive subtask:', error);
+      alert('Failed to archive subtask');
+    }
   };
 
   return (
@@ -52,11 +144,11 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
               </div>
             </div>
 
-            {/* Subtasks */}
+            {/* Active Subtasks */}
             <div className="mb-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-800">Subtasks</h3>
-                {task.subtasks.length === 0 && (
+                {activeSubtasks.length === 0 && (
                   <button
                     onClick={() => setShowAIModal(true)}
                     className="text-sm bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
@@ -66,20 +158,27 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
                 )}
               </div>
 
-              {task.subtasks.length === 0 ? (
+              {activeSubtasks.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <p>No subtasks yet</p>
                   <p className="text-sm mt-1">Use AI to break down this task!</p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {task.subtasks
+                  {activeSubtasks
                     .sort((a, b) => a.order - b.order)
                     .map((subtask) => (
                       <div
                         key={subtask.id}
-                        className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        draggable
+                        onDragStart={() => handleDragStart(subtask.id)}
+                        onDragOver={handleDragOver}
+                        onDrop={() => handleDrop(subtask.id)}
+                        className={`flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group cursor-move ${
+                          draggedSubtaskId === subtask.id ? 'opacity-50' : ''
+                        }`}
                       >
+                        <span className="text-gray-400 cursor-grab active:cursor-grabbing">☰</span>
                         <input
                           type="checkbox"
                           checked={subtask.isCompleted}
@@ -95,14 +194,94 @@ export function TaskDetail({ task, onClose }: TaskDetailProps) {
                         >
                           {subtask.title}
                         </span>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleArchiveSubtask(subtask.id, true)}
+                            className="text-gray-400 hover:text-blue-600"
+                            title="Archive subtask"
+                          >
+                            📦
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSubtask(subtask.id)}
+                            className="text-gray-400 hover:text-red-600"
+                            title="Delete subtask"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                     ))}
                 </div>
               )}
+
+              {/* Add Subtask Input */}
+              <div className="flex gap-2 mt-4">
+                <input
+                  type="text"
+                  value={newSubtaskTitle}
+                  onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
+                  placeholder="Add a new subtask..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 placeholder:text-gray-400"
+                  disabled={isAddingSubtask}
+                />
+                <button
+                  onClick={handleAddSubtask}
+                  disabled={isAddingSubtask || !newSubtaskTitle.trim()}
+                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isAddingSubtask ? '...' : '+ Add'}
+                </button>
+              </div>
             </div>
 
+            {/* Archived Subtasks */}
+            {archivedSubtasks.length > 0 && (
+              <div className="mb-6">
+                <button
+                  onClick={() => setShowArchived(!showArchived)}
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-2"
+                >
+                  <span>{showArchived ? '▼' : '▶'}</span>
+                  <span>Archived ({archivedSubtasks.length})</span>
+                </button>
+                {showArchived && (
+                  <div className="space-y-2 pl-4">
+                    {archivedSubtasks
+                      .sort((a, b) => a.order - b.order)
+                      .map((subtask) => (
+                        <div
+                          key={subtask.id}
+                          className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg opacity-60"
+                        >
+                          <span className="text-gray-400">📦</span>
+                          <span className="flex-1 text-gray-500 line-through">
+                            {subtask.title}
+                          </span>
+                          <button
+                            onClick={() => handleArchiveSubtask(subtask.id, false)}
+                            className="text-xs text-blue-600 hover:text-blue-800"
+                            title="Unarchive"
+                          >
+                            Restore
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSubtask(subtask.id)}
+                            className="text-gray-400 hover:text-red-600"
+                            title="Delete permanently"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* AI Breakdown Button (if has subtasks) */}
-            {task.subtasks.length > 0 && (
+            {activeSubtasks.length > 0 && (
               <button
                 onClick={() => setShowAIModal(true)}
                 className="w-full text-sm text-primary-600 border border-primary-600 px-4 py-2 rounded-lg hover:bg-primary-50"

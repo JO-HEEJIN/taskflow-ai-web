@@ -14,6 +14,9 @@ interface TaskStore {
   deleteTask: (id: string) => Promise<void>;
   addSubtasks: (taskId: string, subtasks: string[]) => Promise<void>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  deleteSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  reorderSubtasks: (taskId: string, subtaskOrders: { id: string; order: number }[]) => Promise<void>;
+  archiveSubtask: (taskId: string, subtaskId: string, archived: boolean) => Promise<void>;
   generateAIBreakdown: (taskId: string) => Promise<{ suggestions: any[] }>;
 }
 
@@ -87,6 +90,39 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   toggleSubtask: async (taskId: string, subtaskId: string) => {
     try {
       const { task } = await api.toggleSubtask(taskId, subtaskId);
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === taskId ? task : t)),
+      }));
+    } catch (error: any) {
+      set({ error: error.message });
+    }
+  },
+
+  deleteSubtask: async (taskId: string, subtaskId: string) => {
+    try {
+      const { task } = await api.deleteSubtask(taskId, subtaskId);
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === taskId ? task : t)),
+      }));
+    } catch (error: any) {
+      set({ error: error.message });
+    }
+  },
+
+  reorderSubtasks: async (taskId: string, subtaskOrders: { id: string; order: number }[]) => {
+    try {
+      const { task } = await api.reorderSubtasks(taskId, subtaskOrders);
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === taskId ? task : t)),
+      }));
+    } catch (error: any) {
+      set({ error: error.message });
+    }
+  },
+
+  archiveSubtask: async (taskId: string, subtaskId: string, archived: boolean) => {
+    try {
+      const { task } = await api.archiveSubtask(taskId, subtaskId, archived);
       set((state) => ({
         tasks: state.tasks.map((t) => (t.id === taskId ? task : t)),
       }));

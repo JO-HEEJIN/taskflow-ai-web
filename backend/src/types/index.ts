@@ -21,6 +21,7 @@ export interface Subtask {
   id: string;
   title: string;
   isCompleted: boolean;
+  isArchived: boolean;
   parentTaskId: string;
   order: number;
 }

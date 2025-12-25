@@ -424,3 +424,48 @@ The TaskFlow AI MVP foundation is **complete and fully functional**. All core fe
 **Time to MVP:** 4 hours (Phase 1-3)
 **Code Quality:** Production-ready
 **Next Milestone:** Azure integration (Phase 4)
+
+---
+
+## Phase 7: Subtask Management Enhancement (Dec 25)
+
+### 🐛 Critical Bugs to Fix
+- [ ] TaskDetail not showing real-time updates when subtasks are added
+- [ ] Subtask toggle not showing immediate visual feedback
+- Root cause: TaskDetail uses props instead of live store data
+
+### 7.1 Fix Real-time Update Issues
+- [ ] Modify TaskDetail to subscribe to store instead of using props
+- [ ] Pass only taskId to TaskDetail, fetch task from store
+- [ ] Verify subtasks appear immediately after Accept
+- [ ] Verify toggle updates appear immediately
+
+### 7.2 Add Subtask Creation
+- [ ] Add manual subtask creation input field in TaskDetail
+- [ ] Add "Add Subtask" button
+- [ ] Reuse existing addSubtasks API endpoint
+
+### 7.3 Add Subtask Deletion
+- [ ] Backend: Add DELETE /:taskId/subtasks/:subtaskId endpoint
+- [ ] Backend: Update taskService.deleteSubtask() method
+- [ ] Frontend: Add delete button (X) next to each subtask
+- [ ] Frontend: Add deleteSubtask() to api.ts
+- [ ] Frontend: Add deleteSubtask() to taskStore
+
+### 7.4 Add Subtask Reordering
+- [ ] Backend: Add PATCH /:taskId/subtasks/reorder endpoint
+- [ ] Backend: Update taskService.reorderSubtasks() method
+- [ ] Frontend: Implement drag & drop with native HTML5 API
+- [ ] Frontend: Add reorderSubtasks() to api.ts
+- [ ] Frontend: Add reorderSubtasks() to taskStore
+
+### 7.5 Add Subtask Archive
+- [ ] Backend: Add isArchived field to Subtask type
+- [ ] Backend: Add PATCH /:taskId/subtasks/:subtaskId/archive endpoint
+- [ ] Backend: Update taskService.archiveSubtask() method
+- [ ] Frontend: Add archive button (📦) next to each subtask
+- [ ] Frontend: Add archived subtasks section (collapsible)
+- [ ] Frontend: Add archiveSubtask() to api.ts
+- [ ] Frontend: Add archiveSubtask() to taskStore
+
+---
