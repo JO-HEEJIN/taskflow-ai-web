@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTaskStore } from '@/store/taskStore';
 import { AISubtaskSuggestion } from '@/types';
 
@@ -15,13 +15,33 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
 
+  // Auto-generate on mount
+  useEffect(() => {
+    const autoGenerate = async () => {
+      setIsGenerating(true);
+      try {
+        const result = await generateAIBreakdown(taskId);
+        setSuggestions(result.suggestions || []);
+      } catch (error) {
+        console.error('AI breakdown error:', error);
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+    autoGenerate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     try {
       const result = await generateAIBreakdown(taskId);
-      setSuggestions(result.suggestions);
+      // Completely replace suggestions (prevent duplicates)
+      setSuggestions(result.suggestions || []);
     } catch (error) {
+      console.error('AI breakdown error:', error);
       alert('Failed to generate AI breakdown');
+      setSuggestions([]); // Clear on error
     } finally {
       setIsGenerating(false);
     }
@@ -64,24 +84,25 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
             </button>
           </div>
 
-          {suggestions.length === 0 ? (
+          {isGenerating && suggestions.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
+                <p className="text-lg text-gray-700 font-medium">Generating AI subtasks...</p>
+              </div>
+              <p className="text-sm text-gray-500">This may take a few seconds</p>
+            </div>
+          ) : suggestions.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-600 mb-6">
-                Use AI to break down your task into actionable subtasks
+                No suggestions generated. Try again?
               </p>
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}
                 className="bg-primary-600 text-white px-8 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
               >
-                {isGenerating ? (
-                  <span className="flex items-center gap-2">
-                    <div className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-white border-r-transparent"></div>
-                    Generating...
-                  </span>
-                ) : (
-                  '✨ Generate AI Breakdown'
-                )}
+                ✨ Generate AI Breakdown
               </button>
             </div>
           ) : (
