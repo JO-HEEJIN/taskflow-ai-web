@@ -14,10 +14,31 @@ function getDeviceToken(): string {
   return token;
 }
 
-// Get sync code from localStorage
-function getSyncCode(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('syncCode');
+// Get sync code from localStorage or generate new one
+async function getSyncCode(): Promise<string> {
+  if (typeof window === 'undefined') return '';
+
+  let code = localStorage.getItem('syncCode');
+  if (!code) {
+    // Auto-generate sync code on first visit
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/sync/code`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-token': getDeviceToken(),
+        },
+      });
+      const data = await res.json();
+      code = data.syncCode;
+      localStorage.setItem('syncCode', code);
+    } catch (error) {
+      console.error('Failed to generate sync code:', error);
+      // Fallback: generate random code locally
+      code = Math.random().toString(36).substring(2, 10).toUpperCase();
+      localStorage.setItem('syncCode', code);
+    }
+  }
+  return code;
 }
 
 // Set sync code in localStorage
@@ -27,16 +48,14 @@ export function setSyncCode(code: string): void {
 }
 
 // Common headers for API requests
-function getHeaders(): HeadersInit {
+async function getHeaders(): Promise<HeadersInit> {
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     'x-device-token': getDeviceToken(),
   };
 
-  const syncCode = getSyncCode();
-  if (syncCode) {
-    headers['x-sync-code'] = syncCode;
-  }
+  const syncCode = await getSyncCode();
+  headers['x-sync-code'] = syncCode;
 
   return headers;
 }
@@ -46,7 +65,7 @@ export const api = {
   // Tasks
   async getTasks() {
     const res = await fetch(`${API_BASE_URL}/api/tasks`, {
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch tasks');
     return res.json();
@@ -55,7 +74,7 @@ export const api = {
   async createTask(title: string, description?: string) {
     const res = await fetch(`${API_BASE_URL}/api/tasks`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify({ title, description }),
     });
     if (!res.ok) throw new Error('Failed to create task');
@@ -65,7 +84,7 @@ export const api = {
   async updateTask(id: string, updates: any) {
     const res = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify(updates),
     });
     if (!res.ok) throw new Error('Failed to update task');
@@ -75,7 +94,7 @@ export const api = {
   async deleteTask(id: string) {
     const res = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
       method: 'DELETE',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to delete task');
     return res.json();
@@ -84,7 +103,7 @@ export const api = {
   async addSubtasks(taskId: string, subtasks: string[]) {
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify({ subtasks }),
     });
     if (!res.ok) throw new Error('Failed to add subtasks');
@@ -94,7 +113,7 @@ export const api = {
   async toggleSubtask(taskId: string, subtaskId: string) {
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/${subtaskId}`, {
       method: 'PATCH',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to toggle subtask');
     return res.json();
@@ -104,7 +123,7 @@ export const api = {
   async breakdownTask(taskId: string) {
     const res = await fetch(`${API_BASE_URL}/api/ai/breakdown/${taskId}`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to generate AI breakdown');
     return res.json();
@@ -113,7 +132,7 @@ export const api = {
   // Sync
   async generateSyncCode() {
     const res = await fetch(`${API_BASE_URL}/api/sync/code`, {
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to generate sync code');
     const data = await res.json();
@@ -124,7 +143,7 @@ export const api = {
   async linkDevice(syncCode: string) {
     const res = await fetch(`${API_BASE_URL}/api/sync/link`, {
       method: 'POST',
-      headers: getHeaders(),
+      headers: await getHeaders(),
       body: JSON.stringify({ syncCode }),
     });
     if (!res.ok) throw new Error('Failed to link device');
@@ -135,7 +154,7 @@ export const api = {
 
   async getSyncSession() {
     const res = await fetch(`${API_BASE_URL}/api/sync/session`, {
-      headers: getHeaders(),
+      headers: await getHeaders(),
     });
     if (!res.ok) throw new Error('Failed to fetch sync session');
     return res.json();
