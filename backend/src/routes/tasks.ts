@@ -193,6 +193,8 @@ router.patch('/:taskId/subtasks/reorder', async (req: Request, res: Response) =>
     const { subtaskOrders } = req.body;
     const syncCode = req.headers['x-sync-code'] as string;
 
+    console.log('🔄 Reorder request received:', { taskId, subtaskOrders });
+
     if (!syncCode) {
       return res.status(400).json({ error: 'Missing x-sync-code header' });
     }
@@ -204,9 +206,11 @@ router.patch('/:taskId/subtasks/reorder', async (req: Request, res: Response) =>
     const task = await taskService.reorderSubtasks(taskId, syncCode, subtaskOrders);
 
     if (!task) {
+      console.error('❌ Task not found for reorder');
       return res.status(404).json({ error: 'Task not found' });
     }
 
+    console.log('✅ Reorder successful, updated subtasks:', task.subtasks.map(st => ({ id: st.id, order: st.order })));
     res.json({ task });
   } catch (error) {
     console.error('Error reordering subtasks:', error);

@@ -78,7 +78,16 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
     const draggedIndex = sortedActive.findIndex((st) => st.id === draggedSubtaskId);
     const targetIndex = sortedActive.findIndex((st) => st.id === targetSubtaskId);
 
+    console.log('🔍 Drag & Drop Debug:', {
+      draggedSubtaskId,
+      targetSubtaskId,
+      draggedIndex,
+      targetIndex,
+      sortedActive: sortedActive.map(st => ({ id: st.id, title: st.title, order: st.order }))
+    });
+
     if (draggedIndex === -1 || targetIndex === -1) {
+      console.error('❌ Invalid drag indices');
       setDraggedSubtaskId(null);
       return;
     }
@@ -99,10 +108,13 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       return { id: st.id, order: st.order };
     });
 
+    console.log('📤 Sending reorder request:', subtaskOrders);
+
     try {
       await reorderSubtasks(task.id, subtaskOrders);
+      console.log('✅ Reorder successful');
     } catch (error) {
-      console.error('Failed to reorder subtasks:', error);
+      console.error('❌ Failed to reorder subtasks:', error);
     }
 
     setDraggedSubtaskId(null);
