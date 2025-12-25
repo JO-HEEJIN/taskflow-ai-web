@@ -73,25 +73,31 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       return;
     }
 
-    const sortedSubtasks = [...task.subtasks].sort((a, b) => a.order - b.order);
-    const draggedIndex = sortedSubtasks.findIndex((st) => st.id === draggedSubtaskId);
-    const targetIndex = sortedSubtasks.findIndex((st) => st.id === targetSubtaskId);
+    // Only reorder active subtasks
+    const sortedActive = [...activeSubtasks].sort((a, b) => a.order - b.order);
+    const draggedIndex = sortedActive.findIndex((st) => st.id === draggedSubtaskId);
+    const targetIndex = sortedActive.findIndex((st) => st.id === targetSubtaskId);
 
     if (draggedIndex === -1 || targetIndex === -1) {
       setDraggedSubtaskId(null);
       return;
     }
 
-    // Reorder array
-    const reordered = [...sortedSubtasks];
+    // Reorder active subtasks
+    const reordered = [...sortedActive];
     const [removed] = reordered.splice(draggedIndex, 1);
     reordered.splice(targetIndex, 0, removed);
 
-    // Create new order mapping
-    const subtaskOrders = reordered.map((st, index) => ({
-      id: st.id,
-      order: index,
-    }));
+    // Create new order mapping for ALL subtasks (active + archived)
+    const subtaskOrders = task.subtasks.map((st) => {
+      // If it's in the reordered active list, use new order
+      const reorderedIndex = reordered.findIndex((r) => r.id === st.id);
+      if (reorderedIndex !== -1) {
+        return { id: st.id, order: reorderedIndex };
+      }
+      // Keep archived subtasks' original order
+      return { id: st.id, order: st.order };
+    });
 
     try {
       await reorderSubtasks(task.id, subtaskOrders);
