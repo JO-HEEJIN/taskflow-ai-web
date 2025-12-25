@@ -129,6 +129,34 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
     }
   };
 
+  const handleMoveSubtask = async (subtaskId: string, direction: 'up' | 'down') => {
+    const sortedActive = [...activeSubtasks].sort((a, b) => a.order - b.order);
+    const currentIndex = sortedActive.findIndex((st) => st.id === subtaskId);
+
+    if (currentIndex === -1) return;
+    if (direction === 'up' && currentIndex === 0) return;
+    if (direction === 'down' && currentIndex === sortedActive.length - 1) return;
+
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    const reordered = [...sortedActive];
+    const [removed] = reordered.splice(currentIndex, 1);
+    reordered.splice(newIndex, 0, removed);
+
+    const subtaskOrders = task.subtasks.map((st) => {
+      const reorderedIndex = reordered.findIndex((r) => r.id === st.id);
+      if (reorderedIndex !== -1) {
+        return { id: st.id, order: reorderedIndex };
+      }
+      return { id: st.id, order: st.order };
+    });
+
+    try {
+      await reorderSubtasks(task.id, subtaskOrders);
+    } catch (error) {
+      console.error('Failed to move subtask:', error);
+    }
+  };
+
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4">
@@ -185,23 +213,42 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                 <div className="space-y-2">
                   {activeSubtasks
                     .sort((a, b) => a.order - b.order)
-                    .map((subtask) => (
+                    .map((subtask, index) => (
                       <div
                         key={subtask.id}
                         draggable
                         onDragStart={() => handleDragStart(subtask.id)}
                         onDragOver={handleDragOver}
                         onDrop={() => handleDrop(subtask.id)}
-                        className={`flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group cursor-move ${
+                        className={`flex items-start gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group ${
                           draggedSubtaskId === subtask.id ? 'opacity-50' : ''
                         }`}
                       >
-                        <span className="text-gray-400 cursor-grab active:cursor-grabbing">☰</span>
+                        {/* Mobile-friendly up/down buttons */}
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => handleMoveSubtask(subtask.id, 'up')}
+                            disabled={index === 0}
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move up"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            onClick={() => handleMoveSubtask(subtask.id, 'down')}
+                            disabled={index === activeSubtasks.length - 1}
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-1"
+                            title="Move down"
+                          >
+                            ▼
+                          </button>
+                        </div>
+
                         <input
                           type="checkbox"
                           checked={subtask.isCompleted}
                           onChange={() => handleToggleSubtask(subtask.id)}
-                          className="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                          className="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer flex-shrink-0"
                         />
                         <span
                           className={`flex-1 ${
@@ -212,17 +259,17 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                         >
                           {subtask.title}
                         </span>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleArchiveSubtask(subtask.id, true)}
-                            className="text-gray-400 hover:text-blue-600"
+                            className="text-gray-400 hover:text-blue-600 p-1"
                             title="Archive subtask"
                           >
                             📦
                           </button>
                           <button
                             onClick={() => handleDeleteSubtask(subtask.id)}
-                            className="text-gray-400 hover:text-red-600"
+                            className="text-gray-400 hover:text-red-600 p-1"
                             title="Delete subtask"
                           >
                             ✕
