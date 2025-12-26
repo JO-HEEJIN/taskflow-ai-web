@@ -4,8 +4,8 @@ import { useTaskStore } from '@/store/taskStore';
 import { TaskGraphView } from './TaskGraphView';
 import { TaskDetail } from './TaskDetail';
 import { KanbanView } from './KanbanView';
-import { useEffect, useState } from 'react';
-import { Task } from '@/types';
+import { useEffect, useState, useMemo } from 'react';
+import { Task, TaskStatus } from '@/types';
 
 interface TaskListProps {
   onBackgroundClick?: () => void;
@@ -16,10 +16,42 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
   const { tasks, fetchTasks, isLoading, error } = useTaskStore();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'constellation' | 'kanban'>('constellation');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
 
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
+
+  // Filter tasks based on search and status
+  const filteredTasks = useMemo(() => {
+    let result = tasks;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        (task) =>
+          task.title.toLowerCase().includes(query) ||
+          (task.description && task.description.toLowerCase().includes(query))
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter((task) => task.status === statusFilter);
+    }
+
+    return result;
+  }, [tasks, searchQuery, statusFilter]);
+
+  // Calculate task counts for filter buttons
+  const taskCounts = useMemo(() => ({
+    all: tasks.length,
+    pending: tasks.filter((t) => t.status === 'pending').length,
+    in_progress: tasks.filter((t) => t.status === 'in_progress').length,
+    completed: tasks.filter((t) => t.status === 'completed').length,
+  }), [tasks]);
 
   if (isLoading && tasks.length === 0) {
     return (
@@ -70,17 +102,27 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
     <>
       {viewMode === 'constellation' ? (
         <TaskGraphView
-          tasks={tasks}
+          tasks={filteredTasks}
           onTaskClick={(taskId) => setSelectedTaskId(taskId)}
           onEditTask={onEditTask}
           onBackgroundClick={onBackgroundClick}
           onViewModeToggle={() => setViewMode('kanban')}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          taskCounts={taskCounts}
         />
       ) : (
         <KanbanView
-          tasks={tasks}
+          tasks={filteredTasks}
           onTaskClick={(taskId) => setSelectedTaskId(taskId)}
           onClose={() => setViewMode('constellation')}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          taskCounts={taskCounts}
         />
       )}
 

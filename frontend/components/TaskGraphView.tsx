@@ -1,8 +1,9 @@
 'use client';
 
-import { Task } from '@/types';
+import { Task, TaskStatus } from '@/types';
 import { TaskCard } from './TaskCard';
 import { StarryBackground } from './StarryBackground';
+import { SearchFilter } from './SearchFilter';
 import { useMemo, useState, useRef, useEffect } from 'react';
 
 interface TaskGraphViewProps {
@@ -11,6 +12,16 @@ interface TaskGraphViewProps {
   onEditTask?: (taskId: string) => void;
   onBackgroundClick?: () => void;
   onViewModeToggle?: () => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  statusFilter: TaskStatus | 'all';
+  onStatusFilterChange: (status: TaskStatus | 'all') => void;
+  taskCounts: {
+    all: number;
+    pending: number;
+    in_progress: number;
+    completed: number;
+  };
 }
 
 interface TaskPosition {
@@ -22,7 +33,18 @@ interface TaskPosition {
   depth: number; // New: track nesting depth
 }
 
-export function TaskGraphView({ tasks, onTaskClick, onEditTask, onBackgroundClick, onViewModeToggle }: TaskGraphViewProps) {
+export function TaskGraphView({
+  tasks,
+  onTaskClick,
+  onEditTask,
+  onBackgroundClick,
+  onViewModeToggle,
+  searchQuery,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  taskCounts,
+}: TaskGraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -238,8 +260,22 @@ export function TaskGraphView({ tasks, onTaskClick, onEditTask, onBackgroundClic
     >
       {/* Starry background */}
       <StarryBackground />
+
+      {/* Search and Filter */}
+      <div className="absolute top-4 left-4 right-4 z-50 max-w-4xl mx-auto">
+        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-4">
+          <SearchFilter
+            searchQuery={searchQuery}
+            onSearchChange={onSearchChange}
+            statusFilter={statusFilter}
+            onStatusFilterChange={onStatusFilterChange}
+            taskCounts={taskCounts}
+          />
+        </div>
+      </div>
+
       {/* Controls */}
-      <div className="absolute top-4 right-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex flex-col gap-2">
+      <div className="absolute top-4 right-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex flex-col gap-2" style={{ marginTop: '100px' }}>
         <button
           onClick={() => setZoom(Math.min(2, zoom + 0.2))}
           className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors"

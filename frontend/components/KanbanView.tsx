@@ -2,15 +2,35 @@
 
 import { Task, TaskStatus } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
+import { SearchFilter } from './SearchFilter';
 import { useState } from 'react';
 
 interface KanbanViewProps {
   tasks: Task[];
   onTaskClick: (taskId: string) => void;
   onClose: () => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  statusFilter: TaskStatus | 'all';
+  onStatusFilterChange: (status: TaskStatus | 'all') => void;
+  taskCounts: {
+    all: number;
+    pending: number;
+    in_progress: number;
+    completed: number;
+  };
 }
 
-export function KanbanView({ tasks, onTaskClick, onClose }: KanbanViewProps) {
+export function KanbanView({
+  tasks,
+  onTaskClick,
+  onClose,
+  searchQuery,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  taskCounts,
+}: KanbanViewProps) {
   const { updateTaskStatus } = useTaskStore();
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
@@ -95,6 +115,17 @@ export function KanbanView({ tasks, onTaskClick, onClose }: KanbanViewProps) {
         >
           ✕
         </button>
+      </div>
+
+      {/* Search and Filter */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <SearchFilter
+          searchQuery={searchQuery}
+          onSearchChange={onSearchChange}
+          statusFilter={statusFilter}
+          onStatusFilterChange={onStatusFilterChange}
+          taskCounts={taskCounts}
+        />
       </div>
 
       {/* Kanban Board */}

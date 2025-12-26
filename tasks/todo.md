@@ -882,3 +882,157 @@ Test scenarios:
 Feature complete and ready for testing. All editing functionality working through the UI.
 
 ---
+
+## Phase 10: Search and Filter for Tasks (Dec 26)
+
+### Current State Analysis
+- Tasks are displayed in full without any filtering
+- No search functionality exists
+- Both constellation and Kanban views show all tasks
+
+### Implementation Plan
+
+#### 10.1 Add Search and Filter UI
+- [ ] Create SearchFilter component with search input and filter buttons
+- [ ] Position at top of constellation and Kanban views
+- [ ] Search input: text search across title and description
+- [ ] Filter buttons: All, Pending, In Progress, Completed
+- [ ] Visual indicator for active filters
+
+#### 10.2 Add Filter Logic in TaskList
+- [ ] Add searchQuery state
+- [ ] Add statusFilter state (all, pending, in_progress, completed)
+- [ ] Create filterTasks function to filter tasks array
+- [ ] Pass filtered tasks to views instead of all tasks
+
+#### 10.3 Search Implementation
+- [ ] Case-insensitive search
+- [ ] Search across task title and description
+- [ ] Real-time search (no submit button needed)
+
+#### 10.4 Filter Implementation
+- [ ] Filter by task status
+- [ ] Combine with search (both filters active)
+- [ ] Show task count for each filter
+
+#### 10.5 UI Polish
+- [ ] Clear search button (X icon when text exists)
+- [ ] Active filter button highlighting
+- [ ] Empty state when no results found
+- [ ] Persist filters when switching between views
+
+### Files to Modify
+1. frontend/components/SearchFilter.tsx - NEW component
+2. frontend/components/TaskList.tsx - Add filter state and logic
+3. frontend/components/TaskGraphView.tsx - Add SearchFilter UI
+4. frontend/components/KanbanView.tsx - Add SearchFilter UI
+
+### Design Principles
+- Keep filtering logic simple and client-side
+- Real-time search without debouncing (fast enough)
+- Minimal UI that doesn't clutter the views
+- Consistent filter UI across both views
+
+---
+
+## Phase 10 Review - Dec 26, 2025
+
+### Summary of Changes
+
+Added comprehensive search and filter functionality to both constellation and Kanban views.
+
+**Features Implemented:**
+
+1. **SearchFilter Component**
+   - Text search input with placeholder
+   - Clear button (X) when text exists
+   - Four filter buttons: All, Pending, In Progress, Completed
+   - Task count displayed on each filter button
+   - Active filter highlighted with primary color
+   - Responsive design (stacks on mobile)
+
+2. **Filter Logic in TaskList**
+   - Real-time search across task title and description
+   - Case-insensitive search
+   - Status filter (all, pending, in_progress, completed)
+   - Combined filters (search + status work together)
+   - Memoized filtering for performance
+   - Task counts calculated from full task list
+
+3. **Constellation View Integration**
+   - SearchFilter positioned at top center
+   - Semi-transparent background with backdrop blur
+   - Doesn't interfere with controls or task cards
+   - Filters preserved when switching views
+
+4. **Kanban View Integration**
+   - SearchFilter in header below title
+   - Clean integration with existing header
+   - Consistent styling with constellation view
+   - Filters preserved when switching views
+
+### Files Modified (4 files)
+
+**New Component:**
+- `frontend/components/SearchFilter.tsx` - Reusable search and filter component
+
+**Modified Components:**
+- `frontend/components/TaskList.tsx` - Filter logic and state management
+- `frontend/components/TaskGraphView.tsx` - Added SearchFilter UI
+- `frontend/components/KanbanView.tsx` - Added SearchFilter UI
+
+Changes:
+- SearchFilter: Created with search input and status filter buttons
+- TaskList: Added searchQuery and statusFilter state, filterTasks logic, taskCounts calculation
+- TaskGraphView: Added SearchFilter props, rendered component at top
+- KanbanView: Added SearchFilter props, rendered component in header
+
+### Technical Implementation
+
+**Search Functionality:**
+- Case-insensitive string matching
+- Searches both title and description fields
+- Real-time (updates on every keystroke)
+- No debouncing needed (fast client-side filtering)
+
+**Filter Functionality:**
+- Status-based filtering
+- Combines with search filter
+- Shows all tasks when "All" selected
+- Counts always show total for each status (not filtered)
+
+**Performance:**
+- useMemo for filtered tasks (only recalculates when needed)
+- useMemo for task counts (optimized)
+- Client-side filtering (instant results)
+
+### Code Quality
+
+- Reusable SearchFilter component
+- Clean prop drilling pattern
+- Consistent interface across views
+- No duplicate logic
+- Type-safe with TypeScript
+
+### Testing Checklist
+
+Test scenarios:
+1. Type in search - tasks filter in real-time
+2. Search across title and description
+3. Clear search with X button
+4. Click status filter buttons - tasks filter by status
+5. Combine search and filter - both work together
+6. Task counts show correct numbers
+7. Active filter button highlighted
+8. Filters persist when switching between views
+9. Empty state when no results (handled by existing logic)
+
+### Commits Needed
+
+- Single commit for search and filter feature
+
+### Next Steps
+
+Feature complete and ready for testing. Search and filter working across both views with consistent UX.
+
+---
