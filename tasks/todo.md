@@ -1164,4 +1164,133 @@ Ready for testing. User should verify:
 - Search filter and controls work without triggering modal
 - Background clicks still open new task modal correctly
 
+**UPDATE: Fix did not work. User reports:**
+- Task clicks STILL trigger new task modal
+- Clicking anywhere outside triggers new task modal
+- Issue is in constellation view
+
+**Root cause identified:**
+- Line 223: `(e.target as HTMLElement).closest('.graph-background')` matches EVERYTHING
+- The container itself has class 'graph-background'
+- So ANY click inside the container passes this check
+- stopPropagation on TaskCard doesn't help because the logic is wrong
+
+---
+
+## Phase 12: Fix Background Click Logic Properly (Dec 26)
+
+### Real Problem
+The `.closest('.graph-background')` check is fundamentally broken because:
+1. The main container div has class 'graph-background'
+2. `.closest('.graph-background')` matches ANY element inside that container
+3. This means clicking ANYWHERE (tasks, UI elements, empty space) triggers the modal
+4. stopPropagation doesn't matter because the check happens on mouseUp regardless
+
+### Correct Solution
+Only trigger background click when clicking on the exact background element, not its children.
+
+Options:
+1. Check if `e.target === containerRef.current` ONLY (strict)
+2. Check if target has specific classes to exclude (task cards, UI elements)
+3. Add a data attribute to the background layer and check for that
+
+Best approach: Remove `.closest()` check entirely, only allow exact container clicks.
+
+### Implementation Plan
+
+#### 12.1 Fix handleMouseUp Logic
+- [ ] Remove `.closest('.graph-background')` check
+- [ ] Only trigger when `e.target === containerRef.current`
+- [ ] Keep the drag detection logic (5px threshold)
+
+#### 12.2 Fix handleMouseDown Logic
+- [ ] Remove `.closest('.graph-background')` check
+- [ ] Only set dragging when clicking exact container
+
+#### 12.3 Fix handleTouchEnd Logic
+- [ ] Remove `.closest('.graph-background')` check
+- [ ] Only trigger when touching exact container
+
+#### 12.4 Test Thoroughly
+- [ ] Click task → Detail opens (not new task)
+- [ ] Click empty space → New task modal opens
+- [ ] Click search/controls → No modal
+- [ ] Drag to pan → No modal on release
+
+### Files to Modify
+1. frontend/components/TaskGraphView.tsx - Fix click detection logic
+
+---
+
+## Phase 12 Review - Dec 26, 2025
+
+### Summary of Changes
+
+Properly fixed background click detection by removing broken closest() checks.
+
+**Previous Issue:**
+- Phase 11 fix didn't work
+- User reported task clicks still triggered modal
+- Clicking anywhere triggered modal
+- Root cause: `.closest('.graph-background')` matched everything
+
+**Real Problem:**
+- The container div has class 'graph-background'
+- `.closest('.graph-background')` matches ANY child element
+- This made every click inside the container trigger the modal
+- stopPropagation was irrelevant because the logic was fundamentally wrong
+
+**Solution:**
+Removed all `.closest('.graph-background')` checks.
+Now only triggers when clicking exactly on containerRef.current.
+
+### Files Modified (1 file)
+
+**Frontend:**
+- frontend/components/TaskGraphView.tsx - Fixed click detection in 3 functions
+
+### Changes Made
+
+**handleMouseDown (line 200-206):**
+- Before: `if (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background'))`
+- After: `if (e.target === containerRef.current)`
+- Only starts dragging when clicking exact container
+
+**handleMouseUp (line 217-231):**
+- Before: `if (!wasDragging && (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background')))`
+- After: `if (!wasDragging && e.target === containerRef.current)`
+- Only triggers background click when clicking exact container
+
+**handleTouchEnd (line 233-241):**
+- Before: `if (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background'))`
+- After: `if (e.target === containerRef.current)`
+- Only triggers on exact container for touch events
+
+### Technical Implementation
+
+**Strict Target Matching:**
+- `e.target === containerRef.current` checks exact element identity
+- Does not match child elements
+- Task cards, UI elements, and other children ignored
+- Only empty background space triggers modal
+
+### Code Quality
+
+- Minimal, precise fix
+- Removed broken logic
+- Simple and clear
+- No over-engineering
+
+### Commits
+
+- 40527a4 - Fix background click detection logic
+
+### Next Steps
+
+Ready for testing. This should finally work correctly:
+- Click task → Detail modal only
+- Click empty background → New task modal
+- Click UI elements → No modal
+- Drag and release → No modal
+
 ---
