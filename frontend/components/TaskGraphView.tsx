@@ -8,6 +8,7 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 interface TaskGraphViewProps {
   tasks: Task[];
   onTaskClick: (taskId: string) => void;
+  onEditTask?: (taskId: string) => void;
   onBackgroundClick?: () => void;
   onViewModeToggle?: () => void;
 }
@@ -21,7 +22,7 @@ interface TaskPosition {
   depth: number; // New: track nesting depth
 }
 
-export function TaskGraphView({ tasks, onTaskClick, onBackgroundClick, onViewModeToggle }: TaskGraphViewProps) {
+export function TaskGraphView({ tasks, onTaskClick, onEditTask, onBackgroundClick, onViewModeToggle }: TaskGraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -405,6 +406,7 @@ export function TaskGraphView({ tasks, onTaskClick, onBackgroundClick, onViewMod
                     task={pos.task}
                     isLinked={pos.isLinked}
                     onClick={() => onTaskClick(pos.task.id)}
+                    onEdit={onEditTask}
                   />
                 ) : showDetails ? (
                   // Simplified view - just circle with title and progress

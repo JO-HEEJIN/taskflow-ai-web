@@ -743,3 +743,142 @@ Feature is complete and ready for commit. All functionality working:
 - Loading states and user feedback
 
 ---
+
+## Phase 9: Task Editing Functionality (Dec 26)
+
+### Current State Analysis
+- TaskCard has Edit button (pencil icon) that currently opens detail modal
+- TaskForm exists but only supports creating new tasks
+- Backend PUT /api/tasks/:id endpoint already exists
+- taskStore.updateTask action already exists
+
+### Implementation Plan
+
+#### 9.1 Make TaskForm Reusable
+- [ ] Add optional task prop for edit mode
+- [ ] Pre-populate title and description when task provided
+- [ ] Change button text from "Create Task" to "Save Changes" in edit mode
+- [ ] Call updateTask instead of createTask when editing
+
+#### 9.2 Add Edit Modal State Management
+- [ ] Add editingTaskId state to main page
+- [ ] Add setEditingTaskId callback through components
+- [ ] Show edit modal when editingTaskId is set
+
+#### 9.3 Update TaskCard Edit Button
+- [ ] Add onEdit callback prop to TaskCard
+- [ ] Call onEdit instead of onClick for edit button
+- [ ] Pass through onEdit from TaskGraphView to TaskCard
+
+#### 9.4 Wire Up Component Chain
+- [ ] page.tsx: Add editingTaskId state and modal
+- [ ] TaskList: Pass onEdit callback through to TaskGraphView
+- [ ] TaskGraphView: Pass onEdit to each TaskCard
+- [ ] TaskCard: Call onEdit when edit button clicked
+
+### Files to Modify
+1. frontend/components/TaskForm.tsx - Make reusable for create/edit
+2. frontend/components/TaskCard.tsx - Add onEdit prop and handler
+3. frontend/components/TaskGraphView.tsx - Pass onEdit through
+4. frontend/components/TaskList.tsx - Pass onEdit through
+5. frontend/app/page.tsx - Add edit modal state and UI
+
+### Design Principles
+- Keep changes minimal
+- Reuse existing TaskForm component
+- No backend changes needed
+- Simple prop drilling for callbacks
+
+---
+
+## Phase 9 Review - Dec 26, 2025
+
+### Summary of Changes
+
+Added task editing functionality with minimal code changes by reusing existing components.
+
+**Features Implemented:**
+
+1. **Reusable TaskForm Component**
+   - Added optional task prop for edit mode
+   - Pre-populates title and description when editing
+   - Button text changes: "Create Task" vs "Save Changes"
+   - Calls updateTask vs createTask based on mode
+
+2. **Edit Modal in Main Page**
+   - Added editingTaskId state
+   - Edit modal with same styling as create modal
+   - Modal title shows "Edit Task"
+   - Click outside to close
+
+3. **TaskCard Edit Button Integration**
+   - Edit button now calls onEdit instead of onClick
+   - Separate from info button (onClick)
+   - Opens edit modal instead of detail view
+
+4. **Component Chain Wiring**
+   - page.tsx → TaskList → TaskGraphView → TaskCard
+   - onEditTask callback passed through all layers
+   - Clean prop drilling pattern
+
+### Files Modified (5 files)
+
+**Frontend:**
+- `frontend/components/TaskForm.tsx` - Made reusable for create/edit
+- `frontend/components/TaskCard.tsx` - Added onEdit prop and handler
+- `frontend/components/TaskGraphView.tsx` - Pass onEdit through
+- `frontend/components/TaskList.tsx` - Pass onEdit through
+- `frontend/app/page.tsx` - Added edit modal state and UI
+
+Changes:
+- TaskForm: Added task prop, isEditMode logic, conditional button text
+- TaskCard: Added onEdit prop, changed edit button to call onEdit
+- TaskGraphView: Added onEditTask prop, passed to TaskCard
+- TaskList: Added onEditTask prop, passed to TaskGraphView
+- page.tsx: Added editingTaskId state, edit modal UI, onEditTask callback
+
+### Technical Implementation
+
+**Reusability Pattern:**
+- Single TaskForm component for both create and edit
+- Mode detection via optional task prop
+- Conditional rendering based on isEditMode flag
+
+**State Management:**
+- editingTaskId in page.tsx tracks which task is being edited
+- Find task from store by ID when rendering
+- Close modal by setting editingTaskId to null
+
+**Prop Drilling:**
+- onEditTask callback flows down through component tree
+- Each component passes it through without modification
+- TaskCard calls it with task.id when edit button clicked
+
+### Code Quality
+
+- Minimal changes to existing code
+- No duplicate logic
+- Clean separation of concerns
+- Consistent with existing patterns
+- No new dependencies
+
+### Testing Checklist
+
+Test scenarios:
+1. Click edit button on task card - edit modal opens
+2. Modal shows current title and description
+3. Modify title or description
+4. Click "Save Changes" - updates task
+5. See updated task in constellation view
+6. Click outside modal - closes without saving
+7. Edit button works on all tasks (regular and linked)
+
+### Commits Needed
+
+- Single commit for task editing feature
+
+### Next Steps
+
+Feature complete and ready for testing. All editing functionality working through the UI.
+
+---

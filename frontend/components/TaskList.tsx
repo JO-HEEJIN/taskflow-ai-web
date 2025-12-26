@@ -9,9 +9,10 @@ import { Task } from '@/types';
 
 interface TaskListProps {
   onBackgroundClick?: () => void;
+  onEditTask?: (taskId: string) => void;
 }
 
-export function TaskList({ onBackgroundClick }: TaskListProps) {
+export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
   const { tasks, fetchTasks, isLoading, error } = useTaskStore();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'constellation' | 'kanban'>('constellation');
@@ -71,6 +72,7 @@ export function TaskList({ onBackgroundClick }: TaskListProps) {
         <TaskGraphView
           tasks={tasks}
           onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+          onEditTask={onEditTask}
           onBackgroundClick={onBackgroundClick}
           onViewModeToggle={() => setViewMode('kanban')}
         />

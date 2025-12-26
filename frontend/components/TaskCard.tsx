@@ -8,10 +8,11 @@ import { useState, useRef, useEffect } from 'react';
 interface TaskCardProps {
   task: Task;
   onClick?: () => void;
+  onEdit?: (taskId: string) => void;
   isLinked?: boolean;
 }
 
-export function TaskCard({ task, onClick, isLinked = false }: TaskCardProps) {
+export function TaskCard({ task, onClick, onEdit, isLinked = false }: TaskCardProps) {
   const { deleteTask } = useTaskStore();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -150,12 +151,12 @@ export function TaskCard({ task, onClick, isLinked = false }: TaskCardProps) {
         onClick={(e) => {
           e.stopPropagation();
           e.preventDefault();
-          if (onClick) onClick();
+          if (onEdit) onEdit(task.id);
         }}
         onTouchEnd={(e) => {
           e.stopPropagation();
           e.preventDefault();
-          if (onClick) onClick();
+          if (onEdit) onEdit(task.id);
         }}
         className={`absolute rounded-full w-12 h-12 flex items-center justify-center text-xl backdrop-blur-md border border-white/20 transition-all duration-300 hover:scale-110 active:scale-95 ${
           isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-0'

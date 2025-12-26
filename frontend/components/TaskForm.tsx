@@ -1,16 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTaskStore } from '@/store/taskStore';
+import { Task } from '@/types';
 
 interface TaskFormProps {
+  task?: Task;
   onClose?: () => void;
 }
 
-export function TaskForm({ onClose }: TaskFormProps) {
-  const { createTask, isLoading } = useTaskStore();
+export function TaskForm({ task, onClose }: TaskFormProps) {
+  const { createTask, updateTask, isLoading } = useTaskStore();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const isEditMode = !!task;
+
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title);
+      setDescription(task.description || '');
+    }
+  }, [task]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,7 +30,12 @@ export function TaskForm({ onClose }: TaskFormProps) {
       return;
     }
 
-    await createTask(title, description || undefined);
+    if (isEditMode && task) {
+      await updateTask(task.id, { title, description: description || undefined });
+    } else {
+      await createTask(title, description || undefined);
+    }
+
     setTitle('');
     setDescription('');
     if (onClose) onClose();
@@ -66,7 +81,7 @@ export function TaskForm({ onClose }: TaskFormProps) {
           disabled={isLoading}
           className="flex-1 bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isLoading ? 'Creating...' : 'Create Task'}
+          {isLoading ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Task')}
         </button>
         {onClose && (
           <button
