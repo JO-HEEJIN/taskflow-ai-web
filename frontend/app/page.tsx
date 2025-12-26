@@ -1,16 +1,47 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TaskList } from '@/components/TaskList';
 import { TaskForm } from '@/components/TaskForm';
 import { useTaskStore } from '@/store/taskStore';
+import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
 
 export default function Home() {
   const { tasks } = useTaskStore();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [notificationStatus, setNotificationStatus] = useState<NotificationPermission>('default');
 
   const editingTask = editingTaskId ? tasks.find(t => t.id === editingTaskId) : undefined;
+
+  // Initialize push notifications
+  useEffect(() => {
+    const initNotifications = async () => {
+      const syncCode = localStorage.getItem('syncCode');
+      if (!syncCode) {
+        console.log('No sync code found, notifications not initialized');
+        return;
+      }
+
+      const status = getNotificationPermissionStatus();
+      setNotificationStatus(status);
+
+      if (status === 'default') {
+        // Automatically request permission and subscribe
+        const success = await subscribeToPushNotifications(syncCode);
+        if (success) {
+          setNotificationStatus('granted');
+          console.log('✅ Push notifications enabled');
+        }
+      } else if (status === 'granted') {
+        // Already granted, ensure subscription is active
+        await subscribeToPushNotifications(syncCode);
+        console.log('✅ Push notifications already enabled');
+      }
+    };
+
+    initNotifications();
+  }, []);
 
   return (
     <main className="min-h-screen overflow-hidden">
