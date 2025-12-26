@@ -118,6 +118,7 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
           tasks={filteredTasks}
           onTaskClick={(taskId) => setSelectedTaskId(taskId)}
           onClose={() => setViewMode('constellation')}
+          onBackgroundClick={onBackgroundClick}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           statusFilter={statusFilter}

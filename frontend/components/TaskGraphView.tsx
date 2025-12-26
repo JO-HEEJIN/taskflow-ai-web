@@ -198,11 +198,9 @@ export function TaskGraphView({
 
   // Pan handlers
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target === containerRef.current) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-      setMouseDownPos({ x: e.clientX, y: e.clientY });
-    }
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    setMouseDownPos({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -215,28 +213,11 @@ export function TaskGraphView({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    // Check if this was a click (not a drag) by comparing mouse positions
-    const deltaX = Math.abs(e.clientX - mouseDownPos.x);
-    const deltaY = Math.abs(e.clientY - mouseDownPos.y);
-    const wasDragging = isDragging && (deltaX > 5 || deltaY > 5);
-
-    if (!wasDragging && e.target === containerRef.current) {
-      // This was a click on the background, not a drag
-      if (onBackgroundClick) {
-        onBackgroundClick();
-      }
-    }
-
     setIsDragging(false);
   };
 
   // Touch handlers for mobile
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (e.target === containerRef.current) {
-      if (!isDragging && onBackgroundClick) {
-        onBackgroundClick();
-      }
-    }
     setIsDragging(false);
   };
 
@@ -345,6 +326,32 @@ export function TaskGraphView({
             position: 'relative',
           }}
         >
+          {/* Clickable background layer */}
+          <div
+            className="absolute inset-0"
+            style={{
+              width: '200%',
+              height: '200%',
+              left: '-50%',
+              top: '-50%',
+              zIndex: 0,
+            }}
+            onClick={(e) => {
+              const deltaX = Math.abs(e.clientX - mouseDownPos.x);
+              const deltaY = Math.abs(e.clientY - mouseDownPos.y);
+              const wasDragging = deltaX > 5 || deltaY > 5;
+
+              if (!wasDragging && onBackgroundClick) {
+                onBackgroundClick();
+              }
+            }}
+            onTouchEnd={(e) => {
+              if (!isDragging && onBackgroundClick) {
+                onBackgroundClick();
+              }
+            }}
+          />
+
           {/* SVG for connection lines */}
           <svg
             className="absolute inset-0 pointer-events-none"

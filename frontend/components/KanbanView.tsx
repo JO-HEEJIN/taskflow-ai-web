@@ -9,6 +9,7 @@ interface KanbanViewProps {
   tasks: Task[];
   onTaskClick: (taskId: string) => void;
   onClose: () => void;
+  onBackgroundClick?: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   statusFilter: TaskStatus | 'all';
@@ -25,6 +26,7 @@ export function KanbanView({
   tasks,
   onTaskClick,
   onClose,
+  onBackgroundClick,
   searchQuery,
   onSearchChange,
   statusFilter,
@@ -218,7 +220,10 @@ export function KanbanView({
                 ))}
 
                 {/* Add Card Button */}
-                <button className="w-full text-left text-sm text-gray-500 hover:text-gray-700 py-2">
+                <button
+                  onClick={() => onBackgroundClick && onBackgroundClick()}
+                  className="w-full text-left text-sm text-gray-500 hover:text-gray-700 py-2"
+                >
                   + Add a card
                 </button>
               </div>
