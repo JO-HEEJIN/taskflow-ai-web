@@ -85,9 +85,13 @@ export function TaskCard({ task, onClick, onEdit, isLinked = false }: TaskCardPr
     <div
       ref={cardRef}
       onClick={(e) => {
+        e.stopPropagation(); // Prevent background click
         // Only trigger onClick if not clicking on buttons
         if ((e.target as HTMLElement).closest('button')) return;
         if (onClick) onClick();
+      }}
+      onTouchEnd={(e) => {
+        e.stopPropagation(); // Prevent background click on mobile
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

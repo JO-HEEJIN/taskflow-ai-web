@@ -50,6 +50,7 @@ export function TaskGraphView({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [mouseDownPos, setMouseDownPos] = useState({ x: 0, y: 0 });
 
   // Build task relationships and positions
   const { positions, connections } = useMemo(() => {
@@ -200,6 +201,7 @@ export function TaskGraphView({
     if (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background')) {
       setIsDragging(true);
       setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      setMouseDownPos({ x: e.clientX, y: e.clientY });
     }
   };
 
@@ -213,9 +215,10 @@ export function TaskGraphView({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    // Check if this was a click (not a drag) on the background
-    const wasDragging = Math.abs(e.clientX - dragStart.x - pan.x) > 5 ||
-                        Math.abs(e.clientY - dragStart.y - pan.y) > 5;
+    // Check if this was a click (not a drag) by comparing mouse positions
+    const deltaX = Math.abs(e.clientX - mouseDownPos.x);
+    const deltaY = Math.abs(e.clientY - mouseDownPos.y);
+    const wasDragging = isDragging && (deltaX > 5 || deltaY > 5);
 
     if (!wasDragging && (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background'))) {
       // This was a click on the background, not a drag
