@@ -3,6 +3,7 @@
 import { useTaskStore } from '@/store/taskStore';
 import { TaskGraphView } from './TaskGraphView';
 import { TaskDetail } from './TaskDetail';
+import { KanbanView } from './KanbanView';
 import { useEffect, useState } from 'react';
 import { Task } from '@/types';
 
@@ -13,6 +14,7 @@ interface TaskListProps {
 export function TaskList({ onBackgroundClick }: TaskListProps) {
   const { tasks, fetchTasks, isLoading, error } = useTaskStore();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'constellation' | 'kanban'>('constellation');
 
   useEffect(() => {
     fetchTasks();
@@ -65,11 +67,20 @@ export function TaskList({ onBackgroundClick }: TaskListProps) {
 
   return (
     <>
-      <TaskGraphView
-        tasks={tasks}
-        onTaskClick={(taskId) => setSelectedTaskId(taskId)}
-        onBackgroundClick={onBackgroundClick}
-      />
+      {viewMode === 'constellation' ? (
+        <TaskGraphView
+          tasks={tasks}
+          onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+          onBackgroundClick={onBackgroundClick}
+          onViewModeToggle={() => setViewMode('kanban')}
+        />
+      ) : (
+        <KanbanView
+          tasks={tasks}
+          onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+          onClose={() => setViewMode('constellation')}
+        />
+      )}
 
       {selectedTaskId && (
         <TaskDetail

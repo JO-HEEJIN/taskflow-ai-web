@@ -9,6 +9,7 @@ interface TaskGraphViewProps {
   tasks: Task[];
   onTaskClick: (taskId: string) => void;
   onBackgroundClick?: () => void;
+  onViewModeToggle?: () => void;
 }
 
 interface TaskPosition {
@@ -20,7 +21,7 @@ interface TaskPosition {
   depth: number; // New: track nesting depth
 }
 
-export function TaskGraphView({ tasks, onTaskClick, onBackgroundClick }: TaskGraphViewProps) {
+export function TaskGraphView({ tasks, onTaskClick, onBackgroundClick, onViewModeToggle }: TaskGraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -265,10 +266,14 @@ export function TaskGraphView({ tasks, onTaskClick, onBackgroundClick }: TaskGra
         </div>
       </div>
 
-      {/* Zoom level indicator */}
-      <div className="absolute top-4 left-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 px-3 py-2 text-xs text-gray-600">
-        {showFullDetails ? '🔎 Full Detail' : showDetails ? '📊 Simplified' : '🗺️ Overview'}
-      </div>
+      {/* View mode toggle button */}
+      <button
+        onClick={onViewModeToggle}
+        className="absolute top-4 left-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+      >
+        <span>☰</span>
+        <span>Kanban View</span>
+      </button>
 
       {/* Graph container */}
       <div
