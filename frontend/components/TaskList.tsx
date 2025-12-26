@@ -55,10 +55,23 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
 
   if (isLoading && tasks.length === 0) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center">
+      <div
+        className="w-screen h-screen flex items-center justify-center"
+        style={{
+          background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 1) 0%, rgba(10, 5, 20, 1) 100%)',
+        }}
+      >
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
-          <p className="mt-2 text-gray-600">Loading tasks...</p>
+          <div
+            className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-r-transparent"
+            style={{
+              borderColor: 'rgba(167, 139, 250, 0.8)',
+              borderRightColor: 'transparent',
+            }}
+          ></div>
+          <p className="mt-2 text-white" style={{ textShadow: '0 0 10px rgba(167, 139, 250, 0.5)' }}>
+            Loading tasks...
+          </p>
         </div>
       </div>
     );
@@ -66,12 +79,32 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
 
   if (error) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center">
+      <div
+        className="w-screen h-screen flex items-center justify-center"
+        style={{
+          background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 1) 0%, rgba(10, 5, 20, 1) 100%)',
+        }}
+      >
         <div className="text-center">
-          <p className="text-red-600">Error: {error}</p>
+          <p className="text-red-400 text-lg mb-4" style={{ textShadow: '0 0 10px rgba(239, 68, 68, 0.5)' }}>
+            Error: {error}
+          </p>
           <button
             onClick={() => fetchTasks()}
-            className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+            className="px-6 py-3 text-white rounded-lg transition-all"
+            style={{
+              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.8) 0%, rgba(99, 102, 241, 0.8) 100%)',
+              border: '1px solid rgba(167, 139, 250, 0.5)',
+              boxShadow: '0 0 20px rgba(168, 85, 247, 0.6)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(168, 85, 247, 0.8)';
+              e.currentTarget.style.transform = 'scale(1.05)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(168, 85, 247, 0.6)';
+              e.currentTarget.style.transform = 'scale(1)';
+            }}
           >
             Retry
           </button>
