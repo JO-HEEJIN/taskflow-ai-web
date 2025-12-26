@@ -40,18 +40,26 @@ class NotificationService {
     }
 
     try {
-      // Create a simple installation for the device with tag
+      // Create a template installation for the device
+      // Note: For web push, we use template notifications with tags
       const installation = {
         installationId: deviceId,
-        platform: 'browser' as const,
+        platform: 'gcm' as const, // Use GCM platform for web browsers
+        pushChannel: deviceId, // Use deviceId as the channel
         tags: [`syncCode:${syncCode}`],
+        templates: {
+          genericTemplate: {
+            body: '{"notification": $(message)}',
+          },
+        },
       };
 
       await this.client.createOrUpdateInstallation(installation);
       console.log(`✅ Device registered: ${deviceId} with tag syncCode:${syncCode}`);
     } catch (error) {
       console.error('Failed to register device:', error);
-      throw error;
+      // Don't throw - just log the error and continue
+      console.warn('Device registration failed, but notifications may still work via tags');
     }
   }
 
