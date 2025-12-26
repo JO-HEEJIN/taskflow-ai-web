@@ -1433,3 +1433,65 @@ Redesigned task creation and edit modals to match the cosmic glassmorphism theme
 Ready for testing. The modal should now blend beautifully with the constellation view's cosmic theme.
 
 ---
+
+## Phase 14: Notion-style Side Panel for Kanban with Markdown Support (Dec 26)
+
+### Feature Requirements
+When clicking a card in Kanban view:
+- Open a side panel from the right (Notion-style)
+- Show task title and description with markdown support
+- Allow inline editing of title and description
+- Support markdown formatting (headings, bold, italic, code blocks, lists, etc.)
+- Close button or click outside to close
+
+### Implementation Plan
+
+#### 14.1 Install Markdown Dependencies
+- [ ] Install react-markdown for rendering
+- [ ] Install remark-gfm for GitHub-flavored markdown
+- [ ] Install react-simplemde-editor for markdown editing (optional)
+
+#### 14.2 Create Side Panel Component
+- [ ] Create KanbanSidePanel component
+- [ ] Slide-in animation from right
+- [ ] Full height panel
+- [ ] Close on outside click or X button
+- [ ] Responsive width (400-600px)
+
+#### 14.3 Add Markdown Editor
+- [ ] Title input (inline editing)
+- [ ] Description textarea with markdown preview
+- [ ] Live preview or toggle between edit/preview
+- [ ] Auto-save on blur or manual save button
+
+#### 14.4 Update KanbanView
+- [ ] Add selectedTaskId state
+- [ ] Pass to KanbanSidePanel
+- [ ] Update card onClick to set selectedTaskId
+- [ ] Remove current TaskDetail modal for Kanban
+
+#### 14.5 Markdown Formatting Support
+- [ ] Headings (# ## ###)
+- [ ] Bold (**text**)
+- [ ] Italic (*text*)
+- [ ] Code blocks (```code```)
+- [ ] Lists (- item or 1. item)
+- [ ] Links
+- [ ] Checkboxes (- [ ] task)
+
+### Files to Create
+1. frontend/components/KanbanSidePanel.tsx - NEW
+2. frontend/package.json - Add dependencies
+
+### Files to Modify
+1. frontend/components/KanbanView.tsx - Integrate side panel
+2. frontend/components/TaskList.tsx - Handle Kanban separately from constellation
+
+### Design
+- White/light background for side panel (Notion-style)
+- Shadow overlay on left
+- Smooth slide animation
+- Clean, minimal design
+- Markdown preview styled nicely
+
+---

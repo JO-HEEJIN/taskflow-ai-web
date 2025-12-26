@@ -17,7 +17,7 @@ export default function Home() {
       {/* Task Form Modal */}
       {showTaskForm && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4"
           style={{ backdropFilter: 'blur(8px)' }}
           onClick={() => setShowTaskForm(false)}
           onTouchEnd={(e) => {
@@ -55,7 +55,7 @@ export default function Home() {
       {/* Edit Task Modal */}
       {editingTaskId && editingTask && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999] p-4"
           style={{ backdropFilter: 'blur(8px)' }}
           onClick={() => setEditingTaskId(null)}
           onTouchEnd={(e) => {

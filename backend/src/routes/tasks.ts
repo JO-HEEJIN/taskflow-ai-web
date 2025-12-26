@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { taskService } from '../services/taskService';
+import { notificationService } from '../services/notificationService';
 
 const router = Router();
 
@@ -88,6 +89,14 @@ router.post('/linked', async (req: Request, res: Response) => {
       description,
       syncCode,
       sourceSubtaskId
+    );
+
+    // Send notification: Linked Task Created
+    const sourceSubtask = parentTask?.subtasks?.find(s => s.id === sourceSubtaskId);
+    await notificationService.notifyLinkedTaskCreated(
+      syncCode,
+      task.title,
+      sourceSubtask?.title || 'a subtask'
     );
 
     res.status(201).json({ task, parentTask });
@@ -248,6 +257,11 @@ router.patch('/:taskId/subtasks/:subtaskId', async (req: Request, res: Response)
       return res.status(404).json({ error: 'Task not found' });
     }
 
+    // Send notification: Task Completed (if progress reaches 100%)
+    if (task.progress === 100 && task.status !== 'completed') {
+      await notificationService.notifyTaskCompleted(syncCode, task.title);
+    }
+
     res.json({ task });
   } catch (error) {
     console.error('Error toggling subtask:', error);
@@ -288,6 +302,12 @@ router.get('/orphaned/detect', async (req: Request, res: Response) => {
     }
 
     const orphanedTasks = await taskService.findOrphanedLinkedTasks(syncCode);
+
+    // Send notification: Orphaned Tasks Found (if any exist)
+    if (orphanedTasks.length > 0) {
+      await notificationService.notifyOrphanedTasksFound(syncCode, orphanedTasks.length);
+    }
+
     res.json({ orphanedTasks });
   } catch (error) {
     console.error('Error finding orphaned tasks:', error);

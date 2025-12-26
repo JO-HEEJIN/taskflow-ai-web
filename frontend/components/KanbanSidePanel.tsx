@@ -47,13 +47,13 @@ export function KanbanSidePanel({ taskId, onClose }: KanbanSidePanelProps) {
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-30 z-40"
+        className="fixed inset-0 bg-black bg-opacity-30 z-[9998]"
         onClick={onClose}
       />
 
       {/* Side Panel */}
       <div
-        className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl z-50 flex flex-col animate-slideInRight"
+        className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl z-[9999] flex flex-col animate-slideInRight"
         style={{
           animation: 'slideInRight 0.3s ease-out',
         }}

@@ -253,7 +253,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
     <>
       {/* Modal backdrop - click/touch outside to close */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-40 p-4"
+        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4"
         onClick={onClose}
         onTouchEnd={(e) => {
           e.preventDefault();
@@ -435,7 +435,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
 
                         {/* Hover Prompt */}
                         {showPrompt === subtask.id && !subtask.linkedTaskId && (
-                          <div className="absolute right-2 top-2 z-10 bg-primary-600 text-white px-3 py-1.5 rounded-lg shadow-lg text-xs font-medium flex items-center gap-2 animate-fadeIn">
+                          <div className="absolute right-2 top-2 z-[100] bg-primary-600 text-white px-3 py-1.5 rounded-lg shadow-lg text-xs font-medium flex items-center gap-2 animate-fadeIn">
                             <button
                               onClick={() => handleCreateLinkedTask(subtask.id)}
                               disabled={creatingLinkedTask}
