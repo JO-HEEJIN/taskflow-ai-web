@@ -198,7 +198,7 @@ export function TaskGraphView({
 
   // Pan handlers
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background')) {
+    if (e.target === containerRef.current) {
       setIsDragging(true);
       setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
       setMouseDownPos({ x: e.clientX, y: e.clientY });
@@ -220,7 +220,7 @@ export function TaskGraphView({
     const deltaY = Math.abs(e.clientY - mouseDownPos.y);
     const wasDragging = isDragging && (deltaX > 5 || deltaY > 5);
 
-    if (!wasDragging && (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background'))) {
+    if (!wasDragging && e.target === containerRef.current) {
       // This was a click on the background, not a drag
       if (onBackgroundClick) {
         onBackgroundClick();
@@ -232,7 +232,7 @@ export function TaskGraphView({
 
   // Touch handlers for mobile
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (e.target === containerRef.current || (e.target as HTMLElement).closest('.graph-background')) {
+    if (e.target === containerRef.current) {
       if (!isDragging && onBackgroundClick) {
         onBackgroundClick();
       }
