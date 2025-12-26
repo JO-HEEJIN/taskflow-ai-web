@@ -1036,3 +1036,132 @@ Test scenarios:
 Feature complete and ready for testing. Search and filter working across both views with consistent UX.
 
 ---
+
+## Phase 11: Fix Background Click Issues (Dec 26)
+
+### Problem Statement
+Background click modal is being triggered incorrectly:
+1. Clicking on task cards opens new task modal (should only open task detail)
+2. Releasing mouse after dragging opens new task modal (should do nothing)
+3. Clicking on search filter or controls opens new task modal (should do nothing)
+
+### Root Cause Analysis
+- Event propagation allows clicks on child elements to bubble up to background
+- Drag detection uses dragStart position which gets updated during pan, causing false positives
+- No stopPropagation on UI elements that should not trigger background click
+
+### Implementation Plan
+
+#### 11.1 Fix Task Card Click Propagation
+- [ ] Add stopPropagation to TaskCard onClick handler
+- [ ] Add stopPropagation to TaskCard onTouchEnd handler
+- [ ] Prevent clicks on radial menu buttons from propagating
+- [ ] Ensure info button (onClick) still works correctly
+
+#### 11.2 Improve Drag Detection Logic
+- [ ] Add separate mouseDownPos state to track initial mouse position
+- [ ] Update handleMouseDown to record initial position
+- [ ] Update handleMouseUp to calculate delta from initial position
+- [ ] Use 5px threshold to distinguish drag from click
+- [ ] Only trigger background click when delta is small (not dragging)
+
+#### 11.3 Fix Search Filter and Controls
+- [ ] Add stopPropagation to search filter container
+- [ ] Add stopPropagation to controls panel container
+- [ ] Verify zoom buttons don't trigger background click
+- [ ] Verify view mode toggle doesn't trigger background click
+
+### Files to Modify
+1. frontend/components/TaskCard.tsx - Add stopPropagation
+2. frontend/components/TaskGraphView.tsx - Improve drag detection
+
+### Expected Behavior After Fix
+- Click on task card → Opens task detail (not new task modal)
+- Drag constellation view → Pans view (not new task modal on release)
+- Click on search filter → Interacts with filter (not new task modal)
+- Click on controls → Uses controls (not new task modal)
+- Click on empty background → Opens new task modal (correct)
+
+### Testing Checklist
+1. Click task card → Task detail opens
+2. Click edit button → Edit modal opens
+3. Click background → New task modal opens
+4. Drag to pan view, release → No modal
+5. Click search filter → Filter works, no modal
+6. Click zoom controls → Zoom works, no modal
+7. Touch events on mobile work correctly
+
+---
+
+## Phase 11 Review - Dec 26, 2025
+
+### Summary of Changes
+
+Fixed background click modal appearing incorrectly when clicking tasks or dragging the view.
+
+**Issues Fixed:**
+
+1. **Task Card Click Propagation**
+   - Added stopPropagation to TaskCard onClick handler
+   - Added stopPropagation to TaskCard onTouchEnd handler
+   - Prevents task clicks from bubbling up to background
+   - Info button and radial menu buttons work correctly
+
+2. **Drag Detection Improvement**
+   - Added separate mouseDownPos state to track initial click position
+   - handleMouseDown records starting position
+   - handleMouseUp calculates movement delta from initial position
+   - 5px threshold distinguishes intentional drags from accidental movement
+   - Only triggers background click when movement is minimal
+
+3. **UI Elements Protection**
+   - Search filter container has stopPropagation
+   - Controls panel container has stopPropagation
+   - Zoom buttons work without triggering background
+   - View mode toggle works without triggering background
+
+### Files Modified (2 files)
+
+**Frontend:**
+- frontend/components/TaskCard.tsx - Added stopPropagation to prevent click bubbling
+- frontend/components/TaskGraphView.tsx - Improved drag detection logic
+
+### Technical Implementation
+
+**Event Propagation Control:**
+- stopPropagation prevents events from bubbling to parent elements
+- Applied to all interactive UI elements that should not trigger background click
+- Maintains expected behavior for each UI element
+
+**Drag vs Click Detection:**
+- Previous logic: Used dragStart position which changes during pan
+- New logic: Separate mouseDownPos tracks initial position
+- Delta calculation: abs(mouseUp - mouseDown) for both X and Y
+- Threshold: 5 pixels of movement indicates drag, not click
+
+### Root Cause
+
+The original implementation had two issues:
+1. No event propagation control - all clicks bubbled to background
+2. Drag detection used dragStart which updates during panning, causing false positives
+
+### Code Quality
+
+- Minimal changes to fix specific issues
+- No over-engineering or unnecessary refactoring
+- Clean separation of drag vs click logic
+- Consistent event handling across desktop and mobile
+
+### Commits
+
+- 28c54cd - Fix background click triggering on task clicks and drags
+
+### Next Steps
+
+Ready for testing. User should verify:
+- Clicking tasks opens detail modal (not new task modal)
+- Dragging to pan does not open modal on release
+- Search filter and controls work without triggering modal
+- Background clicks still open new task modal correctly
+
+---
