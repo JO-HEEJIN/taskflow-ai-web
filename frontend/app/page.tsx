@@ -17,7 +17,8 @@ export default function Home() {
       {/* Task Form Modal */}
       {showTaskForm && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+          style={{ backdropFilter: 'blur(8px)' }}
           onClick={() => setShowTaskForm(false)}
           onTouchEnd={(e) => {
             e.preventDefault();
@@ -25,15 +26,23 @@ export default function Home() {
           }}
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"
+            className="rounded-2xl max-w-2xl w-full p-8 backdrop-blur-md"
+            style={{
+              background: 'rgba(0, 0, 0, 0.85)',
+              border: '1px solid rgba(167, 139, 250, 0.3)',
+              boxShadow: '0 0 40px rgba(167, 139, 250, 0.4), inset 0 0 40px rgba(255, 255, 255, 0.03)',
+            }}
             onClick={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Create New Task</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-semibold text-white" style={{ textShadow: '0 0 20px rgba(167, 139, 250, 0.5)' }}>
+                Create New Task
+              </h2>
               <button
                 onClick={() => setShowTaskForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
+                className="text-gray-400 hover:text-purple-300 text-2xl transition-colors"
+                style={{ textShadow: '0 0 10px rgba(167, 139, 250, 0.5)' }}
               >
                 ✕
               </button>
@@ -46,7 +55,8 @@ export default function Home() {
       {/* Edit Task Modal */}
       {editingTaskId && editingTask && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4"
+          style={{ backdropFilter: 'blur(8px)' }}
           onClick={() => setEditingTaskId(null)}
           onTouchEnd={(e) => {
             e.preventDefault();
@@ -54,15 +64,23 @@ export default function Home() {
           }}
         >
           <div
-            className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"
+            className="rounded-2xl max-w-2xl w-full p-8 backdrop-blur-md"
+            style={{
+              background: 'rgba(0, 0, 0, 0.85)',
+              border: '1px solid rgba(167, 139, 250, 0.3)',
+              boxShadow: '0 0 40px rgba(167, 139, 250, 0.4), inset 0 0 40px rgba(255, 255, 255, 0.03)',
+            }}
             onClick={(e) => e.stopPropagation()}
             onTouchEnd={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Edit Task</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-semibold text-white" style={{ textShadow: '0 0 20px rgba(167, 139, 250, 0.5)' }}>
+                Edit Task
+              </h2>
               <button
                 onClick={() => setEditingTaskId(null)}
-                className="text-gray-400 hover:text-gray-600 text-2xl"
+                className="text-gray-400 hover:text-purple-300 text-2xl transition-colors"
+                style={{ textShadow: '0 0 10px rgba(167, 139, 250, 0.5)' }}
               >
                 ✕
               </button>
