@@ -69,24 +69,39 @@ export async function subscribeToPushNotifications(syncCode: string): Promise<bo
     // Wait for service worker to be ready
     await navigator.serviceWorker.ready;
 
-    // For testing without VAPID, we'll use Azure Notification Hubs tags
-    // In production, you'd subscribe with proper VAPID keys
-    const existingSubscription = await registration.pushManager.getSubscription();
-
-    if (existingSubscription) {
-      console.log('Already subscribed to push notifications');
-      await sendSubscriptionToBackend(syncCode, existingSubscription);
-      return true;
+    // Generate unique device ID for this browser/device
+    let deviceId = localStorage.getItem('deviceNotificationId');
+    if (!deviceId) {
+      deviceId = `browser-${crypto.randomUUID()}`;
+      localStorage.setItem('deviceNotificationId', deviceId);
     }
 
-    // For now, just register the tag with Azure Notification Hubs
-    // The backend will handle the subscription via the tag system
-    console.log('Push notifications enabled for sync code:', syncCode);
+    // Register device with backend (Azure Notification Hubs)
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-sync-code': syncCode,
+        },
+        body: JSON.stringify({ deviceId }),
+      });
 
-    // Store the sync code for the service worker
-    localStorage.setItem('notificationSyncCode', syncCode);
+      if (!response.ok) {
+        throw new Error('Failed to register device with backend');
+      }
 
-    return true;
+      console.log('✅ Device registered for push notifications:', deviceId);
+      console.log('📱 Sync code:', syncCode);
+
+      // Store the sync code for the service worker
+      localStorage.setItem('notificationSyncCode', syncCode);
+
+      return true;
+    } catch (error) {
+      console.error('Failed to register device with backend:', error);
+      return false;
+    }
   } catch (error) {
     console.error('Failed to subscribe to push notifications:', error);
     return false;

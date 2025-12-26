@@ -5,6 +5,7 @@ import { cosmosService } from './services/cosmosService';
 import tasksRouter from './routes/tasks';
 import aiRouter from './routes/ai';
 import syncRouter from './routes/sync';
+import notificationsRouter from './routes/notifications';
 
 dotenv.config();
 
@@ -43,6 +44,7 @@ app.get('/api', (req, res) => {
 app.use('/api/tasks', tasksRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/sync', syncRouter);
+app.use('/api/notifications', notificationsRouter);
 
 // Initialize services and start server
 async function startServer() {

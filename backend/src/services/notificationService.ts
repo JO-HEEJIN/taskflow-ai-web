@@ -32,6 +32,29 @@ class NotificationService {
     return this.client !== null;
   }
 
+  // Register device for notifications with tag
+  async registerDevice(syncCode: string, deviceId: string): Promise<void> {
+    if (!this.client) {
+      console.warn('Cannot register device - service not enabled');
+      return;
+    }
+
+    try {
+      // Create a simple installation for the device with tag
+      const installation = {
+        installationId: deviceId,
+        platform: 'browser' as const,
+        tags: [`syncCode:${syncCode}`],
+      };
+
+      await this.client.createOrUpdateInstallation(installation);
+      console.log(`✅ Device registered: ${deviceId} with tag syncCode:${syncCode}`);
+    } catch (error) {
+      console.error('Failed to register device:', error);
+      throw error;
+    }
+  }
+
   // Send notification to specific user (by sync code)
   async sendToUser(syncCode: string, notification: {
     title: string;
