@@ -49,7 +49,8 @@ class NotificationService {
         tags: [`syncCode:${syncCode}`],
         templates: {
           genericTemplate: {
-            body: '{"notification": $(message)}',
+            body: '$(message)',
+            headers: {},
           },
         },
       };
