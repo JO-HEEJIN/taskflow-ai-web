@@ -84,6 +84,9 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
     return (
       <div
         className="w-screen h-screen flex items-center justify-center cursor-pointer"
+        style={{
+          background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 1) 0%, rgba(10, 5, 20, 1) 100%)',
+        }}
         onClick={onBackgroundClick}
         onTouchEnd={(e) => {
           e.preventDefault();
@@ -91,8 +94,12 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
         }}
       >
         <div className="text-center">
-          <p className="text-gray-600 text-lg mb-2">No tasks yet</p>
-          <p className="text-gray-400 text-sm">Click anywhere to create your first task!</p>
+          <p className="text-white text-lg mb-2" style={{ textShadow: '0 0 20px rgba(167, 139, 250, 0.5)' }}>
+            No tasks yet
+          </p>
+          <p className="text-purple-200 text-sm" style={{ textShadow: '0 0 10px rgba(167, 139, 250, 0.3)' }}>
+            Click anywhere to create your first task!
+          </p>
         </div>
       </div>
     );
