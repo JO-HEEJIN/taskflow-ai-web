@@ -28,6 +28,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   const [hoveredSubtaskId, setHoveredSubtaskId] = useState<string | null>(null);
   const [showPrompt, setShowPrompt] = useState<string | null>(null);
   const [showMindMap, setShowMindMap] = useState(false);
+  const [creatingLinkedTask, setCreatingLinkedTask] = useState(false);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -190,13 +191,33 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
     if (!subtask) return;
 
     setShowPrompt(null);
+    setCreatingLinkedTask(true);
     try {
       const newTask = await createLinkedTask(task.id, subtaskId, subtask.title);
-      // Optionally, could open the new task in a modal here
-      alert(`✅ Created linked task: "${newTask.title}"`);
+      // Show success with task title
+      const message = `✅ Created new task: "${newTask.title}"\n\nYou can find it in the constellation view.`;
+      alert(message);
     } catch (error) {
       console.error('Failed to create linked task:', error);
-      alert('Failed to create linked task');
+      alert('❌ Failed to create linked task. Please try again.');
+    } finally {
+      setCreatingLinkedTask(false);
+    }
+  };
+
+  const handleClearBrokenLink = async (subtaskId: string) => {
+    if (!confirm('Clear this broken link?')) return;
+
+    try {
+      // Update the subtask to remove linkedTaskId
+      const updatedSubtasks = task.subtasks.map((st) =>
+        st.id === subtaskId ? { ...st, linkedTaskId: undefined } : st
+      );
+
+      await useTaskStore.getState().updateTask(task.id, { subtasks: updatedSubtasks });
+    } catch (error) {
+      console.error('Failed to clear broken link:', error);
+      alert('Failed to clear broken link');
     }
   };
 
@@ -371,11 +392,29 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                           }`}
                         >
                           <span>{subtask.title}</span>
-                          {subtask.linkedTaskId && (
-                            <span className="text-xs text-blue-600" title="Linked to another task">
-                              🔗
-                            </span>
-                          )}
+                          {subtask.linkedTaskId && (() => {
+                            const linkedTask = tasks.find(t => t.id === subtask.linkedTaskId);
+                            if (linkedTask) {
+                              return (
+                                <span className="text-xs text-blue-600" title={`Linked to: ${linkedTask.title}`}>
+                                  🔗
+                                </span>
+                              );
+                            } else {
+                              return (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleClearBrokenLink(subtask.id);
+                                  }}
+                                  className="text-xs text-red-600 hover:text-red-800"
+                                  title="Broken link - click to clear"
+                                >
+                                  🔗💔
+                                </button>
+                              );
+                            }
+                          })()}
                         </span>
                         <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                           <button
@@ -399,17 +438,20 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                           <div className="absolute right-2 top-2 z-10 bg-primary-600 text-white px-3 py-1.5 rounded-lg shadow-lg text-xs font-medium flex items-center gap-2 animate-fadeIn">
                             <button
                               onClick={() => handleCreateLinkedTask(subtask.id)}
-                              className="hover:underline flex items-center gap-1"
+                              disabled={creatingLinkedTask}
+                              className="hover:underline flex items-center gap-1 disabled:opacity-50 disabled:cursor-wait"
                             >
-                              <span>✨</span>
-                              <span>New task from this?</span>
+                              <span>{creatingLinkedTask ? '⏳' : '✨'}</span>
+                              <span>{creatingLinkedTask ? 'Creating...' : 'New task from this?'}</span>
                             </button>
-                            <button
-                              onClick={() => setShowPrompt(null)}
-                              className="text-white/80 hover:text-white"
-                            >
-                              ✕
-                            </button>
+                            {!creatingLinkedTask && (
+                              <button
+                                onClick={() => setShowPrompt(null)}
+                                className="text-white/80 hover:text-white"
+                              >
+                                ✕
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

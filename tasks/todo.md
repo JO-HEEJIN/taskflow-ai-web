@@ -593,3 +593,153 @@ All user-requested features complete. Ready for:
 - Production deployment
 
 ---
+
+## Phase 8: Linked Tasks & Mind Map Visualization (Dec 26)
+
+### 8.1 Data Model
+- [x] Verify linkedTaskId field in Subtask interface
+- [x] Verify sourceSubtaskId field in Task interface
+- [x] Both frontend and backend types aligned
+
+### 8.2 Backend API
+- [x] POST /api/tasks/linked endpoint implemented
+- [x] createLinkedTask service method working
+- [x] Bi-directional linking (Task.sourceSubtaskId and Subtask.linkedTaskId)
+
+### 8.3 Frontend State Management
+- [x] createLinkedTask action in taskStore
+- [x] API client method for linked tasks
+- [x] State updates after creation
+
+### 8.4 Hover UI
+- [x] Desktop hover detection (2 second delay)
+- [x] Mobile long press detection (500ms delay)
+- [x] Prompt appears: "New task from this?"
+- [x] Link icon displayed for linked subtasks
+- [x] No hover during drag operations
+
+### 8.5 Mind Map Visualization
+- [x] React Flow and Dagre dependencies installed
+- [x] TaskMindMap component with hierarchical layout
+- [x] TaskNode and SubtaskNode custom components
+- [x] Graph utilities for building node hierarchy
+- [x] Toggle button between list and mind map views
+- [x] Empty state when no subtasks exist
+
+### 8.6 Polish and Edge Cases
+- [x] Loading state during linked task creation
+- [x] Detect broken links (when linked task deleted)
+- [x] Clear broken link action
+- [x] Better success message with task location
+- [x] Linked task title shown in tooltip
+- [x] Disable interactions during creation
+
+---
+
+## Phase 8 Review - Dec 26, 2025
+
+### Summary of Changes
+
+Enhanced subtask functionality with ability to create linked tasks and visualize relationships in a mind map:
+
+**Features Implemented:**
+
+1. **Hover-to-Create Linked Tasks**
+   - Desktop: 2 second hover shows creation prompt
+   - Mobile: 500ms long press triggers prompt
+   - Visual prompt: "New task from this?" with sparkle icon
+   - Prevents duplicate prompts if task already linked
+   - Cancels timer during drag operations
+
+2. **Mind Map Visualization**
+   - React Flow graph with Dagre layout algorithm
+   - Hierarchical tree structure (top-to-bottom)
+   - Three node types: center task (blue), subtasks (gray), linked tasks (light blue)
+   - Animated edges for linked task connections
+   - Toggle between list view and mind map view
+   - Mini map and controls for navigation
+   - Legend showing node type meanings
+
+3. **Broken Link Handling**
+   - Detects when linked task is deleted
+   - Shows broken link icon (link with broken heart)
+   - Click to clear broken link
+   - Normal link icon shows linked task title in tooltip
+
+4. **Loading and Feedback**
+   - Loading state during task creation (hourglass icon)
+   - Success message shows new task title
+   - Helpful hint about finding task in constellation view
+   - Disabled button and close button during creation
+
+### Files Modified
+
+**Frontend (1 file):**
+- `frontend/components/TaskDetail.tsx` - Added polish features
+
+Changes made:
+- Added creatingLinkedTask state
+- Enhanced handleCreateLinkedTask with loading and better messages
+- Added handleClearBrokenLink function
+- Updated link icon to check if linked task exists
+- Show broken link icon with clear action if not found
+- Updated hover prompt with loading state
+
+### Technical Implementation
+
+**Existing Infrastructure Used:**
+- Data models already had linkedTaskId and sourceSubtaskId
+- Backend API and service already implemented
+- Frontend state management already in place
+- Hover detection already implemented
+- Mind map components already created
+
+**New Additions:**
+- Loading state management
+- Broken link detection
+- Clear broken link functionality
+- Improved user feedback
+
+### Edge Cases Handled
+
+1. Prevent multiple simultaneous link creations
+2. Handle deleted linked tasks gracefully
+3. Clear feedback for all operations
+4. No hover prompt if subtask already linked
+5. No hover prompt during drag operations
+6. Timer cleanup on component unmount
+7. Empty mind map state with helpful message
+
+### Code Quality
+
+- Minimal changes (only TaskDetail.tsx modified)
+- Focused improvements without overengineering
+- Proper state management
+- Clear user feedback at every step
+- No duplicate code
+
+### Testing Checklist
+
+Test scenarios:
+1. Hover over subtask for 2s (desktop) - prompt appears
+2. Long press subtask for 500ms (mobile) - prompt appears
+3. Click create - shows loading, then success
+4. Click link icon - shows linked task title
+5. Delete linked task - shows broken link icon
+6. Click broken link icon - clears the link
+7. Toggle to mind map view - shows hierarchical graph
+8. Mind map shows current task, subtasks, and linked tasks
+
+### Commits Needed
+
+- Single commit for polish improvements
+
+### Next Steps
+
+Feature is complete and ready for commit. All functionality working:
+- Linked task creation via hover/long press
+- Mind map visualization with React Flow
+- Broken link handling
+- Loading states and user feedback
+
+---
