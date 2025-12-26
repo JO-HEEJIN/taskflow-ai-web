@@ -24,9 +24,9 @@ export function SearchFilter({
 }: SearchFilterProps) {
   const filterButtons: { label: string; value: TaskStatus | 'all'; count: number }[] = [
     { label: 'All', value: 'all', count: taskCounts.all },
-    { label: 'Pending', value: 'pending', count: taskCounts.pending },
-    { label: 'In Progress', value: 'in_progress', count: taskCounts.in_progress },
-    { label: 'Completed', value: 'completed', count: taskCounts.completed },
+    { label: 'Pending', value: TaskStatus.PENDING, count: taskCounts.pending },
+    { label: 'In Progress', value: TaskStatus.IN_PROGRESS, count: taskCounts.in_progress },
+    { label: 'Completed', value: TaskStatus.COMPLETED, count: taskCounts.completed },
   ];
 
   return (

@@ -30,7 +30,7 @@ async function getSyncCode(): Promise<string> {
       });
       const data = await res.json();
       code = data.syncCode;
-      localStorage.setItem('syncCode', code);
+      if (code) localStorage.setItem('syncCode', code);
     } catch (error) {
       console.error('Failed to generate sync code:', error);
       // Fallback: generate random code locally
@@ -38,7 +38,7 @@ async function getSyncCode(): Promise<string> {
       localStorage.setItem('syncCode', code);
     }
   }
-  return code;
+  return code || '';
 }
 
 // Set sync code in localStorage

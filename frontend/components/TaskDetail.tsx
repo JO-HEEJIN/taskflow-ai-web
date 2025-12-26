@@ -35,14 +35,6 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   // Get live task from store (ensures real-time updates)
   const task = tasks.find((t) => t.id === taskId);
 
-  if (!task) {
-    return null; // Task not found or deleted
-  }
-
-  // Separate active and archived subtasks
-  const activeSubtasks = task.subtasks.filter((st) => !st.isArchived);
-  const archivedSubtasks = task.subtasks.filter((st) => st.isArchived);
-
   // Cleanup hover timers on unmount
   useEffect(() => {
     return () => {
@@ -50,6 +42,14 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
     };
   }, []);
+
+  if (!task) {
+    return null; // Task not found or deleted
+  }
+
+  // Separate active and archived subtasks
+  const activeSubtasks = task.subtasks.filter((st) => !st.isArchived);
+  const archivedSubtasks = task.subtasks.filter((st) => st.isArchived);
 
   const handleToggleSubtask = async (subtaskId: string) => {
     await toggleSubtask(task.id, subtaskId);
