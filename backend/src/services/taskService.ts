@@ -93,26 +93,53 @@ class TaskService {
     return { task: newTask, parentTask: updatedParentTask };
   }
 
-  // Get all tasks for a sync code
-  async getTasksBySyncCode(syncCode: string): Promise<Task[]> {
+  // Clean up orphaned linked tasks (tasks whose parent task/subtask no longer exists)
+  async cleanupOrphanedLinkedTasks(syncCode: string): Promise<void> {
+    const allTasks = await this.getAllTasksRaw(syncCode);
+
+    // Find tasks that have sourceSubtaskId (linked tasks)
+    const linkedTasks = allTasks.filter((t) => t.sourceSubtaskId);
+
+    for (const linkedTask of linkedTasks) {
+      // Check if the parent task and subtask still exist
+      const parentTask = allTasks.find((t) =>
+        t.subtasks.some((st) => st.id === linkedTask.sourceSubtaskId)
+      );
+
+      // If parent task or subtask doesn't exist, delete this orphaned task
+      if (!parentTask) {
+        console.log(`🧹 Cleaning up orphaned linked task: ${linkedTask.id} (${linkedTask.title})`);
+        await this.deleteTask(linkedTask.id, syncCode);
+      }
+    }
+  }
+
+  // Get all tasks without cleanup (internal use)
+  private async getAllTasksRaw(syncCode: string): Promise<Task[]> {
     const container = cosmosService.getTasksContainer();
 
     if (container) {
-      // Use Cosmos DB
       const { resources } = await container.items
         .query({
           query: 'SELECT * FROM c WHERE c.syncCode = @syncCode',
           parameters: [{ name: '@syncCode', value: syncCode }],
         })
         .fetchAll();
-
       return resources as Task[];
     } else {
-      // Use mock storage
       return Array.from(this.mockTasks.values()).filter(
         (task) => task.syncCode === syncCode
       );
     }
+  }
+
+  // Get all tasks for a sync code
+  async getTasksBySyncCode(syncCode: string): Promise<Task[]> {
+    // Clean up orphaned linked tasks first
+    await this.cleanupOrphanedLinkedTasks(syncCode);
+
+    // Then return all tasks
+    return this.getAllTasksRaw(syncCode);
   }
 
   // Get task by ID
@@ -173,6 +200,21 @@ class TaskService {
 
   // Delete task
   async deleteTask(id: string, syncCode: string): Promise<boolean> {
+    // First, get the task to find linked tasks
+    const task = await this.getTaskById(id, syncCode);
+    if (!task) return false;
+
+    // Find and delete all linked tasks (tasks created from this task's subtasks)
+    const linkedTaskIds = task.subtasks
+      .filter((st) => st.linkedTaskId)
+      .map((st) => st.linkedTaskId!);
+
+    // Delete all linked tasks first
+    for (const linkedTaskId of linkedTaskIds) {
+      await this.deleteTask(linkedTaskId, syncCode);
+    }
+
+    // Now delete the parent task
     const container = cosmosService.getTasksContainer();
 
     if (container) {
