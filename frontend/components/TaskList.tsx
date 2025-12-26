@@ -4,8 +4,10 @@ import { useTaskStore } from '@/store/taskStore';
 import { TaskGraphView } from './TaskGraphView';
 import { TaskDetail } from './TaskDetail';
 import { KanbanView } from './KanbanView';
+import { OrphanedTasksModal } from './OrphanedTasksModal';
 import { useEffect, useState, useMemo } from 'react';
 import { Task, TaskStatus } from '@/types';
+import { api } from '@/lib/api';
 
 interface TaskListProps {
   onBackgroundClick?: () => void;
@@ -18,10 +20,60 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
   const [viewMode, setViewMode] = useState<'constellation' | 'kanban'>('constellation');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
+  const [orphanedTasks, setOrphanedTasks] = useState<Task[]>([]);
+  const [showOrphanedModal, setShowOrphanedModal] = useState(false);
 
   useEffect(() => {
+    console.log('🔍 TaskList mounted, fetching tasks...');
     fetchTasks();
   }, [fetchTasks]);
+
+  // Check for orphaned tasks after tasks are loaded
+  useEffect(() => {
+    const checkOrphanedTasks = async () => {
+      if (tasks.length > 0 && !isLoading) {
+        try {
+          const { orphanedTasks: orphaned } = await api.getOrphanedTasks();
+          if (orphaned && orphaned.length > 0) {
+            setOrphanedTasks(orphaned);
+            setShowOrphanedModal(true);
+          }
+        } catch (error) {
+          console.error('Failed to check orphaned tasks:', error);
+        }
+      }
+    };
+
+    checkOrphanedTasks();
+  }, [tasks.length, isLoading]);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 TaskList state:', {
+      tasksLength: tasks?.length,
+      isLoading,
+      error,
+      tasks: tasks,
+    });
+  }, [tasks, isLoading, error]);
+
+  const handleDeleteOrphaned = async () => {
+    try {
+      const taskIds = orphanedTasks.map((t) => t.id);
+      await api.deleteBatchTasks(taskIds);
+      setShowOrphanedModal(false);
+      setOrphanedTasks([]);
+      fetchTasks(); // Refresh task list
+    } catch (error) {
+      console.error('Failed to delete orphaned tasks:', error);
+      alert('Failed to delete orphaned tasks. Please try again.');
+    }
+  };
+
+  const handleKeepOrphaned = () => {
+    setShowOrphanedModal(false);
+    setOrphanedTasks([]);
+  };
 
   // Filter tasks based on search and status
   const filteredTasks = useMemo(() => {
@@ -171,6 +223,15 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
         <TaskDetail
           taskId={selectedTaskId}
           onClose={() => setSelectedTaskId(null)}
+        />
+      )}
+
+      {/* Orphaned Tasks Modal */}
+      {showOrphanedModal && orphanedTasks.length > 0 && (
+        <OrphanedTasksModal
+          orphanedTasks={orphanedTasks}
+          onKeep={handleKeepOrphaned}
+          onDelete={handleDeleteOrphaned}
         />
       )}
     </>

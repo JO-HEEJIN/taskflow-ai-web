@@ -198,4 +198,23 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch sync session');
     return res.json();
   },
+
+  // Orphaned tasks
+  async getOrphanedTasks() {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/orphaned/detect`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to get orphaned tasks');
+    return res.json();
+  },
+
+  async deleteBatchTasks(taskIds: string[]) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/batch/delete`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify({ taskIds }),
+    });
+    if (!res.ok) throw new Error('Failed to delete tasks');
+    return res.json();
+  },
 };
