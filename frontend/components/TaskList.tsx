@@ -127,7 +127,7 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
         />
       )}
 
-      {selectedTaskId && (
+      {selectedTaskId && viewMode === 'constellation' && (
         <TaskDetail
           taskId={selectedTaskId}
           onClose={() => setSelectedTaskId(null)}

@@ -3,6 +3,7 @@
 import { Task, TaskStatus } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
 import { SearchFilter } from './SearchFilter';
+import { KanbanSidePanel } from './KanbanSidePanel';
 import { useState } from 'react';
 
 interface KanbanViewProps {
@@ -37,6 +38,7 @@ export function KanbanView({
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const columns: { status: TaskStatus; title: string; count: number }[] = [
     {
@@ -168,7 +170,7 @@ export function KanbanView({
                     onDragEnd={handleDragEnd}
                     onClick={(e) => {
                       if (!isDragging) {
-                        onTaskClick(task.id);
+                        setSelectedTaskId(task.id);
                       }
                     }}
                     className={`bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all cursor-move border-2 ${
@@ -231,6 +233,14 @@ export function KanbanView({
           ))}
         </div>
       </div>
+
+      {/* Side Panel */}
+      {selectedTaskId && (
+        <KanbanSidePanel
+          taskId={selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+        />
+      )}
     </div>
   );
 }
