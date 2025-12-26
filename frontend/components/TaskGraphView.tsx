@@ -262,7 +262,11 @@ export function TaskGraphView({
       <StarryBackground />
 
       {/* Search and Filter */}
-      <div className="absolute top-4 left-4 right-4 z-50 max-w-4xl mx-auto">
+      <div
+        className="absolute top-4 left-4 right-4 z-50 max-w-4xl mx-auto"
+        onClick={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+      >
         <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-4">
           <SearchFilter
             searchQuery={searchQuery}
@@ -275,7 +279,12 @@ export function TaskGraphView({
       </div>
 
       {/* Controls */}
-      <div className="absolute top-4 right-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex flex-col gap-2" style={{ marginTop: '100px' }}>
+      <div
+        className="absolute top-4 right-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex flex-col gap-2"
+        style={{ marginTop: '100px' }}
+        onClick={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+      >
         <button
           onClick={() => setZoom(Math.min(2, zoom + 0.2))}
           className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors"
