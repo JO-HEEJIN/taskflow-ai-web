@@ -251,7 +251,14 @@ export function TaskGraphView({
         onClick={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
       >
-        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 p-4">
+        <div
+          className="backdrop-blur-md rounded-lg p-4"
+          style={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            border: '1px solid rgba(167, 139, 250, 0.3)',
+            boxShadow: '0 0 30px rgba(167, 139, 250, 0.3), inset 0 0 30px rgba(255, 255, 255, 0.03)',
+          }}
+        >
           <SearchFilter
             searchQuery={searchQuery}
             onSearchChange={onSearchChange}
@@ -264,34 +271,75 @@ export function TaskGraphView({
 
       {/* Controls */}
       <div
-        className="absolute top-4 right-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex flex-col gap-2"
-        style={{ marginTop: '100px' }}
+        className="absolute top-4 right-4 z-50 backdrop-blur-md rounded-lg p-2 flex flex-col gap-2"
+        style={{
+          marginTop: '100px',
+          background: 'rgba(0, 0, 0, 0.5)',
+          border: '1px solid rgba(167, 139, 250, 0.3)',
+          boxShadow: '0 0 30px rgba(167, 139, 250, 0.3), inset 0 0 30px rgba(255, 255, 255, 0.03)',
+        }}
         onClick={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
       >
         <button
           onClick={() => setZoom(Math.min(2, zoom + 0.2))}
-          className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors"
+          className="px-3 py-2 text-sm font-medium text-white rounded transition-all"
+          style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+            e.currentTarget.style.boxShadow = '0 0 15px rgba(167, 139, 250, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
           title="Zoom In"
         >
           🔍+
         </button>
         <button
           onClick={() => setZoom(Math.max(0.3, zoom - 0.2))}
-          className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors"
+          className="px-3 py-2 text-sm font-medium text-white rounded transition-all"
+          style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+            e.currentTarget.style.boxShadow = '0 0 15px rgba(167, 139, 250, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
           title="Zoom Out"
         >
           🔍-
         </button>
-        <div className="border-t border-gray-200 my-1"></div>
+        <div className="border-t my-1" style={{ borderColor: 'rgba(255, 255, 255, 0.2)' }}></div>
         <button
           onClick={handleReset}
-          className="px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded transition-colors"
+          className="px-3 py-2 text-sm font-medium text-white rounded transition-all"
+          style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+            e.currentTarget.style.boxShadow = '0 0 15px rgba(167, 139, 250, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+            e.currentTarget.style.boxShadow = 'none';
+          }}
           title="Reset View"
         >
           ⟲
         </button>
-        <div className="text-xs text-gray-500 text-center mt-1">
+        <div className="text-xs text-white text-center mt-1" style={{ textShadow: '0 0 10px rgba(167, 139, 250, 0.5)' }}>
           {Math.round(zoom * 100)}%
         </div>
       </div>
@@ -299,7 +347,20 @@ export function TaskGraphView({
       {/* View mode toggle button */}
       <button
         onClick={onViewModeToggle}
-        className="absolute top-4 left-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+        className="absolute top-4 left-4 z-50 backdrop-blur-md rounded-lg px-4 py-2 text-sm font-medium text-white transition-all flex items-center gap-2"
+        style={{
+          background: 'rgba(0, 0, 0, 0.5)',
+          border: '1px solid rgba(167, 139, 250, 0.3)',
+          boxShadow: '0 0 30px rgba(167, 139, 250, 0.3), inset 0 0 30px rgba(255, 255, 255, 0.03)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(168, 85, 247, 0.3)';
+          e.currentTarget.style.boxShadow = '0 0 40px rgba(167, 139, 250, 0.5), inset 0 0 30px rgba(255, 255, 255, 0.05)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(0, 0, 0, 0.5)';
+          e.currentTarget.style.boxShadow = '0 0 30px rgba(167, 139, 250, 0.3), inset 0 0 30px rgba(255, 255, 255, 0.03)';
+        }}
       >
         <span>☰</span>
         <span>Kanban View</span>

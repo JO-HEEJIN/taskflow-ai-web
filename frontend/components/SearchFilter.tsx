@@ -38,12 +38,25 @@ export function SearchFilter({
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search tasks..."
-          className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-gray-900 placeholder:text-gray-400"
+          className="w-full px-4 py-2 pr-10 rounded-lg backdrop-blur-md text-white placeholder:text-gray-300 transition-all focus:outline-none"
+          style={{
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: 'inset 0 0 20px rgba(0, 0, 0, 0.2)',
+          }}
+          onFocus={(e) => {
+            e.target.style.border = '1px solid rgba(167, 139, 250, 0.5)';
+            e.target.style.boxShadow = '0 0 20px rgba(167, 139, 250, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.2)';
+          }}
+          onBlur={(e) => {
+            e.target.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+            e.target.style.boxShadow = 'inset 0 0 20px rgba(0, 0, 0, 0.2)';
+          }}
         />
         {searchQuery && (
           <button
             onClick={() => onSearchChange('')}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-300 hover:text-white transition-colors"
           >
             ✕
           </button>
@@ -56,11 +69,33 @@ export function SearchFilter({
           <button
             key={button.value}
             onClick={() => onStatusFilterChange(button.value)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
+            style={
               statusFilter === button.value
-                ? 'bg-primary-600 text-white'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
+                ? {
+                    background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.8) 0%, rgba(99, 102, 241, 0.8) 100%)',
+                    boxShadow: '0 0 20px rgba(168, 85, 247, 0.6)',
+                    color: 'white',
+                    border: '1px solid rgba(167, 139, 250, 0.5)',
+                  }
+                : {
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                  }
+            }
+            onMouseEnter={(e) => {
+              if (statusFilter !== button.value) {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                e.currentTarget.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (statusFilter !== button.value) {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                e.currentTarget.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+              }
+            }}
           >
             {button.label} ({button.count})
           </button>
