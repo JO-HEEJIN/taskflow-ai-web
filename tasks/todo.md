@@ -1294,3 +1294,142 @@ Ready for testing. This should finally work correctly:
 - Drag and release → No modal
 
 ---
+
+## Phase 13: Redesign Task Form Modal for Constellation View (Dec 26)
+
+### Problem
+Current TaskForm modal has plain white background with blue button.
+Does not match the cosmic/glassmorphism theme of star constellation view.
+
+### Design Goals
+Match the existing constellation view aesthetic:
+- Glassmorphism effect (transparent with backdrop blur)
+- Dark/purple cosmic colors
+- Glowing effects like task cards
+- Starry background visible through modal
+- Purple accent colors instead of blue
+
+### Implementation Plan
+
+#### 13.1 Update Modal Wrapper in page.tsx
+- [ ] Change background from white to glassmorphism
+- [ ] Add backdrop blur effect
+- [ ] Add purple glow/shadow effects
+- [ ] Make background darker with transparency
+
+#### 13.2 Update TaskForm Component Styling
+- [ ] Change input backgrounds to dark with transparency
+- [ ] Add purple borders and focus effects
+- [ ] Update button styling to match cosmic theme
+- [ ] Add glow effects on hover
+- [ ] Update text colors for dark background
+
+#### 13.3 Keep Kanban View Style Unchanged
+- [ ] Modal styling should work in both views
+- [ ] OR create conditional styling based on view mode
+- [ ] Kanban can keep current simple style
+
+### Design Specifications
+
+**Modal Container:**
+- Background: rgba(0, 0, 0, 0.8) with backdrop blur
+- Border: 1px solid rgba(167, 139, 250, 0.3)
+- Box shadow: 0 0 40px rgba(167, 139, 250, 0.4)
+- Border radius: 16px
+
+**Input Fields:**
+- Background: rgba(255, 255, 255, 0.1)
+- Border: 1px solid rgba(255, 255, 255, 0.2)
+- Text color: white
+- Placeholder: rgba(255, 255, 255, 0.5)
+- Focus: purple glow effect
+
+**Create Button:**
+- Background: linear gradient purple/blue
+- Glow effect: 0 0 20px rgba(168, 85, 247, 0.6)
+- Hover: increased glow
+
+**Cancel Button:**
+- Background: transparent
+- Border: 1px solid rgba(255, 255, 255, 0.3)
+- Text: white
+
+### Files to Modify
+1. frontend/app/page.tsx - Modal wrapper styling
+2. frontend/components/TaskForm.tsx - Form input styling
+
+---
+
+## Phase 13 Review - Dec 26, 2025
+
+### Summary of Changes
+
+Redesigned task creation and edit modals to match the cosmic glassmorphism theme of the constellation view.
+
+**Changes Made:**
+
+1. **Modal Container (page.tsx)**
+   - Dark transparent background: rgba(0, 0, 0, 0.85)
+   - Backdrop blur effect for depth
+   - Purple glowing border and shadow
+   - Larger border radius (16px)
+   - Increased padding for spaciousness
+   - Title with purple glow text shadow
+   - Close button with purple hover effect
+
+2. **Form Inputs (TaskForm.tsx)**
+   - Glassmorphism input fields
+   - Semi-transparent white background
+   - Subtle inner shadow for depth
+   - Purple glow on focus
+   - White text for dark background
+   - Interactive focus/blur effects
+
+3. **Buttons**
+   - Submit: Purple gradient background with glow
+   - Hover: Increased glow and slight lift
+   - Cancel: Transparent with white border
+   - Hover: Subtle white background tint
+
+### Files Modified (2 files)
+
+**Frontend:**
+- frontend/app/page.tsx - Both create and edit modal containers
+- frontend/components/TaskForm.tsx - Form inputs and buttons
+
+### Design Details
+
+**Modal Container:**
+- Background: rgba(0, 0, 0, 0.85) with backdrop-blur
+- Border: 1px rgba(167, 139, 250, 0.3)
+- Shadow: 0 0 40px rgba(167, 139, 250, 0.4)
+- Inner glow: inset 0 0 40px rgba(255, 255, 255, 0.03)
+
+**Input Fields:**
+- Background: rgba(255, 255, 255, 0.1)
+- Border: 1px rgba(255, 255, 255, 0.2)
+- Focus border: rgba(167, 139, 250, 0.5)
+- Focus shadow: 0 0 20px rgba(167, 139, 250, 0.3)
+
+**Submit Button:**
+- Gradient: linear-gradient(135deg, rgba(168, 85, 247, 0.8), rgba(99, 102, 241, 0.8))
+- Shadow: 0 0 20px rgba(168, 85, 247, 0.6)
+- Hover shadow: 0 0 30px rgba(168, 85, 247, 0.8)
+
+### Code Quality
+
+- Clean inline styles for precise control
+- Interactive hover/focus effects
+- Consistent cosmic theme
+- No additional dependencies
+- Smooth transitions
+
+### Commits
+
+- 5ad19b4 - Redesign task form modal with glassmorphism cosmic theme
+
+### Next Steps
+
+Ready for testing. The modal should now blend beautifully with the constellation view's cosmic theme.
+
+---
