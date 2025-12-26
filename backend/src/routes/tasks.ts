@@ -278,4 +278,43 @@ router.delete('/:taskId/subtasks/:subtaskId', async (req: Request, res: Response
   }
 });
 
+// Get orphaned linked tasks
+router.get('/orphaned/detect', async (req: Request, res: Response) => {
+  try {
+    const syncCode = req.headers['x-sync-code'] as string;
+
+    if (!syncCode) {
+      return res.status(400).json({ error: 'Missing x-sync-code header' });
+    }
+
+    const orphanedTasks = await taskService.findOrphanedLinkedTasks(syncCode);
+    res.json({ orphanedTasks });
+  } catch (error) {
+    console.error('Error finding orphaned tasks:', error);
+    res.status(500).json({ error: 'Failed to find orphaned tasks' });
+  }
+});
+
+// Delete multiple tasks
+router.post('/batch/delete', async (req: Request, res: Response) => {
+  try {
+    const { taskIds } = req.body;
+    const syncCode = req.headers['x-sync-code'] as string;
+
+    if (!syncCode) {
+      return res.status(400).json({ error: 'Missing x-sync-code header' });
+    }
+
+    if (!Array.isArray(taskIds) || taskIds.length === 0) {
+      return res.status(400).json({ error: 'taskIds must be a non-empty array' });
+    }
+
+    await taskService.deleteMultipleTasks(taskIds, syncCode);
+    res.json({ success: true, deletedCount: taskIds.length });
+  } catch (error) {
+    console.error('Error deleting tasks:', error);
+    res.status(500).json({ error: 'Failed to delete tasks' });
+  }
+});
+
 export default router;

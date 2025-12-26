@@ -93,25 +93,35 @@ class TaskService {
     return { task: newTask, parentTask: updatedParentTask };
   }
 
-  // Clean up orphaned linked tasks (tasks whose parent task/subtask no longer exists)
-  async cleanupOrphanedLinkedTasks(syncCode: string): Promise<void> {
+  // Find orphaned linked tasks (tasks whose parent task/subtask no longer exists)
+  async findOrphanedLinkedTasks(syncCode: string): Promise<Task[]> {
     const allTasks = await this.getAllTasksRaw(syncCode);
 
     // Find tasks that have sourceSubtaskId (linked tasks)
     const linkedTasks = allTasks.filter((t) => t.sourceSubtaskId);
 
+    const orphanedTasks: Task[] = [];
     for (const linkedTask of linkedTasks) {
       // Check if the parent task and subtask still exist
       const parentTask = allTasks.find((t) =>
         t.subtasks.some((st) => st.id === linkedTask.sourceSubtaskId)
       );
 
-      // If parent task or subtask doesn't exist, delete this orphaned task
+      // If parent task or subtask doesn't exist, this is an orphaned task
       if (!parentTask) {
-        console.log(`🧹 Cleaning up orphaned linked task: ${linkedTask.id} (${linkedTask.title})`);
-        await this.deleteTask(linkedTask.id, syncCode);
+        orphanedTasks.push(linkedTask);
       }
     }
+
+    return orphanedTasks;
+  }
+
+  // Delete multiple tasks by IDs
+  async deleteMultipleTasks(taskIds: string[], syncCode: string): Promise<boolean> {
+    for (const taskId of taskIds) {
+      await this.deleteTask(taskId, syncCode);
+    }
+    return true;
   }
 
   // Get all tasks without cleanup (internal use)
@@ -135,10 +145,8 @@ class TaskService {
 
   // Get all tasks for a sync code
   async getTasksBySyncCode(syncCode: string): Promise<Task[]> {
-    // Clean up orphaned linked tasks first
-    await this.cleanupOrphanedLinkedTasks(syncCode);
-
-    // Then return all tasks
+    // Just return all tasks without auto-cleanup
+    // Orphaned tasks will be handled by frontend prompt
     return this.getAllTasksRaw(syncCode);
   }
 
