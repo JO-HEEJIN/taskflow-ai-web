@@ -1,4 +1,7 @@
-import { NotificationHubsClient } from '@azure/notification-hubs';
+import {
+  NotificationHubsClient,
+  createTemplateNotification
+} from '@azure/notification-hubs';
 
 class NotificationService {
   private client: NotificationHubsClient | null = null;
@@ -55,12 +58,13 @@ class NotificationService {
       };
 
       // Send to all devices with this sync code tag
+      const hubNotification = createTemplateNotification({
+        body: JSON.stringify(message),
+      });
+
       await this.client.sendNotification(
-        {
-          body: JSON.stringify(message),
-          contentType: 'application/json',
-        },
-        { tags: [`syncCode:${syncCode}`] }
+        hubNotification,
+        { tagExpression: `syncCode:${syncCode}` }
       );
 
       console.log(`📬 Notification sent to sync code: ${syncCode}`);
@@ -89,10 +93,11 @@ class NotificationService {
         },
       };
 
-      await this.client.sendNotification({
+      const hubNotification = createTemplateNotification({
         body: JSON.stringify(message),
-        contentType: 'application/json',
       });
+
+      await this.client.sendNotification(hubNotification, {} as any);
 
       console.log('📢 Broadcast notification sent');
     } catch (error) {
