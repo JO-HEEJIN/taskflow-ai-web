@@ -6,24 +6,24 @@ const router = Router();
 // Register device for push notifications
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const syncCode = req.headers['x-sync-code'] as string;
+    const userId = req.headers['x-user-id'] as string;
     const { deviceId } = req.body;
 
-    if (!syncCode) {
-      return res.status(400).json({ error: 'Missing x-sync-code header' });
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing x-user-id header' });
     }
 
     if (!deviceId) {
       return res.status(400).json({ error: 'Device ID is required' });
     }
 
-    // Register device with sync code tag
-    await notificationService.registerDevice(syncCode, deviceId);
+    // Register device with user ID tag
+    await notificationService.registerDevice(userId, deviceId);
 
     res.json({
       success: true,
       message: 'Device registered for notifications',
-      syncCode,
+      userId,
     });
   } catch (error) {
     console.error('Error registering device for notifications:', error);
@@ -34,13 +34,13 @@ router.post('/register', async (req: Request, res: Response) => {
 // Test notification endpoint
 router.post('/test', async (req: Request, res: Response) => {
   try {
-    const syncCode = req.headers['x-sync-code'] as string;
+    const userId = req.headers['x-user-id'] as string;
 
-    if (!syncCode) {
-      return res.status(400).json({ error: 'Missing x-sync-code header' });
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing x-user-id header' });
     }
 
-    await notificationService.sendToUser(syncCode, {
+    await notificationService.sendToUser(userId, {
       title: '🧪 Test Notification',
       body: 'This is a test notification from TaskFlow AI',
       icon: '/icon.png',

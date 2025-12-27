@@ -4,7 +4,9 @@ import { Task, TaskStatus } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
 import { SearchFilter } from './SearchFilter';
 import { KanbanSidePanel } from './KanbanSidePanel';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface KanbanViewProps {
   tasks: Task[];
@@ -39,6 +41,27 @@ export function KanbanView({
   const [dragOverColumn, setDragOverColumn] = useState<TaskStatus | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const { data: session } = useSession();
+  const router = useRouter();
+
+  // Close filter menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+        setShowFilterMenu(false);
+      }
+    };
+
+    if (showFilterMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFilterMenu]);
 
   const columns: { status: TaskStatus; title: string; count: number }[] = [
     {
@@ -111,34 +134,129 @@ export function KanbanView({
   return (
     <div className="w-screen h-screen bg-gray-50 overflow-hidden flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">TaskFlow AI</h1>
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-2xl px-3 py-1"
-        >
-          ✕
-        </button>
-      </div>
+      <div className="bg-white border-b border-gray-200 px-2 md:px-6 py-2 flex flex-col gap-2">
+        {/* Top row: Back button and User Menu */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-1 text-gray-600 hover:text-purple-600 px-2 py-1 rounded-lg border border-gray-300 hover:border-purple-500 transition-all text-xs"
+          >
+            <span className="text-sm">🌌</span>
+            <span className="font-medium">Back</span>
+          </button>
 
-      {/* Search and Filter */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <SearchFilter
-          searchQuery={searchQuery}
-          onSearchChange={onSearchChange}
-          statusFilter={statusFilter}
-          onStatusFilterChange={onStatusFilterChange}
-          taskCounts={taskCounts}
-        />
+          {/* User Menu - Compact */}
+          <div className="flex items-center gap-1.5">
+            {session ? (
+              <>
+                {session.user?.image && (
+                  <img
+                    src={session.user.image}
+                    alt={session.user?.name || 'User'}
+                    className="w-6 h-6 rounded-full"
+                  />
+                )}
+                <button
+                  onClick={() => signOut({ callbackUrl: '/' })}
+                  className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all"
+                >
+                  Logout
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">G</span>
+                </div>
+                <button
+                  onClick={() => router.push('/auth/signin')}
+                  className="text-xs px-2 py-1 rounded bg-purple-600 hover:bg-purple-700 text-white transition-all"
+                >
+                  Sign In
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom row: Compact Search and Filter */}
+        <div className="flex items-center gap-2 relative" ref={filterMenuRef}>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Search..."
+            className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-purple-500"
+          />
+
+          {/* Filter Button (Hamburger) */}
+          <button
+            onClick={() => setShowFilterMenu(!showFilterMenu)}
+            className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all flex items-center gap-1"
+          >
+            <span>☰</span>
+            <span className="hidden sm:inline">Filter</span>
+          </button>
+
+          {/* Filter Dropdown Menu */}
+          {showFilterMenu && (
+            <div className="absolute top-8 right-0 bg-white border border-gray-300 rounded shadow-lg z-50 min-w-[140px]">
+              <button
+                onClick={() => {
+                  onStatusFilterChange('all');
+                  setShowFilterMenu(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${
+                  statusFilter === 'all' ? 'bg-purple-50 text-purple-600 font-semibold' : ''
+                }`}
+              >
+                All ({taskCounts.all})
+              </button>
+              <button
+                onClick={() => {
+                  onStatusFilterChange('pending');
+                  setShowFilterMenu(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${
+                  statusFilter === 'pending' ? 'bg-purple-50 text-purple-600 font-semibold' : ''
+                }`}
+              >
+                Pending ({taskCounts.pending})
+              </button>
+              <button
+                onClick={() => {
+                  onStatusFilterChange('in_progress');
+                  setShowFilterMenu(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${
+                  statusFilter === 'in_progress' ? 'bg-purple-50 text-purple-600 font-semibold' : ''
+                }`}
+              >
+                In Progress ({taskCounts.in_progress})
+              </button>
+              <button
+                onClick={() => {
+                  onStatusFilterChange('completed');
+                  setShowFilterMenu(false);
+                }}
+                className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${
+                  statusFilter === 'completed' ? 'bg-purple-50 text-purple-600 font-semibold' : ''
+                }`}
+              >
+                Completed ({taskCounts.completed})
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="h-full flex gap-6 p-6">
+      <div className="flex-1 overflow-x-auto overflow-y-hidden scroll-smooth snap-x snap-mandatory">
+        <div className="h-full flex gap-2 p-3 md:gap-6 md:p-6">
           {columns.map((column) => (
             <div
               key={column.status}
-              className="flex-shrink-0 w-80 bg-gray-100 rounded-lg flex flex-col"
+              className="flex-shrink-0 w-[92vw] md:w-80 bg-gray-100 rounded-lg flex flex-col snap-center"
             >
               {/* Column Header */}
               <div className="p-4 border-b border-gray-200">

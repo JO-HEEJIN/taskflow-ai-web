@@ -1,6 +1,7 @@
 'use client';
 
 import { TaskStatus } from '@/types';
+import { useState, useEffect, useRef } from 'react';
 
 interface SearchFilterProps {
   searchQuery: string;
@@ -22,6 +23,9 @@ export function SearchFilter({
   onStatusFilterChange,
   taskCounts,
 }: SearchFilterProps) {
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+
   const filterButtons: { label: string; value: TaskStatus | 'all'; count: number }[] = [
     { label: 'All', value: 'all', count: taskCounts.all },
     { label: 'Pending', value: TaskStatus.PENDING, count: taskCounts.pending },
@@ -29,16 +33,33 @@ export function SearchFilter({
     { label: 'Completed', value: TaskStatus.COMPLETED, count: taskCounts.completed },
   ];
 
+  // Close filter menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+        setShowFilterMenu(false);
+      }
+    };
+
+    if (showFilterMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showFilterMenu]);
+
   return (
-    <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+    <div className="flex items-center gap-2 relative" ref={filterMenuRef}>
       {/* Search Input */}
-      <div className="relative flex-1 max-w-md">
+      <div className="relative flex-1">
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
           placeholder="Search tasks..."
-          className="w-full px-4 py-2 pr-10 rounded-lg backdrop-blur-md text-white placeholder:text-gray-300 transition-all focus:outline-none"
+          className="w-full px-3 py-2 pr-10 rounded-lg backdrop-blur-md text-white placeholder:text-gray-300 transition-all focus:outline-none text-sm"
           style={{
             background: 'rgba(255, 255, 255, 0.1)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -63,44 +84,74 @@ export function SearchFilter({
         )}
       </div>
 
-      {/* Filter Buttons */}
-      <div className="flex gap-2 flex-wrap">
-        {filterButtons.map((button) => (
-          <button
-            key={button.value}
-            onClick={() => onStatusFilterChange(button.value)}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-all"
-            style={
-              statusFilter === button.value
-                ? {
-                    background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.8) 0%, rgba(99, 102, 241, 0.8) 100%)',
-                    boxShadow: '0 0 20px rgba(168, 85, 247, 0.6)',
-                    color: 'white',
-                    border: '1px solid rgba(167, 139, 250, 0.5)',
-                  }
-                : {
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    color: 'white',
-                  }
-            }
-            onMouseEnter={(e) => {
-              if (statusFilter !== button.value) {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                e.currentTarget.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+      {/* Filter Hamburger Button */}
+      <button
+        onClick={() => setShowFilterMenu(!showFilterMenu)}
+        className="px-3 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1 whitespace-nowrap"
+        style={{
+          background: 'rgba(255, 255, 255, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          color: 'white',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+          e.currentTarget.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+          e.currentTarget.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+        }}
+      >
+        <span>☰</span>
+        <span className="hidden sm:inline">Filter</span>
+      </button>
+
+      {/* Filter Dropdown Menu */}
+      {showFilterMenu && (
+        <div
+          className="absolute top-12 right-0 backdrop-blur-md rounded-lg shadow-lg z-50 min-w-[160px] overflow-hidden"
+          style={{
+            background: 'rgba(0, 0, 0, 0.85)',
+            border: '1px solid rgba(167, 139, 250, 0.3)',
+            boxShadow: '0 0 30px rgba(167, 139, 250, 0.3)',
+          }}
+        >
+          {filterButtons.map((button) => (
+            <button
+              key={button.value}
+              onClick={() => {
+                onStatusFilterChange(button.value);
+                setShowFilterMenu(false);
+              }}
+              className="w-full text-left px-4 py-2 text-sm transition-all"
+              style={
+                statusFilter === button.value
+                  ? {
+                      background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.8) 0%, rgba(99, 102, 241, 0.8) 100%)',
+                      color: 'white',
+                      fontWeight: 'semibold',
+                    }
+                  : {
+                      background: 'transparent',
+                      color: 'white',
+                    }
               }
-            }}
-            onMouseLeave={(e) => {
-              if (statusFilter !== button.value) {
-                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                e.currentTarget.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-              }
-            }}
-          >
-            {button.label} ({button.count})
-          </button>
-        ))}
-      </div>
+              onMouseEnter={(e) => {
+                if (statusFilter !== button.value) {
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (statusFilter !== button.value) {
+                  e.currentTarget.style.background = 'transparent';
+                }
+              }}
+            >
+              {button.label} ({button.count})
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -9,14 +9,28 @@ const router = Router();
 router.post('/breakdown/:taskId', async (req: Request, res: Response) => {
   try {
     const { taskId } = req.params;
-    const syncCode = req.headers['x-sync-code'] as string;
+    const userId = req.headers['x-user-id'] as string;
+    const { title, description } = req.body; // For guest users who send task data in body
 
-    if (!syncCode) {
-      return res.status(400).json({ error: 'Missing x-sync-code header' });
+    // Guest mode: task data provided in request body
+    if (!userId && title) {
+      console.log('🔓 Guest user requesting AI breakdown');
+      const breakdown = await azureOpenAIService.breakdownTask(title, description);
+
+      return res.json({
+        taskId,
+        suggestions: breakdown.subtasks,
+        count: breakdown.subtasks.length,
+      });
+    }
+
+    // Authenticated mode: fetch task from database
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing x-user-id header or task data' });
     }
 
     // Get the task
-    const task = await taskService.getTaskById(taskId, syncCode);
+    const task = await taskService.getTaskById(taskId, userId);
 
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
@@ -30,7 +44,7 @@ router.post('/breakdown/:taskId', async (req: Request, res: Response) => {
 
     // Send notification: AI Breakdown Complete
     await notificationService.notifyAIBreakdownComplete(
-      syncCode,
+      userId,
       task.title,
       breakdown.subtasks.length
     );

@@ -6,6 +6,8 @@ import tasksRouter from './routes/tasks';
 import aiRouter from './routes/ai';
 import syncRouter from './routes/sync';
 import notificationsRouter from './routes/notifications';
+import authRouter from './routes/auth';
+import imagesRouter from './routes/images';
 
 dotenv.config();
 
@@ -45,6 +47,8 @@ app.use('/api/tasks', tasksRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/sync', syncRouter);
 app.use('/api/notifications', notificationsRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/images', imagesRouter);
 
 // Initialize services and start server
 async function startServer() {

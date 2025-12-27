@@ -8,6 +8,7 @@ class CosmosService {
   private database: Database | null = null;
   private tasksContainer: Container | null = null;
   private syncContainer: Container | null = null;
+  private usersContainer: Container | null = null;
 
   constructor() {
     const endpoint = process.env.COSMOS_ENDPOINT || '';
@@ -50,6 +51,13 @@ class CosmosService {
       });
       this.syncContainer = syncContainer;
 
+      // Create users container
+      const { container: usersContainer } = await database.containers.createIfNotExists({
+        id: 'users',
+        partitionKey: { paths: ['/email'] },
+      });
+      this.usersContainer = usersContainer;
+
       console.log('✅ Cosmos DB initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize Cosmos DB:', error);
@@ -65,8 +73,12 @@ class CosmosService {
     return this.syncContainer;
   }
 
+  getUsersContainer(): Container | null {
+    return this.usersContainer;
+  }
+
   isConnected(): boolean {
-    return this.tasksContainer !== null && this.syncContainer !== null;
+    return this.tasksContainer !== null && this.syncContainer !== null && this.usersContainer !== null;
   }
 }
 

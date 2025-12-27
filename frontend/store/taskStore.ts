@@ -165,7 +165,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   generateAIBreakdown: async (taskId: string) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await api.breakdownTask(taskId);
+      // Find the task to get its title and description
+      const task = get().tasks.find(t => t.id === taskId);
+      const result = await api.breakdownTask(taskId, task?.title, task?.description);
       set({ isLoading: false });
       return result;
     } catch (error: any) {

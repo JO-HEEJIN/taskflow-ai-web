@@ -1,6 +1,11 @@
+.env
+.env.local
+.env.*.local
 node_modules
 npm-debug.log
-.env
 .git
 .gitignore
 README.md
+.vscode
+.DS_Store
+dist

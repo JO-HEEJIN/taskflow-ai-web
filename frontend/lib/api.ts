@@ -1,6 +1,13 @@
 // API Client for TaskFlow AI Backend
+import { guestStorage } from './guestStorage';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+// Check if user is in guest mode
+function isGuestMode(): boolean {
+  if (typeof window === 'undefined') return false;
+  return !localStorage.getItem('userId');
+}
 
 // Get device token from localStorage or generate new one
 function getDeviceToken(): string {
@@ -14,37 +21,16 @@ function getDeviceToken(): string {
   return token;
 }
 
-// Get sync code from localStorage or generate new one
-async function getSyncCode(): Promise<string> {
+// Get user ID from localStorage (set by auth)
+function getUserId(): string {
   if (typeof window === 'undefined') return '';
-
-  let code = localStorage.getItem('syncCode');
-  if (!code) {
-    // Auto-generate sync code on first visit
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/sync/code`, {
-        headers: {
-          'Content-Type': 'application/json',
-          'x-device-token': getDeviceToken(),
-        },
-      });
-      const data = await res.json();
-      code = data.syncCode;
-      if (code) localStorage.setItem('syncCode', code);
-    } catch (error) {
-      console.error('Failed to generate sync code:', error);
-      // Fallback: generate random code locally
-      code = Math.random().toString(36).substring(2, 10).toUpperCase();
-      localStorage.setItem('syncCode', code);
-    }
-  }
-  return code || '';
+  return localStorage.getItem('userId') || '';
 }
 
-// Set sync code in localStorage
-export function setSyncCode(code: string): void {
+// Set user ID in localStorage
+export function setUserId(userId: string): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('syncCode', code);
+  localStorage.setItem('userId', userId);
 }
 
 // Common headers for API requests
@@ -54,8 +40,10 @@ async function getHeaders(): Promise<HeadersInit> {
     'x-device-token': getDeviceToken(),
   };
 
-  const syncCode = await getSyncCode();
-  headers['x-sync-code'] = syncCode;
+  const userId = getUserId();
+  if (userId) {
+    headers['x-user-id'] = userId;
+  }
 
   return headers;
 }
@@ -64,6 +52,9 @@ async function getHeaders(): Promise<HeadersInit> {
 export const api = {
   // Tasks
   async getTasks() {
+    if (isGuestMode()) {
+      return { tasks: guestStorage.getAllTasks() };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks`, {
       headers: await getHeaders(),
     });
@@ -72,6 +63,10 @@ export const api = {
   },
 
   async createTask(title: string, description?: string) {
+    if (isGuestMode()) {
+      const task = guestStorage.createTask(title, description);
+      return { task };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks`, {
       method: 'POST',
       headers: await getHeaders(),
@@ -82,6 +77,9 @@ export const api = {
   },
 
   async createLinkedTask(title: string, sourceSubtaskId: string, description?: string) {
+    if (isGuestMode()) {
+      return guestStorage.createLinkedTask(title, description, sourceSubtaskId);
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/linked`, {
       method: 'POST',
       headers: await getHeaders(),
@@ -92,6 +90,10 @@ export const api = {
   },
 
   async updateTask(id: string, updates: any) {
+    if (isGuestMode()) {
+      const task = guestStorage.updateTask(id, updates);
+      return { task };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
       method: 'PUT',
       headers: await getHeaders(),
@@ -102,6 +104,10 @@ export const api = {
   },
 
   async deleteTask(id: string) {
+    if (isGuestMode()) {
+      guestStorage.deleteTask(id);
+      return { message: 'Task deleted successfully' };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
       method: 'DELETE',
       headers: await getHeaders(),
@@ -111,6 +117,10 @@ export const api = {
   },
 
   async addSubtasks(taskId: string, subtasks: string[]) {
+    if (isGuestMode()) {
+      const task = guestStorage.addSubtasks(taskId, subtasks);
+      return { task };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks`, {
       method: 'POST',
       headers: await getHeaders(),
@@ -121,6 +131,10 @@ export const api = {
   },
 
   async toggleSubtask(taskId: string, subtaskId: string) {
+    if (isGuestMode()) {
+      const task = guestStorage.toggleSubtask(taskId, subtaskId);
+      return { task };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/${subtaskId}`, {
       method: 'PATCH',
       headers: await getHeaders(),
@@ -130,6 +144,10 @@ export const api = {
   },
 
   async deleteSubtask(taskId: string, subtaskId: string) {
+    if (isGuestMode()) {
+      const task = guestStorage.deleteSubtask(taskId, subtaskId);
+      return { task };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/${subtaskId}`, {
       method: 'DELETE',
       headers: await getHeaders(),
@@ -139,6 +157,10 @@ export const api = {
   },
 
   async reorderSubtasks(taskId: string, subtaskOrders: { id: string; order: number }[]) {
+    if (isGuestMode()) {
+      const task = guestStorage.reorderSubtasks(taskId, subtaskOrders);
+      return { task };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/reorder`, {
       method: 'PATCH',
       headers: await getHeaders(),
@@ -149,6 +171,10 @@ export const api = {
   },
 
   async archiveSubtask(taskId: string, subtaskId: string, archived: boolean) {
+    if (isGuestMode()) {
+      const task = guestStorage.archiveSubtask(taskId, subtaskId, archived);
+      return { task };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/${subtaskId}/archive`, {
       method: 'PATCH',
       headers: await getHeaders(),
@@ -159,48 +185,58 @@ export const api = {
   },
 
   // AI
-  async breakdownTask(taskId: string) {
+  async breakdownTask(taskId: string, title?: string, description?: string) {
+    const headers = await getHeaders();
+
+    // Guest mode: send task data in body
+    if (isGuestMode() && title) {
+      const res = await fetch(`${API_BASE_URL}/api/ai/breakdown/${taskId}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ title, description }),
+      });
+      if (!res.ok) throw new Error('Failed to generate AI breakdown');
+      return res.json();
+    }
+
+    // Authenticated mode: backend fetches task from DB
     const res = await fetch(`${API_BASE_URL}/api/ai/breakdown/${taskId}`, {
       method: 'POST',
-      headers: await getHeaders(),
+      headers,
     });
     if (!res.ok) throw new Error('Failed to generate AI breakdown');
     return res.json();
   },
 
-  // Sync
-  async generateSyncCode() {
-    const res = await fetch(`${API_BASE_URL}/api/sync/code`, {
-      headers: await getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to generate sync code');
-    const data = await res.json();
-    setSyncCode(data.syncCode);
-    return data;
-  },
+  // Images
+  async uploadImage(file: File) {
+    const userId = getUserId();
+    if (!userId) {
+      throw new Error('User not authenticated');
+    }
 
-  async linkDevice(syncCode: string) {
-    const res = await fetch(`${API_BASE_URL}/api/sync/link`, {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const res = await fetch(`${API_BASE_URL}/api/images/upload`, {
       method: 'POST',
-      headers: await getHeaders(),
-      body: JSON.stringify({ syncCode }),
+      headers: {
+        'x-device-token': getDeviceToken(),
+        'x-user-id': userId,
+      },
+      body: formData,
     });
-    if (!res.ok) throw new Error('Failed to link device');
-    const data = await res.json();
-    setSyncCode(syncCode);
-    return data;
-  },
 
-  async getSyncSession() {
-    const res = await fetch(`${API_BASE_URL}/api/sync/session`, {
-      headers: await getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch sync session');
+    if (!res.ok) throw new Error('Failed to upload image');
     return res.json();
   },
 
   // Orphaned tasks
   async getOrphanedTasks() {
+    if (isGuestMode()) {
+      // Guest mode doesn't support orphaned task detection (requires backend)
+      return { orphanedTasks: [] };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/orphaned/detect`, {
       headers: await getHeaders(),
     });
@@ -209,6 +245,11 @@ export const api = {
   },
 
   async deleteBatchTasks(taskIds: string[]) {
+    if (isGuestMode()) {
+      // Delete tasks locally
+      taskIds.forEach((id) => guestStorage.deleteTask(id));
+      return { success: true, deletedCount: taskIds.length };
+    }
     const res = await fetch(`${API_BASE_URL}/api/tasks/batch/delete`, {
       method: 'POST',
       headers: await getHeaders(),

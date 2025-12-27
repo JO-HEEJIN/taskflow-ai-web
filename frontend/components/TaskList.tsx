@@ -28,9 +28,14 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
     fetchTasks();
   }, [fetchTasks]);
 
-  // Check for orphaned tasks after tasks are loaded
+  // Check for orphaned tasks after tasks are loaded (skip in guest mode)
   useEffect(() => {
     const checkOrphanedTasks = async () => {
+      // Skip orphaned task detection in guest mode
+      if (typeof window !== 'undefined' && !localStorage.getItem('userId')) {
+        return;
+      }
+
       if (tasks.length > 0 && !isLoading) {
         try {
           const { orphanedTasks: orphaned } = await api.getOrphanedTasks();

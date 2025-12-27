@@ -5,6 +5,8 @@ import { TaskCard } from './TaskCard';
 import { StarryBackground } from './StarryBackground';
 import { SearchFilter } from './SearchFilter';
 import { useMemo, useState, useRef, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 
 interface TaskGraphViewProps {
   tasks: Task[];
@@ -45,12 +47,18 @@ export function TaskGraphView({
   onStatusFilterChange,
   taskCounts,
 }: TaskGraphViewProps) {
+  const { data: session } = useSession();
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mouseDownPos, setMouseDownPos] = useState({ x: 0, y: 0 });
+
+  // Touch gesture states
+  const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null);
+  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
 
   // Build task relationships and positions
   const { positions, connections } = useMemo(() => {
@@ -217,8 +225,70 @@ export function TaskGraphView({
   };
 
   // Touch handlers for mobile
+  const getTouchDistance = (touch1: React.Touch, touch2: React.Touch): number => {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      // Single finger - pan
+      const touch = e.touches[0];
+      setIsDragging(true);
+      setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+      setTouchStartPos({ x: touch.clientX, y: touch.clientY });
+    } else if (e.touches.length === 2) {
+      // Two fingers - pinch zoom
+      setIsDragging(false);
+      const distance = getTouchDistance(e.touches[0], e.touches[1]);
+      setLastTouchDistance(distance);
+
+      // Center point between two fingers
+      const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+      const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+      setTouchStartPos({ x: centerX, y: centerY });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      // Single finger pan
+      const touch = e.touches[0];
+      if (dragStart.x !== 0 || dragStart.y !== 0) {
+        setPan({
+          x: touch.clientX - dragStart.x,
+          y: touch.clientY - dragStart.y,
+        });
+      }
+    } else if (e.touches.length === 2) {
+      // Two finger pinch zoom
+      const distance = getTouchDistance(e.touches[0], e.touches[1]);
+
+      if (lastTouchDistance) {
+        const delta = distance - lastTouchDistance;
+        const zoomFactor = 1 + delta / 500; // Adjust sensitivity
+        const newZoom = Math.min(Math.max(0.3, zoom * zoomFactor), 2);
+
+        setZoom(newZoom);
+        setLastTouchDistance(distance);
+      }
+    }
+  };
+
   const handleTouchEnd = (e: React.TouchEvent) => {
-    setIsDragging(false);
+    if (e.touches.length === 0) {
+      setIsDragging(false);
+      setLastTouchDistance(null);
+      setTouchStartPos(null);
+    } else if (e.touches.length === 1) {
+      // One finger left after two-finger gesture
+      setLastTouchDistance(null);
+      // Resume panning with remaining finger
+      const touch = e.touches[0];
+      setIsDragging(true);
+      setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+    }
   };
 
   // Reset view
@@ -245,14 +315,57 @@ export function TaskGraphView({
       {/* Starry background */}
       <StarryBackground />
 
+      {/* User Menu - Top Right */}
+      <div
+        className="absolute top-2 right-2 md:top-4 md:right-4 z-50 flex items-center gap-1 backdrop-blur-md rounded-full px-2 py-1"
+        style={{
+          background: 'rgba(0, 0, 0, 0.5)',
+          border: '1px solid rgba(167, 139, 250, 0.3)',
+        }}
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+      >
+        {session ? (
+          <>
+            {session.user?.image && (
+              <img
+                src={session.user.image}
+                alt={session.user?.name || 'User'}
+                className="w-5 h-5 rounded-full"
+              />
+            )}
+            <button
+              onClick={() => signOut({ callbackUrl: '/' })}
+              className="text-xs px-2 py-0.5 rounded bg-purple-600/50 hover:bg-purple-600 text-white transition-all"
+            >
+              Logout
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
+              <span className="text-white text-xs font-bold">G</span>
+            </div>
+            <button
+              onClick={() => router.push('/auth/signin')}
+              className="text-xs px-2 py-0.5 rounded bg-purple-600 hover:bg-purple-700 text-white transition-all"
+            >
+              Sign In
+            </button>
+          </>
+        )}
+      </div>
+
       {/* Search and Filter */}
       <div
-        className="absolute top-4 left-4 right-4 z-50 max-w-4xl mx-auto"
+        className="absolute top-2 left-2 right-28 md:top-4 md:left-4 md:right-32 z-50 max-w-xl"
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
       >
         <div
-          className="backdrop-blur-md rounded-lg p-4"
+          className="backdrop-blur-md rounded-lg p-2 md:p-4"
           style={{
             background: 'rgba(0, 0, 0, 0.5)',
             border: '1px solid rgba(167, 139, 250, 0.3)',
@@ -271,14 +384,16 @@ export function TaskGraphView({
 
       {/* Controls */}
       <div
-        className="absolute top-4 right-4 z-50 backdrop-blur-md rounded-lg p-2 flex flex-col gap-2"
+        className="absolute bottom-4 right-2 md:top-20 md:right-4 md:bottom-auto z-50 backdrop-blur-md rounded-lg p-2 flex flex-col gap-2"
         style={{
-          marginTop: '100px',
+          marginTop: '0',
           background: 'rgba(0, 0, 0, 0.5)',
           border: '1px solid rgba(167, 139, 250, 0.3)',
           boxShadow: '0 0 30px rgba(167, 139, 250, 0.3), inset 0 0 30px rgba(255, 255, 255, 0.03)',
         }}
         onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
       >
         <button
@@ -347,7 +462,9 @@ export function TaskGraphView({
       {/* View mode toggle button */}
       <button
         onClick={onViewModeToggle}
-        className="absolute top-4 left-4 z-50 backdrop-blur-md rounded-lg px-4 py-2 text-sm font-medium text-white transition-all flex items-center gap-2"
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchEnd={(e) => e.stopPropagation()}
+        className="absolute bottom-4 left-2 md:top-4 md:left-4 md:bottom-auto z-50 backdrop-blur-md rounded-lg px-3 py-2 md:px-4 text-sm font-medium text-white transition-all flex items-center gap-2"
         style={{
           background: 'rgba(0, 0, 0, 0.5)',
           border: '1px solid rgba(167, 139, 250, 0.3)',
@@ -363,7 +480,7 @@ export function TaskGraphView({
         }}
       >
         <span>☰</span>
-        <span>Kanban View</span>
+        <span className="hidden md:inline">Kanban View</span>
       </button>
 
       {/* Graph container */}
@@ -375,7 +492,10 @@ export function TaskGraphView({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        style={{ touchAction: 'none' }}
       >
         <div
           style={{

@@ -1,12 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { TaskList } from '@/components/TaskList';
 import { TaskForm } from '@/components/TaskForm';
 import { useTaskStore } from '@/store/taskStore';
 import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
+import { setUserId } from '@/lib/api';
+import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const { tasks } = useTaskStore();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -14,12 +20,30 @@ export default function Home() {
 
   const editingTask = editingTaskId ? tasks.find(t => t.id === editingTaskId) : undefined;
 
+  // Handle authentication state and guest mode
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.id) {
+      // User is authenticated
+      setUserId(session.user.id);
+      console.log('✅ User ID stored:', session.user.id);
+
+      // Trigger guest data migration if needed
+      migrateGuestDataIfNeeded(session.user.id).catch((error) => {
+        console.error('Migration error:', error);
+      });
+    } else if (status === 'unauthenticated') {
+      // Initialize guest mode
+      initializeGuestMode();
+      console.log('👤 Guest mode active');
+    }
+  }, [status, session]);
+
   // Initialize push notifications
   useEffect(() => {
     const initNotifications = async () => {
-      const syncCode = localStorage.getItem('syncCode');
-      if (!syncCode) {
-        console.log('No sync code found, notifications not initialized');
+      const userId = localStorage.getItem('userId');
+      if (!userId) {
+        console.log('No user ID found, notifications not initialized');
         return;
       }
 
@@ -28,14 +52,14 @@ export default function Home() {
 
       if (status === 'default') {
         // Automatically request permission and subscribe
-        const success = await subscribeToPushNotifications(syncCode);
+        const success = await subscribeToPushNotifications(userId);
         if (success) {
           setNotificationStatus('granted');
           console.log('✅ Push notifications enabled');
         }
       } else if (status === 'granted') {
         // Already granted, ensure subscription is active
-        await subscribeToPushNotifications(syncCode);
+        await subscribeToPushNotifications(userId);
         console.log('✅ Push notifications already enabled');
       }
     };
@@ -43,8 +67,18 @@ export default function Home() {
     initNotifications();
   }, []);
 
+  // Show loading while checking authentication
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-black">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
   return (
-    <main className="min-h-screen overflow-hidden">
+    <main className="min-h-screen overflow-hidden relative">
+
       {/* Task Form Modal */}
       {showTaskForm && (
         <div

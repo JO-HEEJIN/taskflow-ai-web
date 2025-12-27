@@ -33,7 +33,7 @@ class NotificationService {
   }
 
   // Register device for notifications with tag
-  async registerDevice(syncCode: string, deviceId: string): Promise<void> {
+  async registerDevice(userId: string, deviceId: string): Promise<void> {
     if (!this.client) {
       console.warn('Cannot register device - service not enabled');
       return;
@@ -46,7 +46,7 @@ class NotificationService {
         installationId: deviceId,
         platform: 'gcm' as const, // Use GCM platform for web browsers
         pushChannel: deviceId, // Use deviceId as the channel
-        tags: [`syncCode:${syncCode}`],
+        tags: [`userId:${userId}`],
         templates: {
           genericTemplate: {
             body: '$(message)',
@@ -56,7 +56,7 @@ class NotificationService {
       };
 
       await this.client.createOrUpdateInstallation(installation);
-      console.log(`✅ Device registered: ${deviceId} with tag syncCode:${syncCode}`);
+      console.log(`✅ Device registered: ${deviceId} with tag userId:${userId}`);
     } catch (error) {
       console.error('Failed to register device:', error);
       // Don't throw - just log the error and continue
@@ -64,8 +64,8 @@ class NotificationService {
     }
   }
 
-  // Send notification to specific user (by sync code)
-  async sendToUser(syncCode: string, notification: {
+  // Send notification to specific user (by user ID)
+  async sendToUser(userId: string, notification: {
     title: string;
     body: string;
     icon?: string;
@@ -89,17 +89,17 @@ class NotificationService {
         },
       };
 
-      // Send to all devices with this sync code tag
+      // Send to all devices with this user ID tag
       const hubNotification = createTemplateNotification({
         body: JSON.stringify(message),
       });
 
       await this.client.sendNotification(
         hubNotification,
-        { tagExpression: `syncCode:${syncCode}` }
+        { tagExpression: `userId:${userId}` }
       );
 
-      console.log(`📬 Notification sent to sync code: ${syncCode}`);
+      console.log(`📬 Notification sent to user: ${userId}`);
     } catch (error) {
       console.error('Failed to send notification:', error);
     }
@@ -138,8 +138,8 @@ class NotificationService {
   }
 
   // Notification 1: AI Breakdown Complete
-  async notifyAIBreakdownComplete(syncCode: string, taskTitle: string, subtaskCount: number) {
-    await this.sendToUser(syncCode, {
+  async notifyAIBreakdownComplete(userId: string, taskTitle: string, subtaskCount: number) {
+    await this.sendToUser(userId, {
       title: '✨ AI Task Breakdown Complete',
       body: `AI suggested ${subtaskCount} subtasks for "${taskTitle}"`,
       icon: '/ai-icon.png',
@@ -148,8 +148,8 @@ class NotificationService {
   }
 
   // Notification 2: Task Completed
-  async notifyTaskCompleted(syncCode: string, taskTitle: string) {
-    await this.sendToUser(syncCode, {
+  async notifyTaskCompleted(userId: string, taskTitle: string) {
+    await this.sendToUser(userId, {
       title: '🎉 Task Completed!',
       body: `Congratulations! You completed "${taskTitle}"`,
       icon: '/celebration-icon.png',
@@ -158,8 +158,8 @@ class NotificationService {
   }
 
   // Notification 3: Due Date Reminder
-  async notifyDueDateReminder(syncCode: string, taskTitle: string, timeRemaining: string) {
-    await this.sendToUser(syncCode, {
+  async notifyDueDateReminder(userId: string, taskTitle: string, timeRemaining: string) {
+    await this.sendToUser(userId, {
       title: `⏰ Due Date Reminder - ${timeRemaining}`,
       body: `Don't forget: "${taskTitle}" is due soon!`,
       icon: '/clock-icon.png',
@@ -168,8 +168,8 @@ class NotificationService {
   }
 
   // Notification 4: Linked Task Created
-  async notifyLinkedTaskCreated(syncCode: string, newTaskTitle: string, sourceSubtask: string) {
-    await this.sendToUser(syncCode, {
+  async notifyLinkedTaskCreated(userId: string, newTaskTitle: string, sourceSubtask: string) {
+    await this.sendToUser(userId, {
       title: '🔗 New Linked Task Created',
       body: `Created "${newTaskTitle}" from subtask "${sourceSubtask}"`,
       icon: '/link-icon.png',
@@ -178,8 +178,8 @@ class NotificationService {
   }
 
   // Notification 5: Orphaned Tasks Found
-  async notifyOrphanedTasksFound(syncCode: string, orphanedCount: number) {
-    await this.sendToUser(syncCode, {
+  async notifyOrphanedTasksFound(userId: string, orphanedCount: number) {
+    await this.sendToUser(userId, {
       title: '🧹 Orphaned Tasks Found',
       body: `${orphanedCount} orphaned task${orphanedCount > 1 ? 's' : ''} detected. Clean up recommended.`,
       icon: '/cleanup-icon.png',
@@ -188,8 +188,8 @@ class NotificationService {
   }
 
   // Notification 6: Stale Task Reminder
-  async notifyStaleTask(syncCode: string, taskTitle: string, daysSinceUpdate: number) {
-    await this.sendToUser(syncCode, {
+  async notifyStaleTask(userId: string, taskTitle: string, daysSinceUpdate: number) {
+    await this.sendToUser(userId, {
       title: '💤 Stale Task Reminder',
       body: `"${taskTitle}" has been inactive for ${daysSinceUpdate} days`,
       icon: '/sleep-icon.png',
@@ -198,8 +198,8 @@ class NotificationService {
   }
 
   // Notification 7: Sync Success
-  async notifySyncSuccess(syncCode: string, deviceName?: string) {
-    await this.sendToUser(syncCode, {
+  async notifySyncSuccess(userId: string, deviceName?: string) {
+    await this.sendToUser(userId, {
       title: '✅ Sync Complete',
       body: deviceName
         ? `Successfully synced with ${deviceName}`

@@ -1,10 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Task } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
+import { api } from '@/lib/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import '@uiw/react-md-editor/markdown-editor.css';
+import '@uiw/react-markdown-preview/markdown.css';
+
+const MDEditor = dynamic(
+  () => import('@uiw/react-md-editor'),
+  { ssr: false }
+);
 
 interface KanbanSidePanelProps {
   taskId: string;
@@ -19,6 +28,7 @@ export function KanbanSidePanel({ taskId, onClose }: KanbanSidePanelProps) {
   const [description, setDescription] = useState('');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (task) {
@@ -26,6 +36,47 @@ export function KanbanSidePanel({ taskId, onClose }: KanbanSidePanelProps) {
       setDescription(task.description || '');
     }
   }, [task]);
+
+  // Image upload function
+  const uploadImage = async (file: File) => {
+    try {
+      setUploadingImage(true);
+      const response = await api.uploadImage(file);
+      const imageUrl = response.imageUrl;
+
+      // Insert markdown image syntax at cursor position
+      const imageMarkdown = `\n![${file.name}](${imageUrl})\n`;
+      setDescription((prev) => prev + imageMarkdown);
+    } catch (error) {
+      console.error('Image upload failed:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Add paste event listener to catch images in MDEditor
+  useEffect(() => {
+    if (!isEditingDescription) return;
+
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const file = items[i].getAsFile();
+          if (file) {
+            uploadImage(file);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('paste', handleGlobalPaste);
+    return () => document.removeEventListener('paste', handleGlobalPaste);
+  }, [isEditingDescription, uploadImage]);
 
   if (!task) return null;
 
@@ -41,6 +92,43 @@ export function KanbanSidePanel({ taskId, onClose }: KanbanSidePanelProps) {
       await updateTask(task.id, { description: description || undefined });
     }
     setIsEditingDescription(false);
+  };
+
+  // Handle drag and drop
+  const handleDrop = async (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const files = event.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
+        await uploadImage(file);
+      }
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  // Handle file input (click to upload)
+  const handleFileInput = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
+        await uploadImage(file);
+      }
+    }
+
+    // Reset input so same file can be selected again
+    event.target.value = '';
   };
 
   return (
@@ -110,12 +198,43 @@ export function KanbanSidePanel({ taskId, onClose }: KanbanSidePanelProps) {
             </h2>
             {isEditingDescription ? (
               <div>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full min-h-[300px] px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 font-mono text-sm"
-                  placeholder="Add a description... (Markdown supported)"
-                />
+                <div
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  className="markdown-editor-wrapper rounded-lg overflow-hidden"
+                  style={{
+                    border: '1px solid #d1d5db',
+                  }}
+                >
+                  <MDEditor
+                    value={description}
+                    onChange={(val) => setDescription(val || '')}
+                    preview="edit"
+                    height={300}
+                    textareaProps={{
+                      placeholder: 'Add a description... Drag & drop images, paste (Ctrl+V), or click the image button below.',
+                      disabled: uploadingImage,
+                    }}
+                    data-color-mode="light"
+                  />
+                </div>
+                <div className="flex items-center gap-3 mt-2">
+                  {uploadingImage && (
+                    <p className="text-sm text-blue-600">Uploading image...</p>
+                  )}
+                  <label className="cursor-pointer text-sm text-blue-600 hover:text-blue-700 flex items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileInput}
+                      className="hidden"
+                      disabled={uploadingImage}
+                    />
+                    <span>📎</span>
+                    <span>Click to upload images</span>
+                  </label>
+                </div>
                 <div className="flex gap-2 mt-3">
                   <button
                     onClick={handleDescriptionSave}

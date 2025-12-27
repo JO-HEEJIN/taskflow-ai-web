@@ -6,6 +6,8 @@ import { ProgressBar } from './ProgressBar';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import ReactMarkdown from 'react-markdown';
+import rehypeSanitize from 'rehype-sanitize';
 
 // Lazy load TaskMindMap for code splitting
 const TaskMindMap = dynamic(() => import('./graph/TaskMindMap').then(mod => ({ default: mod.TaskMindMap })), {
@@ -31,6 +33,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   const [creatingLinkedTask, setCreatingLinkedTask] = useState(false);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isGuest = typeof window !== 'undefined' && !localStorage.getItem('userId');
 
   // Get live task from store (ensures real-time updates)
   const task = tasks.find((t) => t.id === taskId);
@@ -272,7 +275,11 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">{task.title}</h2>
                 {task.description && (
-                  <p className="text-gray-600">{task.description}</p>
+                  <div className="prose prose-sm max-w-none text-gray-600">
+                    <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
+                      {task.description}
+                    </ReactMarkdown>
+                  </div>
                 )}
               </div>
               <button

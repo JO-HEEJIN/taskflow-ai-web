@@ -52,7 +52,7 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
   return Notification.permission;
 }
 
-export async function subscribeToPushNotifications(syncCode: string): Promise<boolean> {
+export async function subscribeToPushNotifications(userId: string): Promise<boolean> {
   try {
     const permission = await requestNotificationPermission();
     if (permission !== 'granted') {
@@ -82,7 +82,7 @@ export async function subscribeToPushNotifications(syncCode: string): Promise<bo
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-sync-code': syncCode,
+          'x-user-id': userId,
         },
         body: JSON.stringify({ deviceId }),
       });
@@ -92,10 +92,10 @@ export async function subscribeToPushNotifications(syncCode: string): Promise<bo
       }
 
       console.log('✅ Device registered for push notifications:', deviceId);
-      console.log('📱 Sync code:', syncCode);
+      console.log('👤 User ID:', userId);
 
-      // Store the sync code for the service worker
-      localStorage.setItem('notificationSyncCode', syncCode);
+      // Store the user ID for the service worker
+      localStorage.setItem('notificationUserId', userId);
 
       return true;
     } catch (error) {
@@ -108,13 +108,13 @@ export async function subscribeToPushNotifications(syncCode: string): Promise<bo
   }
 }
 
-async function sendSubscriptionToBackend(syncCode: string, subscription: PushSubscription): Promise<void> {
+async function sendSubscriptionToBackend(userId: string, subscription: PushSubscription): Promise<void> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/notifications/subscribe`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-sync-code': syncCode,
+        'x-user-id': userId,
       },
       body: JSON.stringify({
         subscription: subscription.toJSON(),
@@ -144,7 +144,7 @@ export async function unsubscribeFromPushNotifications(): Promise<void> {
       console.log('Unsubscribed from push notifications');
     }
 
-    localStorage.removeItem('notificationSyncCode');
+    localStorage.removeItem('notificationUserId');
   } catch (error) {
     console.error('Failed to unsubscribe from push notifications:', error);
   }
