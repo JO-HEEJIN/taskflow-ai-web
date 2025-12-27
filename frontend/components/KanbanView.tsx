@@ -214,33 +214,33 @@ export function KanbanView({
               </button>
               <button
                 onClick={() => {
-                  onStatusFilterChange('pending');
+                  onStatusFilterChange(TaskStatus.PENDING);
                   setShowFilterMenu(false);
                 }}
                 className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${
-                  statusFilter === 'pending' ? 'bg-purple-50 text-purple-600 font-semibold' : ''
+                  statusFilter === TaskStatus.PENDING ? 'bg-purple-50 text-purple-600 font-semibold' : ''
                 }`}
               >
                 Pending ({taskCounts.pending})
               </button>
               <button
                 onClick={() => {
-                  onStatusFilterChange('in_progress');
+                  onStatusFilterChange(TaskStatus.IN_PROGRESS);
                   setShowFilterMenu(false);
                 }}
                 className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${
-                  statusFilter === 'in_progress' ? 'bg-purple-50 text-purple-600 font-semibold' : ''
+                  statusFilter === TaskStatus.IN_PROGRESS ? 'bg-purple-50 text-purple-600 font-semibold' : ''
                 }`}
               >
                 In Progress ({taskCounts.in_progress})
               </button>
               <button
                 onClick={() => {
-                  onStatusFilterChange('completed');
+                  onStatusFilterChange(TaskStatus.COMPLETED);
                   setShowFilterMenu(false);
                 }}
                 className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-100 ${
-                  statusFilter === 'completed' ? 'bg-purple-50 text-purple-600 font-semibold' : ''
+                  statusFilter === TaskStatus.COMPLETED ? 'bg-purple-50 text-purple-600 font-semibold' : ''
                 }`}
               >
                 Completed ({taskCounts.completed})
