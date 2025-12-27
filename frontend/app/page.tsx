@@ -38,7 +38,7 @@ export default function Home() {
     }
   }, [status, session]);
 
-  // Initialize push notifications
+  // Initialize push notifications when user is authenticated
   useEffect(() => {
     const initNotifications = async () => {
       const userId = localStorage.getItem('userId');
@@ -64,8 +64,11 @@ export default function Home() {
       }
     };
 
-    initNotifications();
-  }, []);
+    // Only initialize notifications when user is authenticated
+    if (status === 'authenticated' && session?.user?.id) {
+      initNotifications();
+    }
+  }, [status, session]);
 
   // Show loading while checking authentication
   if (status === 'loading') {
