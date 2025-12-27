@@ -359,7 +359,7 @@ export function TaskGraphView({
 
       {/* Search and Filter */}
       <div
-        className="absolute top-2 left-2 right-28 md:top-4 md:left-4 md:right-32 z-50 max-w-xl"
+        className="absolute top-2 left-2 right-28 md:top-4 md:left-1/2 md:-translate-x-1/2 md:right-auto z-50 max-w-xl w-full md:w-auto md:min-w-[500px]"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}

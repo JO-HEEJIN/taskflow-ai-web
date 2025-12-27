@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { syncService } from '../services/syncService';
-import { notificationService } from '../services/notificationService';
+import { webPushService } from '../services/webPushService';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -49,7 +49,7 @@ router.post('/link', async (req: Request, res: Response) => {
     }
 
     // Send notification: Sync Success
-    await notificationService.notifySyncSuccess(syncCode);
+    await webPushService.notifySyncSuccess(syncCode);
 
     res.json({
       message: 'Device linked successfully',

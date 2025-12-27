@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { azureOpenAIService } from '../services/azureOpenAIService';
 import { taskService } from '../services/taskService';
-import { notificationService } from '../services/notificationService';
+import { webPushService } from '../services/webPushService';
 
 const router = Router();
 
@@ -43,7 +43,7 @@ router.post('/breakdown/:taskId', async (req: Request, res: Response) => {
     );
 
     // Send notification: AI Breakdown Complete
-    await notificationService.notifyAIBreakdownComplete(
+    await webPushService.notifyAIBreakdownComplete(
       userId,
       task.title,
       breakdown.subtasks.length

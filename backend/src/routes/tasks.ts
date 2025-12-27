@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { taskService } from '../services/taskService';
-import { notificationService } from '../services/notificationService';
+import { webPushService } from '../services/webPushService';
 
 const router = Router();
 
@@ -93,7 +93,7 @@ router.post('/linked', async (req: Request, res: Response) => {
 
     // Send notification: Linked Task Created
     const sourceSubtask = parentTask?.subtasks?.find(s => s.id === sourceSubtaskId);
-    await notificationService.notifyLinkedTaskCreated(
+    await webPushService.notifyLinkedTaskCreated(
       userId,
       task.title,
       sourceSubtask?.title || 'a subtask'
@@ -259,7 +259,7 @@ router.patch('/:taskId/subtasks/:subtaskId', async (req: Request, res: Response)
 
     // Send notification: Task Completed (if progress reaches 100%)
     if (task.progress === 100 && task.status !== 'completed') {
-      await notificationService.notifyTaskCompleted(userId, task.title);
+      await webPushService.notifyTaskCompleted(userId, task.title);
     }
 
     res.json({ task });
@@ -305,7 +305,7 @@ router.get('/orphaned/detect', async (req: Request, res: Response) => {
 
     // Send notification: Orphaned Tasks Found (if any exist)
     if (orphanedTasks.length > 0) {
-      await notificationService.notifyOrphanedTasksFound(userId, orphanedTasks.length);
+      await webPushService.notifyOrphanedTasksFound(userId, orphanedTasks.length);
     }
 
     res.json({ orphanedTasks });

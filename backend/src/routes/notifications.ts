@@ -1,13 +1,25 @@
 import { Router, Request, Response } from 'express';
 import { notificationService } from '../services/notificationService';
+import { webPushService } from '../services/webPushService';
 
 const router = Router();
 
-// Register device for push notifications
+// Get VAPID public key for browser push subscription
+router.get('/vapid-public-key', (req: Request, res: Response) => {
+  const publicKey = webPushService.getPublicKey();
+
+  if (!publicKey) {
+    return res.status(503).json({ error: 'Web push not configured' });
+  }
+
+  res.json({ publicKey });
+});
+
+// Register device for push notifications (web browsers)
 router.post('/register', async (req: Request, res: Response) => {
   try {
     const userId = req.headers['x-user-id'] as string;
-    const { deviceId } = req.body;
+    const { deviceId, subscription } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: 'Missing x-user-id header' });
@@ -17,14 +29,26 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Device ID is required' });
     }
 
-    // Register device with user ID tag
-    await notificationService.registerDevice(userId, deviceId);
+    // If subscription is provided, use web push service (for browsers)
+    if (subscription && subscription.endpoint) {
+      await webPushService.saveSubscription(userId, deviceId, subscription);
 
-    res.json({
-      success: true,
-      message: 'Device registered for notifications',
-      userId,
-    });
+      res.json({
+        success: true,
+        message: 'Browser push subscription registered',
+        userId,
+        deviceId,
+      });
+    } else {
+      // Fallback to Azure Notification Hub (for native apps)
+      await notificationService.registerDevice(userId, deviceId);
+
+      res.json({
+        success: true,
+        message: 'Device registered for notifications',
+        userId,
+      });
+    }
   } catch (error) {
     console.error('Error registering device for notifications:', error);
     res.status(500).json({ error: 'Failed to register device' });
@@ -40,12 +64,23 @@ router.post('/test', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing x-user-id header' });
     }
 
-    await notificationService.sendToUser(userId, {
-      title: '🧪 Test Notification',
-      body: 'This is a test notification from TaskFlow AI',
-      icon: '/icon.png',
-      data: { type: 'test' },
-    });
+    // Try web push first (for browsers)
+    if (webPushService.isEnabled()) {
+      await webPushService.sendToUser(userId, {
+        title: '🧪 Test Notification',
+        body: 'This is a test notification from TaskFlow AI',
+        icon: '/icon.png',
+        data: { type: 'test' },
+      });
+    } else {
+      // Fallback to Azure Notification Hub
+      await notificationService.sendToUser(userId, {
+        title: '🧪 Test Notification',
+        body: 'This is a test notification from TaskFlow AI',
+        icon: '/icon.png',
+        data: { type: 'test' },
+      });
+    }
 
     res.json({
       success: true,

@@ -69,6 +69,30 @@ export async function subscribeToPushNotifications(userId: string): Promise<bool
     // Wait for service worker to be ready
     await navigator.serviceWorker.ready;
 
+    // Get VAPID public key from backend
+    const vapidResponse = await fetch(`${API_BASE_URL}/api/notifications/vapid-public-key`);
+    if (!vapidResponse.ok) {
+      console.error('Failed to get VAPID public key from backend');
+      return false;
+    }
+
+    const { publicKey } = await vapidResponse.json();
+    console.log('VAPID public key received from backend');
+
+    // Subscribe to push using browser's PushManager
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      console.log('Creating new push subscription...');
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+      console.log('New push subscription created');
+    } else {
+      console.log('Using existing push subscription');
+    }
+
     // Generate unique device ID for this browser/device
     let deviceId = localStorage.getItem('deviceNotificationId');
     if (!deviceId) {
@@ -76,7 +100,7 @@ export async function subscribeToPushNotifications(userId: string): Promise<bool
       localStorage.setItem('deviceNotificationId', deviceId);
     }
 
-    // Register device with backend (Azure Notification Hubs)
+    // Send subscription to backend
     try {
       const response = await fetch(`${API_BASE_URL}/api/notifications/register`, {
         method: 'POST',
@@ -84,14 +108,17 @@ export async function subscribeToPushNotifications(userId: string): Promise<bool
           'Content-Type': 'application/json',
           'x-user-id': userId,
         },
-        body: JSON.stringify({ deviceId }),
+        body: JSON.stringify({
+          deviceId,
+          subscription: subscription.toJSON(),
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to register device with backend');
+        throw new Error('Failed to register push subscription with backend');
       }
 
-      console.log('✅ Device registered for push notifications:', deviceId);
+      console.log('✅ Push subscription registered for device:', deviceId);
       console.log('👤 User ID:', userId);
 
       // Store the user ID for the service worker
@@ -99,7 +126,7 @@ export async function subscribeToPushNotifications(userId: string): Promise<bool
 
       return true;
     } catch (error) {
-      console.error('Failed to register device with backend:', error);
+      console.error('Failed to register subscription with backend:', error);
       return false;
     }
   } catch (error) {
