@@ -11,6 +11,7 @@ import { useCoachStore } from '@/store/useCoachStore';
 import { GalaxyFocusView } from '@/components/focus/GalaxyFocusView';
 import { EmergencyButton } from '@/components/focus/EmergencyButton';
 import { LevelUpModal } from '@/components/rewards/LevelUpModal';
+import { ProfileButton } from '@/components/profile/ProfileButton';
 import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
 import { setUserId } from '@/lib/api';
 import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
@@ -39,23 +40,19 @@ export default function Home() {
     // Mark subtask as completed
     await toggleSubtask(activeTask.id, currentSubtask.id);
 
-    // Move to next subtask or exit focus mode
-    if (activeSubtaskIndex < activeTask.subtasks.length - 1) {
-      completeCurrentSubtask();
-    } else {
-      // All subtasks completed!
-      exitFocusMode();
-    }
+    // Get updated task with new completion status
+    const updatedTask = tasks.find(t => t.id === activeTask.id);
+    if (!updatedTask) return;
+
+    // Move to next incomplete subtask (or exit if all done)
+    completeCurrentSubtask(updatedTask.subtasks);
   };
 
   const handleSkipSubtask = () => {
     if (!activeTask) return;
 
-    if (activeSubtaskIndex < activeTask.subtasks.length - 1) {
-      skipCurrentSubtask();
-    } else {
-      exitFocusMode();
-    }
+    // Skip to next incomplete subtask (or exit if none left)
+    skipCurrentSubtask(activeTask.subtasks);
   };
 
   // Handle authentication state and guest mode
@@ -131,6 +128,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-hidden relative">
+      {/* Profile Button (top right) */}
+      <ProfileButton />
+
       {/* Galaxy Focus Mode Overlay */}
       <AnimatePresence>
         {isFocusMode && activeTask && currentSubtask && (

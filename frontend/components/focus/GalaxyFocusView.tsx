@@ -34,10 +34,9 @@ export function GalaxyFocusView({
 
   // Initialize timer when subtask changes
   useEffect(() => {
-    if (currentTimeLeft === 0) {
-      startTimer(estimatedMinutes);
-    }
-  }, [currentSubtask.id]);
+    // Always restart timer when moving to a new subtask
+    startTimer(estimatedMinutes);
+  }, [currentSubtask.id, estimatedMinutes, startTimer]);
 
   const handleToggleTimer = () => {
     if (isTimerRunning) {
@@ -299,28 +298,45 @@ export function GalaxyFocusView({
         </motion.div>
       </div>
 
-      {/* AI Encouragement Overlay */}
+      {/* AI Encouragement Overlay - Centered Popup */}
       <AnimatePresence>
         {showEncouragement && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 50 }}
+            initial={{ opacity: 0, scale: 0.5, y: 100 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: -20 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-            className="absolute bottom-24 left-1/2 transform -translate-x-1/2 max-w-lg w-full px-4"
+            exit={{ opacity: 0, scale: 0.8, y: -50 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="fixed inset-0 flex items-center justify-center z-[10000] px-4"
+            style={{
+              background: 'rgba(0, 0, 0, 0.7)',
+              backdropFilter: 'blur(8px)',
+            }}
           >
             <div
-              className="p-6 rounded-2xl text-center"
+              className="p-8 md:p-10 rounded-3xl text-center max-w-md md:max-w-lg w-full"
               style={{
-                background: 'rgba(34, 197, 94, 0.95)',
-                border: '2px solid rgba(255, 255, 255, 0.3)',
-                boxShadow: '0 0 40px rgba(34, 197, 94, 0.6), inset 0 0 40px rgba(255, 255, 255, 0.1)',
+                background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.98) 0%, rgba(16, 185, 129, 0.98) 100%)',
+                border: '3px solid rgba(255, 255, 255, 0.4)',
+                boxShadow: '0 0 60px rgba(34, 197, 94, 0.8), inset 0 0 60px rgba(255, 255, 255, 0.15)',
               }}
             >
-              <div className="text-4xl mb-3">🎉</div>
+              <motion.div
+                className="text-6xl md:text-7xl mb-4"
+                animate={{
+                  scale: [1, 1.2, 1],
+                  rotate: [0, 10, -10, 0],
+                }}
+                transition={{
+                  duration: 0.6,
+                  repeat: Infinity,
+                  repeatDelay: 0.5,
+                }}
+              >
+                🎉
+              </motion.div>
               <p
-                className="text-white text-lg font-medium leading-relaxed"
-                style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
+                className="text-white text-xl md:text-2xl font-bold leading-relaxed"
+                style={{ textShadow: '0 3px 6px rgba(0,0,0,0.6)' }}
               >
                 {encouragementMessage}
               </p>

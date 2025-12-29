@@ -1,10 +1,21 @@
 import { create } from 'zustand';
+import { Subtask } from '@/types';
 
 interface Message {
   role: 'ai' | 'user';
   content: string;
   timestamp: Date;
 }
+
+// Helper function to find next incomplete subtask
+const findNextIncompleteIndex = (subtasks: Subtask[], startFrom: number = 0): number => {
+  for (let i = startFrom; i < subtasks.length; i++) {
+    if (!subtasks[i].isCompleted) {
+      return i;
+    }
+  }
+  return -1;
+};
 
 interface CoachState {
   isFocusMode: boolean;
@@ -15,14 +26,14 @@ interface CoachState {
   messages: Message[];
 
   // Actions
-  enterFocusMode: (taskId: string) => void;
+  enterFocusMode: (taskId: string, subtasks: Subtask[]) => void;
   exitFocusMode: () => void;
   startTimer: (durationMinutes: number) => void;
   pauseTimer: () => void;
   tickTimer: () => void;
   resetTimer: () => void;
-  completeCurrentSubtask: () => void;
-  skipCurrentSubtask: () => void;
+  completeCurrentSubtask: (subtasks: Subtask[]) => void;
+  skipCurrentSubtask: (subtasks: Subtask[]) => void;
   addMessage: (role: 'ai' | 'user', content: string) => void;
   clearMessages: () => void;
 }
@@ -35,11 +46,18 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   currentTimeLeft: 0,
   messages: [],
 
-  enterFocusMode: (taskId: string) => {
+  enterFocusMode: (taskId: string, subtasks: Subtask[]) => {
+    const firstIncompleteIndex = findNextIncompleteIndex(subtasks, 0);
+
+    if (firstIncompleteIndex === -1) {
+      console.log('All subtasks already completed');
+      return;
+    }
+
     set({
       isFocusMode: true,
       activeTaskId: taskId,
-      activeSubtaskIndex: 0,
+      activeSubtaskIndex: firstIncompleteIndex,
       isTimerRunning: false,
       currentTimeLeft: 0,
       messages: [],
@@ -88,19 +106,33 @@ export const useCoachStore = create<CoachState>((set, get) => ({
     });
   },
 
-  completeCurrentSubtask: () => {
+  completeCurrentSubtask: (subtasks: Subtask[]) => {
     const { activeSubtaskIndex } = get();
+    const nextIncompleteIndex = findNextIncompleteIndex(subtasks, activeSubtaskIndex + 1);
+
+    if (nextIncompleteIndex === -1) {
+      get().exitFocusMode();
+      return;
+    }
+
     set({
-      activeSubtaskIndex: activeSubtaskIndex + 1,
+      activeSubtaskIndex: nextIncompleteIndex,
       isTimerRunning: false,
       currentTimeLeft: 0,
     });
   },
 
-  skipCurrentSubtask: () => {
+  skipCurrentSubtask: (subtasks: Subtask[]) => {
     const { activeSubtaskIndex } = get();
+    const nextIncompleteIndex = findNextIncompleteIndex(subtasks, activeSubtaskIndex + 1);
+
+    if (nextIncompleteIndex === -1) {
+      get().exitFocusMode();
+      return;
+    }
+
     set({
-      activeSubtaskIndex: activeSubtaskIndex + 1,
+      activeSubtaskIndex: nextIncompleteIndex,
       isTimerRunning: false,
       currentTimeLeft: 0,
     });

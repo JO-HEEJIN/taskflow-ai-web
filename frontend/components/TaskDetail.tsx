@@ -2,6 +2,7 @@
 
 import { Task } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
+import { useCoachStore } from '@/store/useCoachStore';
 import { ProgressBar } from './ProgressBar';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { useState, useRef, useEffect } from 'react';
@@ -252,6 +253,15 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
     }
   };
 
+  const handleEnterFocusMode = () => {
+    const { enterFocusMode } = useCoachStore.getState();
+    enterFocusMode(task.id, task.subtasks);
+    onClose();
+  };
+
+  // Check if task has incomplete subtasks for Focus Mode
+  const hasIncompleteSubtasks = activeSubtasks.some(st => !st.isCompleted);
+
   return (
     <>
       {/* Modal backdrop - click/touch outside to close */}
@@ -308,22 +318,33 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                 <h3 className="text-lg font-semibold text-gray-800">Subtasks</h3>
                 <div className="flex gap-2">
                   {activeSubtasks.length > 0 && (
-                    <button
-                      onClick={() => setShowMindMap(!showMindMap)}
-                      className="text-sm px-3 py-1 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors flex items-center gap-1"
-                    >
-                      {showMindMap ? (
-                        <>
-                          <span>📋</span>
-                          <span>List View</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>🗺️</span>
-                          <span>Mind Map</span>
-                        </>
+                    <>
+                      <button
+                        onClick={() => setShowMindMap(!showMindMap)}
+                        className="text-sm px-3 py-1 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors flex items-center gap-1"
+                      >
+                        {showMindMap ? (
+                          <>
+                            <span>📋</span>
+                            <span>List View</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>🗺️</span>
+                            <span>Mind Map</span>
+                          </>
+                        )}
+                      </button>
+                      {hasIncompleteSubtasks && (
+                        <button
+                          onClick={handleEnterFocusMode}
+                          className="text-sm px-4 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all flex items-center gap-2 font-medium shadow-md"
+                        >
+                          <span>🎯</span>
+                          <span>Focus Mode</span>
+                        </button>
                       )}
-                    </button>
+                    </>
                   )}
                   {activeSubtasks.length === 0 && (
                     <button
@@ -554,7 +575,10 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       {showAIModal && (
         <AIBreakdownModal
           taskId={task.id}
-          onClose={() => setShowAIModal(false)}
+          onClose={() => {
+            setShowAIModal(false);
+            onClose(); // Also close TaskDetail modal when entering Focus Mode
+          }}
         />
       )}
     </>

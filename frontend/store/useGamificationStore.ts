@@ -1,16 +1,24 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+interface DailyActivity {
+  date: string; // ISO date string (YYYY-MM-DD)
+  completions: number;
+  xpEarned: number;
+}
+
 interface GamificationState {
   xp: number;
   level: number;
   streak: number;
   lastCompletionDate: string | null;
+  activityHistory: DailyActivity[]; // Last 30 days of activity
 
   // Actions
   addXp: (amount: number) => void;
   checkStreak: () => void;
   resetProgress: () => void;
+  getActivityForLast30Days: () => DailyActivity[];
 }
 
 // XP required for each level (exponential growth)
@@ -25,17 +33,41 @@ export const useGamificationStore = create<GamificationState>()(
       level: 1,
       streak: 0,
       lastCompletionDate: null,
+      activityHistory: [],
 
       addXp: (amount: number) => {
-        const { xp, level } = get();
+        const { xp, level, activityHistory } = get();
         const newXp = xp + amount;
         const xpForNextLevel = getXPForLevel(level + 1);
+
+        // Track daily activity
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const todayActivity = activityHistory.find(a => a.date === today);
+
+        let newHistory = [...activityHistory];
+        if (todayActivity) {
+          // Update today's activity
+          newHistory = newHistory.map(a =>
+            a.date === today
+              ? { ...a, completions: a.completions + 1, xpEarned: a.xpEarned + amount }
+              : a
+          );
+        } else {
+          // Add new day
+          newHistory.push({ date: today, completions: 1, xpEarned: amount });
+        }
+
+        // Keep only last 90 days (to be safe, we'll show 30)
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        newHistory = newHistory.filter(a => new Date(a.date) >= ninetyDaysAgo);
 
         // Check for level up
         if (newXp >= xpForNextLevel) {
           set({
             xp: newXp - xpForNextLevel,
             level: level + 1,
+            activityHistory: newHistory,
           });
 
           // Trigger level up celebration
@@ -45,7 +77,7 @@ export const useGamificationStore = create<GamificationState>()(
             }));
           }
         } else {
-          set({ xp: newXp });
+          set({ xp: newXp, activityHistory: newHistory });
         }
 
         // Update streak
@@ -82,7 +114,28 @@ export const useGamificationStore = create<GamificationState>()(
       },
 
       resetProgress: () => {
-        set({ xp: 0, level: 1, streak: 0, lastCompletionDate: null });
+        set({ xp: 0, level: 1, streak: 0, lastCompletionDate: null, activityHistory: [] });
+      },
+
+      getActivityForLast30Days: () => {
+        const { activityHistory } = get();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        // Fill in missing days with 0 completions
+        const last30Days: DailyActivity[] = [];
+        for (let i = 29; i >= 0; i--) {
+          const date = new Date();
+          date.setDate(date.getDate() - i);
+          const dateStr = date.toISOString().split('T')[0];
+
+          const existingActivity = activityHistory.find(a => a.date === dateStr);
+          last30Days.push(
+            existingActivity || { date: dateStr, completions: 0, xpEarned: 0 }
+          );
+        }
+
+        return last30Days;
       },
     }),
     {

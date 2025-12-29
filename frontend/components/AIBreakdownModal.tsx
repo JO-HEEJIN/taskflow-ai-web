@@ -11,7 +11,7 @@ interface AIBreakdownModalProps {
 }
 
 export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
-  const { generateAIBreakdown, addSubtasks } = useTaskStore();
+  const { generateAIBreakdown, addSubtasks, tasks } = useTaskStore();
   const [suggestions, setSuggestions] = useState<AISubtaskSuggestion[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
@@ -54,9 +54,12 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
       // Pass full suggestion objects (with estimatedMinutes and stepType)
       await addSubtasks(taskId, suggestions);
 
-      // IMMEDIATELY enter Focus Mode!
-      const { enterFocusMode } = useCoachStore.getState();
-      enterFocusMode(taskId);
+      // Get updated task with new subtasks
+      const updatedTask = tasks.find(t => t.id === taskId);
+      if (updatedTask) {
+        const { enterFocusMode } = useCoachStore.getState();
+        enterFocusMode(taskId, updatedTask.subtasks);
+      }
 
       onClose();
     } catch (error) {

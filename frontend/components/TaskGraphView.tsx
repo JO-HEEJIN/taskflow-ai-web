@@ -5,8 +5,6 @@ import { TaskCard } from './TaskCard';
 import { StarryBackground } from './StarryBackground';
 import { SearchFilter } from './SearchFilter';
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 
 interface TaskGraphViewProps {
   tasks: Task[];
@@ -47,8 +45,6 @@ export function TaskGraphView({
   onStatusFilterChange,
   taskCounts,
 }: TaskGraphViewProps) {
-  const { data: session } = useSession();
-  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -315,51 +311,9 @@ export function TaskGraphView({
       {/* Starry background */}
       <StarryBackground />
 
-      {/* User Menu - Top Right */}
-      <div
-        className="absolute top-2 right-2 md:top-4 md:right-4 z-50 flex items-center gap-1 backdrop-blur-md rounded-full px-2 py-1"
-        style={{
-          background: 'rgba(0, 0, 0, 0.5)',
-          border: '1px solid rgba(167, 139, 250, 0.3)',
-        }}
-        onClick={(e) => e.stopPropagation()}
-        onTouchStart={(e) => e.stopPropagation()}
-        onTouchEnd={(e) => e.stopPropagation()}
-      >
-        {session ? (
-          <>
-            {session.user?.image && (
-              <img
-                src={session.user.image}
-                alt={session.user?.name || 'User'}
-                className="w-5 h-5 rounded-full"
-              />
-            )}
-            <button
-              onClick={() => signOut({ callbackUrl: '/' })}
-              className="text-xs px-2 py-0.5 rounded bg-purple-600/50 hover:bg-purple-600 text-white transition-all"
-            >
-              Logout
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">G</span>
-            </div>
-            <button
-              onClick={() => router.push('/auth/signin')}
-              className="text-xs px-2 py-0.5 rounded bg-purple-600 hover:bg-purple-700 text-white transition-all"
-            >
-              Sign In
-            </button>
-          </>
-        )}
-      </div>
-
       {/* Search and Filter */}
       <div
-        className="absolute top-2 left-2 right-28 md:top-4 md:left-1/2 md:-translate-x-1/2 md:right-auto z-50 max-w-xl w-full md:w-auto md:min-w-[500px]"
+        className="absolute top-2 left-2 right-2 md:top-4 md:left-1/2 md:-translate-x-1/2 md:right-auto z-50 max-w-xl w-full md:w-auto md:min-w-[500px]"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
