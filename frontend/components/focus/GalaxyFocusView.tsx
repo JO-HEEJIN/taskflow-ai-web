@@ -71,8 +71,8 @@ export function GalaxyFocusView({
       const nextSubtask = nextSubtaskIndex < totalSubtasks ? task.subtasks[nextSubtaskIndex] : null;
 
       const result = await api.generateEncouragement(
-        currentSubtask.title,
-        nextSubtask?.title || null,
+        { title: currentSubtask.title, estimatedMinutes: currentSubtask.estimatedMinutes },
+        nextSubtask ? { title: nextSubtask.title, estimatedMinutes: nextSubtask.estimatedMinutes } : null,
         { completed: completedSubtasks, total: totalSubtasks }
       );
 

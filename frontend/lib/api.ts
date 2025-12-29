@@ -209,7 +209,11 @@ export const api = {
     return res.json();
   },
 
-  async generateEncouragement(completedSubtask: string, nextSubtask: string | null, progress: { completed: number; total: number }) {
+  async generateEncouragement(
+    completedSubtask: { title: string; estimatedMinutes?: number },
+    nextSubtask: { title: string; estimatedMinutes?: number } | null,
+    progress: { completed: number; total: number }
+  ) {
     const res = await fetch(`${API_BASE_URL}/api/ai/encourage`, {
       method: 'POST',
       headers: await getHeaders(),

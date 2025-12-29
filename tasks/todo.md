@@ -22,6 +22,14 @@
 - ✅ Backend deployed to Azure Container Apps
 - ✅ Frontend deployed to Azure Container Apps
 
+### Recent Fixes (Dec 29, 2025)
+- ✅ Profile UI with gamification (level, XP, 30-day activity heatmap)
+- ✅ Mobile UI positioning fixes (emergency button, profile button)
+- ✅ Encouragement popup centered display
+- ✅ Focus Mode timer auto-reset on subtask change
+- ✅ Focus Mode skip completed subtasks (smart navigation)
+- ✅ Timer/message duration synchronization (AI mentions correct minutes)
+
 **Live URLs:**
 - Frontend: https://taskflow-frontend.bravesky-cb93d4eb.eastus.azurecontainerapps.io
 - Backend: https://taskflow-backend.bravesky-cb93d4eb.eastus.azurecontainerapps.io

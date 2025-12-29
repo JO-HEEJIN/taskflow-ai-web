@@ -130,8 +130,8 @@ IMPORTANT: Return ONLY the JSON array. No other text.`,
   }
 
   async generateEncouragement(
-    completedSubtask: string,
-    nextSubtask: string | null,
+    completedSubtask: { title: string; estimatedMinutes?: number },
+    nextSubtask: { title: string; estimatedMinutes?: number } | null,
     progress: { completed: number; total: number }
   ): Promise<string> {
     if (!this.client) {
@@ -139,20 +139,26 @@ IMPORTANT: Return ONLY the JSON array. No other text.`,
     }
 
     try {
-      const prompt = nextSubtask
-        ? `The user just completed: "${completedSubtask}"
+      const completedMinutes = completedSubtask.estimatedMinutes || 5;
+      const nextMinutes = nextSubtask?.estimatedMinutes || 5;
 
-Next up: "${nextSubtask}"
+      const prompt = nextSubtask
+        ? `The user just completed: "${completedSubtask.title}" (${completedMinutes} min)
+
+Next up: "${nextSubtask.title}" (${nextMinutes} min)
 
 Progress: ${progress.completed}/${progress.total} subtasks done.
 
 Provide a SHORT (1-2 sentences) encouraging message that:
 1. Celebrates the completion with genuine excitement
-2. Creates urgency to start the next task immediately
-3. Uses ADHD-friendly language (concrete, action-oriented, no fluff)
+2. Mentions the EXACT time for the next task: "${nextMinutes} minutes"
+3. Creates urgency to start immediately
+4. Uses ADHD-friendly language (concrete, action-oriented, no fluff)
+
+CRITICAL: You MUST say "Now focus for ${nextMinutes} minutes!" or similar to match the timer.
 
 Return ONLY the message text, no JSON, no formatting.`
-        : `The user just completed the final subtask: "${completedSubtask}"
+        : `The user just completed the final subtask: "${completedSubtask.title}"
 
 All ${progress.total} subtasks are now complete!
 
