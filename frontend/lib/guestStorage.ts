@@ -1,4 +1,4 @@
-import { Task, TaskStatus, Subtask } from '../types';
+import { Task, TaskStatus, Subtask, AISubtaskSuggestion } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 // LocalStorage keys
@@ -158,18 +158,23 @@ export const guestStorage = {
   /**
    * Add subtasks to a task
    */
-  addSubtasks(taskId: string, subtaskTitles: string[]): Task | null {
+  addSubtasks(taskId: string, subtaskData: (string | AISubtaskSuggestion)[]): Task | null {
     const task = this.getTask(taskId);
     if (!task) return null;
 
-    const newSubtasks: Subtask[] = subtaskTitles.map((title, index) => ({
-      id: uuidv4(),
-      title,
-      isCompleted: false,
-      isArchived: false,
-      parentTaskId: taskId,
-      order: task.subtasks.length + index,
-    }));
+    const newSubtasks: Subtask[] = subtaskData.map((data, index) => {
+      const isString = typeof data === 'string';
+      return {
+        id: uuidv4(),
+        title: isString ? data : data.title,
+        isCompleted: false,
+        isArchived: false,
+        parentTaskId: taskId,
+        order: task.subtasks.length + (isString ? index : (data.order ?? index)),
+        estimatedMinutes: isString ? 5 : (data.estimatedMinutes || 5),
+        stepType: isString ? 'mental' as const : (data.stepType || 'mental'),
+      };
+    });
 
     const updatedTask = {
       ...task,

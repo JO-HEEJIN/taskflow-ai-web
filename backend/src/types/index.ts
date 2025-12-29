@@ -26,6 +26,8 @@ export interface Subtask {
   parentTaskId: string;
   order: number;
   linkedTaskId?: string;
+  estimatedMinutes?: number; // AI-estimated time for this subtask
+  stepType?: 'physical' | 'mental' | 'creative'; // Type of action required
 }
 
 // Sync Types
@@ -46,5 +48,7 @@ export interface AIBreakdownResponse {
   subtasks: {
     title: string;
     order: number;
+    estimatedMinutes?: number;
+    stepType?: 'physical' | 'mental' | 'creative';
   }[];
 }

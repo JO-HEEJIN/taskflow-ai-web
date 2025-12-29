@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTaskStore } from '@/store/taskStore';
+import { useCoachStore } from '@/store/useCoachStore';
 import { AISubtaskSuggestion } from '@/types';
 
 interface AIBreakdownModalProps {
@@ -50,8 +51,13 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
   const handleAccept = async () => {
     setIsAccepting(true);
     try {
-      const subtaskTitles = suggestions.map((s) => s.title);
-      await addSubtasks(taskId, subtaskTitles);
+      // Pass full suggestion objects (with estimatedMinutes and stepType)
+      await addSubtasks(taskId, suggestions);
+
+      // IMMEDIATELY enter Focus Mode!
+      const { enterFocusMode } = useCoachStore.getState();
+      enterFocusMode(taskId);
+
       onClose();
     } catch (error) {
       alert('Failed to add subtasks');

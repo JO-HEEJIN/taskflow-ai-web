@@ -1,5 +1,6 @@
 // API Client for TaskFlow AI Backend
 import { guestStorage } from './guestStorage';
+import { AISubtaskSuggestion } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -116,7 +117,7 @@ export const api = {
     return res.json();
   },
 
-  async addSubtasks(taskId: string, subtasks: string[]) {
+  async addSubtasks(taskId: string, subtasks: (string | AISubtaskSuggestion)[]) {
     if (isGuestMode()) {
       const task = guestStorage.addSubtasks(taskId, subtasks);
       return { task };

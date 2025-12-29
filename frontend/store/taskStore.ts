@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Task } from '@/types';
+import { Task, AISubtaskSuggestion } from '@/types';
 import { api } from '@/lib/api';
 
 interface TaskStore {
@@ -14,7 +14,7 @@ interface TaskStore {
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   updateTaskStatus: (id: string, status: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
-  addSubtasks: (taskId: string, subtasks: string[]) => Promise<void>;
+  addSubtasks: (taskId: string, subtasks: (string | AISubtaskSuggestion)[]) => Promise<void>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   deleteSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   reorderSubtasks: (taskId: string, subtaskOrders: { id: string; order: number }[]) => Promise<void>;
@@ -105,7 +105,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  addSubtasks: async (taskId: string, subtasks: string[]) => {
+  addSubtasks: async (taskId: string, subtasks: (string | AISubtaskSuggestion)[]) => {
     set({ isLoading: true, error: null });
     try {
       const { task } = await api.addSubtasks(taskId, subtasks);

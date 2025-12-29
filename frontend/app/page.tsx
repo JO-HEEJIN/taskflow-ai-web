@@ -3,9 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { AnimatePresence } from 'framer-motion';
 import { TaskList } from '@/components/TaskList';
 import { TaskForm } from '@/components/TaskForm';
 import { useTaskStore } from '@/store/taskStore';
+import { useCoachStore } from '@/store/useCoachStore';
+import { GalaxyFocusView } from '@/components/focus/GalaxyFocusView';
+import { EmergencyButton } from '@/components/focus/EmergencyButton';
 import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
 import { setUserId } from '@/lib/api';
 import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
@@ -13,12 +17,43 @@ import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { tasks } = useTaskStore();
+  const { tasks, toggleSubtask } = useTaskStore();
+  const { isFocusMode, activeTaskId, activeSubtaskIndex, completeCurrentSubtask, skipCurrentSubtask, exitFocusMode } = useCoachStore();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [notificationStatus, setNotificationStatus] = useState<NotificationPermission>('default');
 
   const editingTask = editingTaskId ? tasks.find(t => t.id === editingTaskId) : undefined;
+
+  // Focus mode data
+  const activeTask = isFocusMode && activeTaskId ? tasks.find(t => t.id === activeTaskId) : null;
+  const currentSubtask = activeTask?.subtasks[activeSubtaskIndex];
+
+  // Handle subtask completion in focus mode
+  const handleCompleteSubtask = async () => {
+    if (!activeTask || !currentSubtask) return;
+
+    // Mark subtask as completed
+    await toggleSubtask(activeTask.id, currentSubtask.id);
+
+    // Move to next subtask or exit focus mode
+    if (activeSubtaskIndex < activeTask.subtasks.length - 1) {
+      completeCurrentSubtask();
+    } else {
+      // All subtasks completed!
+      exitFocusMode();
+    }
+  };
+
+  const handleSkipSubtask = () => {
+    if (!activeTask) return;
+
+    if (activeSubtaskIndex < activeTask.subtasks.length - 1) {
+      skipCurrentSubtask();
+    } else {
+      exitFocusMode();
+    }
+  };
 
   // Handle authentication state and guest mode
   useEffect(() => {
@@ -41,7 +76,8 @@ export default function Home() {
   // Initialize push notifications when user is authenticated
   useEffect(() => {
     const initNotifications = async () => {
-      const userId = localStorage.getItem('userId');
+      // Use session.user.id directly instead of localStorage to avoid race condition
+      const userId = session?.user?.id;
       if (!userId) {
         console.log('No user ID found, notifications not initialized');
         return;
@@ -81,6 +117,21 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-hidden relative">
+      {/* Galaxy Focus Mode Overlay */}
+      <AnimatePresence>
+        {isFocusMode && activeTask && currentSubtask && (
+          <GalaxyFocusView
+            task={activeTask}
+            currentSubtask={currentSubtask}
+            onComplete={handleCompleteSubtask}
+            onSkip={handleSkipSubtask}
+            onClose={exitFocusMode}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Emergency Button (always visible) */}
+      <EmergencyButton />
 
       {/* Task Form Modal */}
       {showTaskForm && (

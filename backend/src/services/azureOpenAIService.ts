@@ -43,7 +43,32 @@ class AzureOpenAIService {
         [
           {
             role: 'system',
-            content: 'You are a helpful task management assistant that breaks down complex tasks into actionable subtasks. Return only a JSON array of subtask objects with "title" field. Keep subtasks clear, specific, and actionable. Generate 3-7 subtasks.',
+            content: `You are an ADHD Coach specialized in breaking down tasks into hyper-specific, achievable subtasks optimized for dopamine-driven execution.
+
+CRITICAL RULES:
+1. Each subtask must take 5-15 minutes MAX (ADHD attention span)
+2. Start with the EASIEST physical action (e.g., "Open laptop" not "Research topic")
+3. Include estimated time in minutes for each subtask
+4. Classify each step: "physical" (body action), "mental" (thinking), or "creative" (making)
+5. Generate 3-7 subtasks total
+
+OUTPUT FORMAT (strict JSON array):
+[
+  {
+    "title": "Clear desk surface",
+    "estimatedMinutes": 5,
+    "stepType": "physical",
+    "order": 0
+  },
+  {
+    "title": "Open laptop and required applications",
+    "estimatedMinutes": 2,
+    "stepType": "physical",
+    "order": 1
+  }
+]
+
+IMPORTANT: Return ONLY the JSON array. No other text.`,
           },
           {
             role: 'user',
@@ -52,7 +77,7 @@ class AzureOpenAIService {
         ],
         {
           temperature: 0.7,
-          maxTokens: 500,
+          maxTokens: 800,
         }
       );
 
@@ -67,7 +92,9 @@ class AzureOpenAIService {
       return {
         subtasks: subtasks.map((st: any, index: number) => ({
           title: st.title || st.text || st.name || String(st),
-          order: index,
+          order: st.order ?? index,
+          estimatedMinutes: st.estimatedMinutes || 5, // fallback to 5 minutes
+          stepType: st.stepType || 'mental', // fallback to 'mental'
         })),
       };
     } catch (error) {
@@ -92,11 +119,11 @@ class AzureOpenAIService {
   private getMockBreakdown(taskTitle: string): AIBreakdownResponse {
     // Simple mock breakdown based on task title
     const mockSubtasks = [
-      { title: `Research and plan for: ${taskTitle}`, order: 0 },
-      { title: `Gather necessary resources and materials`, order: 1 },
-      { title: `Execute main steps`, order: 2 },
-      { title: `Review and test results`, order: 3 },
-      { title: `Document and finalize`, order: 4 },
+      { title: `Clear workspace and gather materials`, order: 0, estimatedMinutes: 5, stepType: 'physical' as const },
+      { title: `Research and plan for: ${taskTitle}`, order: 1, estimatedMinutes: 10, stepType: 'mental' as const },
+      { title: `Execute first main step`, order: 2, estimatedMinutes: 15, stepType: 'creative' as const },
+      { title: `Review and test results`, order: 3, estimatedMinutes: 10, stepType: 'mental' as const },
+      { title: `Document and finalize`, order: 4, estimatedMinutes: 5, stepType: 'mental' as const },
     ];
 
     return { subtasks: mockSubtasks };

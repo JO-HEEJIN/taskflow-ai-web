@@ -26,10 +26,24 @@ export interface Subtask {
   parentTaskId: string;
   order: number;
   linkedTaskId?: string;
+  estimatedMinutes?: number; // AI-estimated time for this subtask
+  stepType?: 'physical' | 'mental' | 'creative'; // Type of action required
 }
 
 // AI Types
 export interface AISubtaskSuggestion {
   title: string;
   order: number;
+  estimatedMinutes?: number;
+  stepType?: 'physical' | 'mental' | 'creative';
+}
+
+// AI Coaching Response
+export interface AICoachingResponse {
+  suggestions: AISubtaskSuggestion[];
+  coachScript: {
+    intro: string;
+    firstTaskPrompt: string;
+    encouragement: string;
+  };
 }
