@@ -10,6 +10,7 @@ import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
 import { GalaxyFocusView } from '@/components/focus/GalaxyFocusView';
 import { EmergencyButton } from '@/components/focus/EmergencyButton';
+import { LevelUpModal } from '@/components/rewards/LevelUpModal';
 import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
 import { setUserId } from '@/lib/api';
 import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
@@ -22,6 +23,8 @@ export default function Home() {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [notificationStatus, setNotificationStatus] = useState<NotificationPermission>('default');
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [newLevel, setNewLevel] = useState(1);
 
   const editingTask = editingTaskId ? tasks.find(t => t.id === editingTaskId) : undefined;
 
@@ -105,6 +108,17 @@ export default function Home() {
       initNotifications();
     }
   }, [status, session]);
+
+  // Listen for level-up events
+  useEffect(() => {
+    const handleLevelUp = (event: CustomEvent) => {
+      setNewLevel(event.detail.newLevel);
+      setShowLevelUp(true);
+    };
+
+    window.addEventListener('levelup', handleLevelUp as EventListener);
+    return () => window.removeEventListener('levelup', handleLevelUp as EventListener);
+  }, []);
 
   // Show loading while checking authentication
   if (status === 'loading') {
@@ -213,6 +227,13 @@ export default function Home() {
       <TaskList
         onBackgroundClick={() => setShowTaskForm(true)}
         onEditTask={(taskId) => setEditingTaskId(taskId)}
+      />
+
+      {/* Level Up Modal */}
+      <LevelUpModal
+        isOpen={showLevelUp}
+        newLevel={newLevel}
+        onClose={() => setShowLevelUp(false)}
       />
     </main>
   );

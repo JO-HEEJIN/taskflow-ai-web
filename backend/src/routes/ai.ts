@@ -81,4 +81,30 @@ router.post('/breakdown', async (req: Request, res: Response) => {
   }
 });
 
+// AI encouragement endpoint
+router.post('/encourage', async (req: Request, res: Response) => {
+  try {
+    const { completedSubtask, nextSubtask, progress } = req.body;
+
+    if (!completedSubtask) {
+      return res.status(400).json({ error: 'completedSubtask is required' });
+    }
+
+    if (!progress || typeof progress.completed !== 'number' || typeof progress.total !== 'number') {
+      return res.status(400).json({ error: 'progress object with completed and total is required' });
+    }
+
+    const message = await azureOpenAIService.generateEncouragement(
+      completedSubtask,
+      nextSubtask || null,
+      progress
+    );
+
+    res.json({ message });
+  } catch (error) {
+    console.error('Error generating encouragement:', error);
+    res.status(500).json({ error: 'Failed to generate encouragement' });
+  }
+});
+
 export default router;

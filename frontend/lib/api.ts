@@ -209,6 +209,16 @@ export const api = {
     return res.json();
   },
 
+  async generateEncouragement(completedSubtask: string, nextSubtask: string | null, progress: { completed: number; total: number }) {
+    const res = await fetch(`${API_BASE_URL}/api/ai/encourage`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify({ completedSubtask, nextSubtask, progress }),
+    });
+    if (!res.ok) throw new Error('Failed to generate encouragement');
+    return res.json();
+  },
+
   // Images
   async uploadImage(file: File) {
     const userId = getUserId();

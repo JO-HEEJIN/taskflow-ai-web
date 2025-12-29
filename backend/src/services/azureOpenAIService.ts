@@ -129,6 +129,83 @@ IMPORTANT: Return ONLY the JSON array. No other text.`,
     return { subtasks: mockSubtasks };
   }
 
+  async generateEncouragement(
+    completedSubtask: string,
+    nextSubtask: string | null,
+    progress: { completed: number; total: number }
+  ): Promise<string> {
+    if (!this.client) {
+      return this.getMockEncouragement(progress);
+    }
+
+    try {
+      const prompt = nextSubtask
+        ? `The user just completed: "${completedSubtask}"
+
+Next up: "${nextSubtask}"
+
+Progress: ${progress.completed}/${progress.total} subtasks done.
+
+Provide a SHORT (1-2 sentences) encouraging message that:
+1. Celebrates the completion with genuine excitement
+2. Creates urgency to start the next task immediately
+3. Uses ADHD-friendly language (concrete, action-oriented, no fluff)
+
+Return ONLY the message text, no JSON, no formatting.`
+        : `The user just completed the final subtask: "${completedSubtask}"
+
+All ${progress.total} subtasks are now complete!
+
+Provide a SHORT (1-2 sentences) celebration message that:
+1. Celebrates the entire task completion with genuine excitement
+2. Acknowledges their focus and persistence
+3. Uses ADHD-friendly language (concrete, energetic)
+
+Return ONLY the message text, no JSON, no formatting.`;
+
+      const response = await this.client.getChatCompletions(
+        this.deploymentName,
+        [
+          {
+            role: 'system',
+            content:
+              'You are an energetic ADHD coach. Be brief, enthusiastic, and action-oriented. Keep responses to 1-2 sentences max.',
+          },
+          {
+            role: 'user',
+            content: prompt,
+          },
+        ],
+        {
+          temperature: 0.9, // Higher creativity for varied encouragement
+          maxTokens: 100,
+        }
+      );
+
+      const message = response.choices[0]?.message?.content;
+      return message || this.getMockEncouragement(progress);
+    } catch (error) {
+      console.error('Error generating encouragement:', error);
+      return this.getMockEncouragement(progress);
+    }
+  }
+
+  private getMockEncouragement(progress: { completed: number; total: number }): string {
+    const messages = [
+      "Amazing work! Let's keep the momentum going!",
+      "You're crushing it! Next one won't know what hit it!",
+      "Yes! That's how it's done! Ready for the next challenge?",
+      "Boom! Another one down! You're unstoppable!",
+      "Fantastic! You're on fire today!",
+    ];
+
+    if (progress.completed === progress.total) {
+      return "Mission accomplished! You absolutely crushed every single task!";
+    }
+
+    return messages[Math.floor(Math.random() * messages.length)];
+  }
+
   isConnected(): boolean {
     return this.client !== null;
   }

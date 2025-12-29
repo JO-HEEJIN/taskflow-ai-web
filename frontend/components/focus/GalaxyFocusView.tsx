@@ -5,9 +5,10 @@ import { Task, Subtask } from '@/types';
 import { OrbitTimer } from './OrbitTimer';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { X, ChevronRight, SkipForward } from 'lucide-react';
+import { api } from '@/lib/api';
 
 interface GalaxyFocusViewProps {
   task: Task;
@@ -24,8 +25,10 @@ export function GalaxyFocusView({
   onSkip,
   onClose,
 }: GalaxyFocusViewProps) {
-  const { isTimerRunning, startTimer, pauseTimer, currentTimeLeft } = useCoachStore();
+  const { isTimerRunning, startTimer, pauseTimer, currentTimeLeft, activeSubtaskIndex } = useCoachStore();
   const { addXp } = useGamificationStore();
+  const [encouragementMessage, setEncouragementMessage] = useState<string>('');
+  const [showEncouragement, setShowEncouragement] = useState(false);
 
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
 
@@ -61,10 +64,36 @@ export function GalaxyFocusView({
     // Add XP reward
     addXp(50);
 
-    // Brief delay for visual feedback
-    setTimeout(() => {
-      onComplete();
-    }, 600);
+    // Get AI encouragement
+    try {
+      const completedSubtasks = activeSubtaskIndex + 1;
+      const totalSubtasks = task.subtasks.length;
+      const nextSubtaskIndex = activeSubtaskIndex + 1;
+      const nextSubtask = nextSubtaskIndex < totalSubtasks ? task.subtasks[nextSubtaskIndex] : null;
+
+      const result = await api.generateEncouragement(
+        currentSubtask.title,
+        nextSubtask?.title || null,
+        { completed: completedSubtasks, total: totalSubtasks }
+      );
+
+      setEncouragementMessage(result.message);
+      setShowEncouragement(true);
+
+      // Auto-hide and proceed after 3 seconds
+      setTimeout(() => {
+        setShowEncouragement(false);
+        setTimeout(() => {
+          onComplete();
+        }, 300);
+      }, 3000);
+    } catch (error) {
+      console.error('Failed to get encouragement:', error);
+      // Proceed anyway
+      setTimeout(() => {
+        onComplete();
+      }, 600);
+    }
   };
 
   const handleSkip = () => {
@@ -269,6 +298,36 @@ export function GalaxyFocusView({
           </button>
         </motion.div>
       </div>
+
+      {/* AI Encouragement Overlay */}
+      <AnimatePresence>
+        {showEncouragement && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 50 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -20 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+            className="absolute bottom-24 left-1/2 transform -translate-x-1/2 max-w-lg w-full px-4"
+          >
+            <div
+              className="p-6 rounded-2xl text-center"
+              style={{
+                background: 'rgba(34, 197, 94, 0.95)',
+                border: '2px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 0 40px rgba(34, 197, 94, 0.6), inset 0 0 40px rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              <div className="text-4xl mb-3">🎉</div>
+              <p
+                className="text-white text-lg font-medium leading-relaxed"
+                style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}
+              >
+                {encouragementMessage}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
