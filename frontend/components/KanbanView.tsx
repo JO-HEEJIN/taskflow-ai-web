@@ -5,8 +5,6 @@ import { useTaskStore } from '@/store/taskStore';
 import { SearchFilter } from './SearchFilter';
 import { KanbanSidePanel } from './KanbanSidePanel';
 import { useState, useEffect, useRef } from 'react';
-import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 
 interface KanbanViewProps {
   tasks: Task[];
@@ -43,8 +41,6 @@ export function KanbanView({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
-  const { data: session } = useSession();
-  const router = useRouter();
 
   // Close filter menu when clicking outside
   useEffect(() => {
@@ -135,7 +131,7 @@ export function KanbanView({
     <div className="w-screen h-screen bg-gray-50 overflow-hidden flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-2 md:px-6 py-2 flex flex-col gap-2">
-        {/* Top row: Back button and User Menu */}
+        {/* Top row: Back button */}
         <div className="flex items-center justify-between">
           <button
             onClick={onClose}
@@ -144,39 +140,6 @@ export function KanbanView({
             <span className="text-sm">🌌</span>
             <span className="font-medium">Back</span>
           </button>
-
-          {/* User Menu - Compact */}
-          <div className="flex items-center gap-1.5">
-            {session ? (
-              <>
-                {session.user?.image && (
-                  <img
-                    src={session.user.image}
-                    alt={session.user?.name || 'User'}
-                    className="w-6 h-6 rounded-full"
-                  />
-                )}
-                <button
-                  onClick={() => signOut({ callbackUrl: '/' })}
-                  className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">G</span>
-                </div>
-                <button
-                  onClick={() => router.push('/auth/signin')}
-                  className="text-xs px-2 py-1 rounded bg-purple-600 hover:bg-purple-700 text-white transition-all"
-                >
-                  Sign In
-                </button>
-              </>
-            )}
-          </div>
         </div>
 
         {/* Bottom row: Compact Search and Filter */}
