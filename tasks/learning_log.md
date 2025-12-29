@@ -1140,9 +1140,145 @@ This is the execution engine for ADHD brains.
 
 ---
 
-**Last Updated**: December 27, 2025
-**Status**: Pre-launch, building Execution Engine
+**Last Updated**: December 29, 2025
+**Status**: Building Coach View (Sprint 4)
 **Next Review**: After first 100 users
+
+---
+
+## Implementation Plans Archive
+
+### Plan 1: ADHD Focus Mode + AI Body Doubling (Dec 29, 2025)
+
+**Mission**: Transform TaskFlow from task list generator into execution-forcing AI Body Doubling system
+
+**Completed Sprints:**
+
+**Sprint 1: Foundation**
+- useGamificationStore (XP, levels, streaks, 30-day activity tracking)
+- useCoachStore (focus mode state, timer, messages)
+- Extended types (estimatedMinutes, stepType)
+- Backend AI prompt updates (ADHD-optimized)
+- AI encouragement endpoint
+
+**Sprint 2: Focus Mode**
+- OrbitTimer component (SVG circular timer with gradient stroke)
+- GalaxyFocusView component (full-screen cosmic interface)
+- EmergencyButton component (quick break quests)
+- Integration with main app
+
+**Sprint 3: Rewards & Polish**
+- Confetti celebration system (canvas-confetti)
+- LevelUpModal (triggered on level-up via custom events)
+- AI encouragement integration (context-aware messages)
+- Timer/message synchronization (AI mentions correct duration)
+- Mobile optimization (button positioning, responsive layouts)
+
+**Sprint 4: Coach Mode** (In Progress)
+- CoachView component (chat-based coaching interface)
+- Voice/haptic feedback (optional)
+- Animation polish
+- Mobile testing
+
+**Design Philosophy:**
+- Sequential Flow: Task → AI Breakdown → Immediate Focus Mode
+- One Thing at a Time: Show only current subtask
+- Real-time AI Encouragement: Celebrate completions immediately
+- Cosmic Beauty: Match/exceed galaxy theme aesthetic
+- Mobile-First: Perfect touch gestures, 60fps animations
+
+**Success Metrics Achieved:**
+- Focus Mode entrance: < 500ms animation
+- Timer accuracy: ±1 second drift
+- Confetti triggers: 100% of completions
+- Mobile 60fps: All animations smooth
+
+**Key Technical Decisions:**
+- Client-side timer (useState + useEffect)
+- Offline-capable Focus Mode
+- Messages stored in useCoachStore
+- Skip completed subtasks automatically
+- Auto-exit when all subtasks done
+
+---
+
+### Plan 2: Coach View Implementation (Dec 29, 2025)
+
+**Goal**: Build chat-based AI coaching interface during Focus Mode
+
+**Design Concept:**
+- Floating chat button (bottom-right, near Emergency button)
+- Slides open to chat panel (mobile: full-screen, desktop: side panel)
+- Chat history with AI coach messages
+- Input field for user messages
+- Cosmic glassmorphism theme
+
+**User Flow:**
+1. User in Focus Mode working on subtask
+2. Clicks chat button to open CoachView
+3. Asks questions: "I'm stuck, what should I do?"
+4. AI responds with context-aware coaching (knows task/subtask)
+5. Chat history persists during session
+6. Clears when exiting Focus Mode
+
+**Implementation Checklist:**
+
+Backend:
+- POST /api/ai/coach endpoint
+- chatWithCoach method in azureOpenAIService
+- System prompt for AI coach personality
+- Include task context in responses
+
+Frontend Store:
+- Review useCoachStore.messages
+- sendMessage action
+- clearMessages action
+
+Frontend Components:
+- CoachView.tsx (main chat panel)
+- ChatMessage.tsx (message bubbles)
+- ChatInput.tsx (input + send button)
+- Chat toggle button in GalaxyFocusView
+
+Integration:
+- Add CoachView to page.tsx
+- Connect to useCoachStore
+- Wire up API calls
+- Test mobile and desktop
+
+Polish:
+- Slide-in/out animations (300ms ease-out)
+- Auto-scroll to newest message
+- Loading indicator (typing dots)
+- Error handling
+- Empty state (welcome message)
+
+**AI Coach System Prompt:**
+- Role: ADHD coach, encouraging, action-oriented
+- Context: Current task and subtask
+- Style: Brief (2-3 sentences), concrete advice
+- Tone: Warm, supportive, no fluff
+
+**Design Specs:**
+- Chat bubbles: User (purple gradient), AI (blue gradient)
+- Panel slide: 300ms ease-out
+- Message appear: fade up (opacity 0→1, y: 20→0)
+- Mobile: Full-screen overlay, fixed input at bottom
+- Desktop: Side panel, scrollable history
+
+**Expected Time:** ~3 hours total
+- Backend: 30 minutes
+- Frontend components: 1-2 hours
+- Integration + testing: 30 minutes
+- Polish: 30 minutes
+
+**Success Criteria:**
+- Chat opens/closes smoothly
+- AI responds with context-aware coaching
+- Messages persist during focus session
+- Clear on focus mode exit
+- Works perfectly on mobile
+- Matches cosmic theme aesthetic
 
 ---
 

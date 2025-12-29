@@ -223,6 +223,21 @@ export const api = {
     return res.json();
   },
 
+  async chatWithCoach(
+    message: string,
+    taskTitle?: string,
+    subtaskTitle?: string,
+    conversationHistory?: Array<{ role: 'user' | 'ai'; content: string }>
+  ) {
+    const res = await fetch(`${API_BASE_URL}/api/ai/coach`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify({ message, taskTitle, subtaskTitle, conversationHistory }),
+    });
+    if (!res.ok) throw new Error('Failed to chat with coach');
+    return res.json();
+  },
+
   // Images
   async uploadImage(file: File) {
     const userId = getUserId();

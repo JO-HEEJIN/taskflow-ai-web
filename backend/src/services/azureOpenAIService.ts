@@ -212,6 +212,87 @@ Return ONLY the message text, no JSON, no formatting.`;
     return messages[Math.floor(Math.random() * messages.length)];
   }
 
+  async chatWithCoach(
+    userMessage: string,
+    taskTitle?: string,
+    subtaskTitle?: string,
+    conversationHistory: Array<{ role: 'user' | 'ai'; content: string }> = []
+  ): Promise<string> {
+    if (!this.client) {
+      return this.getMockCoachResponse();
+    }
+
+    try {
+      const contextInfo = [];
+      if (taskTitle) {
+        contextInfo.push(`Current task: "${taskTitle}"`);
+      }
+      if (subtaskTitle) {
+        contextInfo.push(`Current subtask: "${subtaskTitle}"`);
+      }
+
+      const systemPrompt = `You are an ADHD coach helping someone stay focused and productive.
+
+Context:
+${contextInfo.length > 0 ? contextInfo.join('\n') : 'No active task'}
+
+Your role:
+- Be warm, encouraging, and action-oriented
+- Keep responses brief (2-3 sentences max)
+- Give concrete, specific advice
+- Acknowledge emotions without judgment
+- Help them break through blocks
+- Use ADHD-friendly language (no fluff)
+
+Important:
+- Don't lecture or be preachy
+- Don't give vague advice like "just focus"
+- Do ask clarifying questions if needed
+- Do celebrate small wins
+- Do provide specific next steps`;
+
+      const messages = [
+        {
+          role: 'system' as const,
+          content: systemPrompt,
+        },
+        ...conversationHistory.map((msg) => ({
+          role: msg.role === 'user' ? ('user' as const) : ('assistant' as const),
+          content: msg.content,
+        })),
+        {
+          role: 'user' as const,
+          content: userMessage,
+        },
+      ];
+
+      const response = await this.client.getChatCompletions(
+        this.deploymentName,
+        messages,
+        {
+          temperature: 0.8,
+          maxTokens: 150,
+        }
+      );
+
+      const coachResponse = response.choices[0]?.message?.content;
+      return coachResponse || this.getMockCoachResponse();
+    } catch (error) {
+      console.error('Error generating coach response:', error);
+      return this.getMockCoachResponse();
+    }
+  }
+
+  private getMockCoachResponse(): string {
+    const responses = [
+      "I'm here to help! What's blocking you right now?",
+      "Let's break this down together. What feels hardest about this task?",
+      "You've got this! What's one tiny step you could take right now?",
+      "Stuck? That's totally normal. Let's figure out what's in the way.",
+    ];
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
+
   isConnected(): boolean {
     return this.client !== null;
   }

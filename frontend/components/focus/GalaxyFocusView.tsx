@@ -3,11 +3,12 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Task, Subtask } from '@/types';
 import { OrbitTimer } from './OrbitTimer';
+import { CoachView } from './CoachView';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { X, ChevronRight, SkipForward } from 'lucide-react';
+import { X, ChevronRight, SkipForward, MessageCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface GalaxyFocusViewProps {
@@ -29,6 +30,7 @@ export function GalaxyFocusView({
   const { addXp } = useGamificationStore();
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
   const [showEncouragement, setShowEncouragement] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
 
@@ -344,6 +346,35 @@ export function GalaxyFocusView({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Chat Toggle Button */}
+      <motion.button
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.6 }}
+        onClick={() => setIsChatOpen(!isChatOpen)}
+        className="fixed bottom-4 left-4 md:bottom-8 md:left-8 z-[9997] p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"
+        style={{
+          background: isChatOpen
+            ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+            : 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
+          boxShadow: '0 0 30px rgba(59, 130, 246, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        {isChatOpen ? (
+          <X className="w-6 h-6 text-white" />
+        ) : (
+          <MessageCircle className="w-6 h-6 text-white" />
+        )}
+      </motion.button>
+
+      {/* Coach Chat Panel */}
+      <CoachView
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        currentTask={task}
+        currentSubtask={currentSubtask}
+      />
     </motion.div>
   );
 }

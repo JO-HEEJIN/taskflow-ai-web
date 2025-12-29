@@ -107,4 +107,27 @@ router.post('/encourage', async (req: Request, res: Response) => {
   }
 });
 
+// AI coach chat endpoint
+router.post('/coach', async (req: Request, res: Response) => {
+  try {
+    const { message, taskTitle, subtaskTitle, conversationHistory } = req.body;
+
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      return res.status(400).json({ error: 'message is required' });
+    }
+
+    const response = await azureOpenAIService.chatWithCoach(
+      message,
+      taskTitle,
+      subtaskTitle,
+      conversationHistory || []
+    );
+
+    res.json({ message: response });
+  } catch (error) {
+    console.error('Error generating coach response:', error);
+    res.status(500).json({ error: 'Failed to generate coach response' });
+  }
+});
+
 export default router;
