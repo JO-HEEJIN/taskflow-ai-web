@@ -144,7 +144,7 @@ export function KanbanView({
         </div>
 
         {/* Bottom row: Compact Search and Filter */}
-        <div className="flex items-center gap-2 relative" ref={filterMenuRef}>
+        <div className="flex items-center gap-2 relative max-w-3xl pr-16 md:pr-20" ref={filterMenuRef}>
           <input
             type="text"
             value={searchQuery}
