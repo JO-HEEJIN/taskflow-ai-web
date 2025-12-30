@@ -6,6 +6,40 @@
 
 ---
 
+## DEPLOYMENT INFRASTRUCTURE - Dec 30, 2025
+
+### Problem
+- Accidentally created duplicate resources in wrong resource group (taskflow-rg)
+- Deployment URLs kept changing between resource groups
+- No standardized deployment process
+- Risk of deploying to wrong environment
+
+### Completed Tasks
+- [x] Identified correct resource group: birth2death-imagine-cup-2026
+- [x] Fixed frontend Dockerfile backend URL
+- [x] Deployed frontend to correct resource group
+- [x] Deployed backend with updated CORS settings
+- [x] Created deploy-frontend.sh script
+- [x] Created deploy-backend.sh script
+- [x] Created deploy-all.sh script (complete deployment)
+- [x] Created DEPLOYMENT.md documentation
+- [x] Made all scripts executable
+- [x] Deleted duplicate resource group (taskflow-rg)
+- [x] Verified production URLs working
+- [x] Commit changes to git
+
+### Production URLs (STABLE)
+- Frontend: https://taskflow-frontend.bravesky-cb93d4eb.eastus.azurecontainerapps.io
+- Backend: https://taskflow-backend.bravesky-cb93d4eb.eastus.azurecontainerapps.io
+- Resource Group: birth2death-imagine-cup-2026
+- Environment: taskflow-env
+- Region: East US
+
+### Review
+Created standardized deployment infrastructure to prevent future URL changes and resource duplication. All deployments now use explicit resource group and environment parameters. Documentation provides clear guidelines for deployment process.
+
+---
+
 ## IMMEDIATE PRIORITY - Bug Fix
 
 ### Nested Title Object Bug (RESOLVED)
