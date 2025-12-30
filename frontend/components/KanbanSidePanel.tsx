@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Task } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
+import { useToast } from '@/contexts/ToastContext';
 import { api } from '@/lib/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -22,6 +23,7 @@ interface KanbanSidePanelProps {
 
 export function KanbanSidePanel({ taskId, onClose }: KanbanSidePanelProps) {
   const { tasks, updateTask } = useTaskStore();
+  const toast = useToast();
   const task = tasks.find((t) => t.id === taskId);
 
   const [title, setTitle] = useState('');
@@ -49,7 +51,7 @@ export function KanbanSidePanel({ taskId, onClose }: KanbanSidePanelProps) {
       setDescription((prev) => prev + imageMarkdown);
     } catch (error) {
       console.error('Image upload failed:', error);
-      alert('Failed to upload image. Please try again.');
+      toast.error('Failed to upload image. Please try again.');
     } finally {
       setUploadingImage(false);
     }

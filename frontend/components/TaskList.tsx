@@ -1,10 +1,13 @@
 'use client';
 
 import { useTaskStore } from '@/store/taskStore';
+import { useCoachStore } from '@/store/useCoachStore';
+import { useToast } from '@/contexts/ToastContext';
 import { TaskGraphView } from './TaskGraphView';
 import { TaskDetail } from './TaskDetail';
 import { KanbanView } from './KanbanView';
 import { OrphanedTasksModal } from './OrphanedTasksModal';
+import { EmptyStateWithActions } from './onboarding/EmptyStateWithActions';
 import { useEffect, useState, useMemo } from 'react';
 import { Task, TaskStatus } from '@/types';
 import { api } from '@/lib/api';
@@ -15,7 +18,9 @@ interface TaskListProps {
 }
 
 export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
-  const { tasks, fetchTasks, isLoading, error } = useTaskStore();
+  const { tasks, fetchTasks, isLoading, error, createTask, createTaskWithAutoFocus } = useTaskStore();
+  const { enterFocusMode } = useCoachStore();
+  const toast = useToast();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'constellation' | 'kanban'>('constellation');
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,13 +76,38 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
       fetchTasks(); // Refresh task list
     } catch (error) {
       console.error('Failed to delete orphaned tasks:', error);
-      alert('Failed to delete orphaned tasks. Please try again.');
+      toast.error('Failed to delete orphaned tasks. Please try again.');
     }
   };
 
   const handleKeepOrphaned = () => {
     setShowOrphanedModal(false);
     setOrphanedTasks([]);
+  };
+
+  const handleCreateSampleTask = async (sampleTitle: string) => {
+    console.log('🔍 handleCreateSampleTask called with:', { sampleTitle, type: typeof sampleTitle });
+    try {
+      // Use auto-focus flow: create task → AI breakdown → enter focus mode
+      const taskId = await createTaskWithAutoFocus(
+        sampleTitle,
+        'This is a sample task to help you get started!'
+      );
+
+      // If task was created with subtasks, enter focus mode
+      if (taskId) {
+        // Small delay to ensure store is updated
+        setTimeout(() => {
+          const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
+          if (task && task.subtasks.length > 0) {
+            enterFocusMode(taskId, task.subtasks);
+          }
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Failed to create sample task:', error);
+      toast.error('Failed to create task. Please try again.');
+    }
   };
 
   // Filter tasks based on search and status
@@ -112,13 +142,20 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
 
   if (isLoading && tasks.length === 0) {
     return (
-      <div
-        className="w-screen h-screen flex items-center justify-center"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 1) 0%, rgba(10, 5, 20, 1) 100%)',
-        }}
-      >
-        <div className="text-center">
+      <div className="w-screen h-screen flex items-center justify-center relative overflow-hidden">
+        {/* Aurora Background */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/aurora-bg.jpg)',
+            filter: 'blur(8px)',
+            transform: 'scale(1.1)',
+          }}
+        />
+        <div className="absolute inset-0 bg-black/60" />
+
+        {/* Loading Content */}
+        <div className="relative z-10 text-center">
           <div
             className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-r-transparent"
             style={{
@@ -136,13 +173,20 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
 
   if (error) {
     return (
-      <div
-        className="w-screen h-screen flex items-center justify-center"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 1) 0%, rgba(10, 5, 20, 1) 100%)',
-        }}
-      >
-        <div className="text-center">
+      <div className="w-screen h-screen flex items-center justify-center relative overflow-hidden">
+        {/* Aurora Background */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/aurora-bg.jpg)',
+            filter: 'blur(8px)',
+            transform: 'scale(1.1)',
+          }}
+        />
+        <div className="absolute inset-0 bg-black/60" />
+
+        {/* Error Content */}
+        <div className="relative z-10 text-center">
           <p className="text-red-400 text-lg mb-4" style={{ textShadow: '0 0 10px rgba(239, 68, 68, 0.5)' }}>
             Error: {error}
           </p>
@@ -172,24 +216,24 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
 
   if (tasks.length === 0) {
     return (
-      <div
-        className="w-screen h-screen flex items-center justify-center cursor-pointer"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 1) 0%, rgba(10, 5, 20, 1) 100%)',
-        }}
-        onClick={onBackgroundClick}
-        onTouchEnd={(e) => {
-          e.preventDefault();
-          if (onBackgroundClick) onBackgroundClick();
-        }}
-      >
-        <div className="text-center">
-          <p className="text-white text-lg mb-2" style={{ textShadow: '0 0 20px rgba(167, 139, 250, 0.5)' }}>
-            No tasks yet
-          </p>
-          <p className="text-purple-200 text-sm" style={{ textShadow: '0 0 10px rgba(167, 139, 250, 0.3)' }}>
-            Click anywhere to create your first task!
-          </p>
+      <div className="w-screen h-screen flex items-center justify-center relative overflow-hidden">
+        {/* Aurora Background */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: 'url(/aurora-bg.jpg)',
+            filter: 'blur(8px)',
+            transform: 'scale(1.1)',
+          }}
+        />
+        <div className="absolute inset-0 bg-black/60" />
+
+        {/* Empty State Content */}
+        <div className="relative z-10">
+          <EmptyStateWithActions
+            onCreateSample={handleCreateSampleTask}
+            onCreateOwn={() => onBackgroundClick && onBackgroundClick()}
+          />
         </div>
       </div>
     );

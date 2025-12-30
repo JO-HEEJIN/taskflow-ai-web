@@ -22,6 +22,26 @@ const config: Config = {
           900: '#1e3a8a',
         },
       },
+      // Custom transition durations from design tokens
+      transitionDuration: {
+        'fast': '150ms',
+        'normal': '300ms',
+        'slow': '500ms',
+        'slower': '700ms',
+      },
+      // Custom backdrop blur values
+      backdropBlur: {
+        'modal': '8px',
+        'overlay': '4px',
+        'glass': '12px',
+      },
+      // Custom box shadows aligned with design tokens
+      boxShadow: {
+        'cosmic-sm': '0 0 10px rgba(167, 139, 250, 0.2)',
+        'cosmic-md': '0 0 20px rgba(167, 139, 250, 0.3)',
+        'cosmic-lg': '0 0 40px rgba(167, 139, 250, 0.4)',
+        'cosmic-xl': '0 0 60px rgba(167, 139, 250, 0.5)',
+      },
       animation: {
         fadeIn: 'fadeIn 0.3s ease-in-out',
         starPulse: 'starPulse 3s ease-in-out infinite',

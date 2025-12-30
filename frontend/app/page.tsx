@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import { TaskList } from '@/components/TaskList';
+import { MobileTaskView } from '@/components/mobile/MobileTaskView';
 import { TaskForm } from '@/components/TaskForm';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
@@ -26,6 +27,19 @@ export default function Home() {
   const [notificationStatus, setNotificationStatus] = useState<NotificationPermission>('default');
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [newLevel, setNewLevel] = useState(1);
+  const [isMobile, setIsMobile] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const editingTask = editingTaskId ? tasks.find(t => t.id === editingTaskId) : undefined;
 
@@ -128,8 +142,13 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-hidden relative">
-      {/* Profile Button (top right) */}
-      <ProfileButton />
+      {/* Profile Button - always available, but button only shows on desktop */}
+      {!isMobile && <ProfileButton />}
+
+      {/* Profile Modal for mobile (controlled by Settings button) */}
+      {isMobile && (
+        <ProfileButton isOpen={showProfile} onOpenChange={setShowProfile} />
+      )}
 
       {/* Galaxy Focus Mode Overlay */}
       <AnimatePresence>
@@ -144,8 +163,8 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Emergency Button (always visible) */}
-      <EmergencyButton />
+      {/* Emergency Button - Hidden on mobile */}
+      {!isMobile && <EmergencyButton />}
 
       {/* Task Form Modal */}
       {showTaskForm && (
@@ -223,11 +242,18 @@ export default function Home() {
         </div>
       )}
 
-      {/* Full screen task graph - click/tap background to create new task */}
-      <TaskList
-        onBackgroundClick={() => setShowTaskForm(true)}
-        onEditTask={(taskId) => setEditingTaskId(taskId)}
-      />
+      {/* Conditional rendering: Mobile vs Desktop */}
+      {isMobile ? (
+        <MobileTaskView
+          onSettingsClick={() => setShowProfile(true)}
+          onTaskSelect={(taskId) => {/* TODO: Handle task selection */}}
+        />
+      ) : (
+        <TaskList
+          onBackgroundClick={() => setShowTaskForm(true)}
+          onEditTask={(taskId) => setEditingTaskId(taskId)}
+        />
+      )}
 
       {/* Level Up Modal */}
       <LevelUpModal

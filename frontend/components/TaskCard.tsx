@@ -3,6 +3,7 @@
 import { Task } from '@/types';
 import { CircularProgress } from './CircularProgress';
 import { useTaskStore } from '@/store/taskStore';
+import { X, Edit2, Info } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 
 interface TaskCardProps {
@@ -13,6 +14,12 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onClick, onEdit, isLinked = false }: TaskCardProps) {
+  console.log('🔍 TaskCard rendering with task:', {
+    id: task.id,
+    title: task.title,
+    titleType: typeof task.title,
+    fullTask: task
+  });
   const { deleteTask } = useTaskStore();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -143,7 +150,7 @@ export function TaskCard({ task, onClick, onEdit, isLinked = false }: TaskCardPr
         }}
         title="Delete Task"
       >
-        <span style={{ textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)' }}>✕</span>
+        <X className="w-5 h-5" style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5))' }} />
       </button>
 
       {/* Edit button - right */}
@@ -183,7 +190,7 @@ export function TaskCard({ task, onClick, onEdit, isLinked = false }: TaskCardPr
         }}
         title="Edit Task"
       >
-        <span style={{ textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)' }}>✏️</span>
+        <Edit2 className="w-5 h-5" style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5))' }} />
       </button>
 
       {/* Info button - bottom left */}
@@ -223,7 +230,7 @@ export function TaskCard({ task, onClick, onEdit, isLinked = false }: TaskCardPr
         }}
         title="View Details"
       >
-        <span style={{ textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)' }}>ℹ️</span>
+        <Info className="w-5 h-5" style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5))' }} />
       </button>
 
       {/* Outer glow effect - constellation star */}
@@ -296,7 +303,7 @@ export function TaskCard({ task, onClick, onEdit, isLinked = false }: TaskCardPr
                 textShadow: '0 2px 4px rgba(0, 0, 0, 0.5), 0 0 10px rgba(167, 139, 250, 0.3)',
               }}
             >
-              {task.title}
+              {typeof task.title === 'string' ? task.title : JSON.stringify(task.title)}
             </h3>
 
             <div

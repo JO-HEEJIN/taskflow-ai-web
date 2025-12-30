@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import design tokens for consistent styling */
+@import '../styles/design-tokens.css';
+
 :root {
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 10, 5, 20;

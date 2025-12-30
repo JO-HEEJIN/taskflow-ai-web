@@ -4,6 +4,7 @@ import { Task, TaskStatus } from '@/types';
 import { TaskCard } from './TaskCard';
 import { StarryBackground } from './StarryBackground';
 import { SearchFilter } from './SearchFilter';
+import { LayoutGrid } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
 
 interface TaskGraphViewProps {
@@ -302,18 +303,26 @@ export function TaskGraphView({
   }
 
   return (
-    <div
-      className="relative w-screen h-screen overflow-hidden"
-      style={{
-        background: 'linear-gradient(134deg, rgba(72, 54, 153, 0.8) 0%, rgba(6, 1, 28, 0.9) 100%), #161616',
-      }}
-    >
-      {/* Starry background */}
-      <StarryBackground />
-
-      {/* Search and Filter */}
+    <div className="relative w-screen h-screen overflow-hidden">
+      {/* Aurora Background */}
       <div
-        className="absolute top-2 left-2 right-2 md:top-4 md:left-1/2 md:-translate-x-1/2 md:right-auto z-50 max-w-xl w-full md:w-auto md:min-w-[500px]"
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: 'url(/aurora-bg.jpg)',
+          filter: 'blur(8px)',
+          transform: 'scale(1.1)',
+        }}
+      />
+      <div className="absolute inset-0 bg-black/60" />
+
+      {/* Content Layer */}
+      <div className="relative z-10 w-full h-full">
+        {/* Starry background */}
+        <StarryBackground />
+
+        {/* Search and Filter */}
+        <div
+          className="absolute top-2 left-2 right-2 md:top-4 md:left-1/2 md:-translate-x-1/2 md:right-auto z-50 max-w-xl w-full md:w-auto md:min-w-[500px]"
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
@@ -352,7 +361,7 @@ export function TaskGraphView({
       >
         <button
           onClick={() => setZoom(Math.min(2, zoom + 0.2))}
-          className="px-3 py-2 text-sm font-medium text-white rounded transition-all"
+          className="px-4 py-3 text-sm font-medium text-white rounded transition-all min-h-[48px]"
           style={{
             background: 'rgba(255, 255, 255, 0.1)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -371,7 +380,7 @@ export function TaskGraphView({
         </button>
         <button
           onClick={() => setZoom(Math.max(0.3, zoom - 0.2))}
-          className="px-3 py-2 text-sm font-medium text-white rounded transition-all"
+          className="px-4 py-3 text-sm font-medium text-white rounded transition-all min-h-[48px]"
           style={{
             background: 'rgba(255, 255, 255, 0.1)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -391,7 +400,7 @@ export function TaskGraphView({
         <div className="border-t my-1" style={{ borderColor: 'rgba(255, 255, 255, 0.2)' }}></div>
         <button
           onClick={handleReset}
-          className="px-3 py-2 text-sm font-medium text-white rounded transition-all"
+          className="px-4 py-3 text-sm font-medium text-white rounded transition-all min-h-[48px]"
           style={{
             background: 'rgba(255, 255, 255, 0.1)',
             border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -418,7 +427,7 @@ export function TaskGraphView({
         onClick={onViewModeToggle}
         onTouchStart={(e) => e.stopPropagation()}
         onTouchEnd={(e) => e.stopPropagation()}
-        className="absolute bottom-4 left-2 md:top-4 md:left-4 md:bottom-auto z-50 backdrop-blur-md rounded-lg px-3 py-2 md:px-4 text-sm font-medium text-white transition-all flex items-center gap-2"
+        className="absolute bottom-4 left-4 md:top-4 md:left-4 md:bottom-auto z-50 backdrop-blur-md rounded-lg px-4 py-3 md:px-4 text-sm font-medium text-white transition-all flex items-center gap-2 min-h-[48px]"
         style={{
           background: 'rgba(0, 0, 0, 0.5)',
           border: '1px solid rgba(167, 139, 250, 0.3)',
@@ -433,7 +442,7 @@ export function TaskGraphView({
           e.currentTarget.style.boxShadow = '0 0 30px rgba(167, 139, 250, 0.3), inset 0 0 30px rgba(255, 255, 255, 0.03)';
         }}
       >
-        <span>☰</span>
+        <LayoutGrid className="w-4 h-4" />
         <span className="hidden md:inline">Kanban View</span>
       </button>
 
@@ -617,6 +626,7 @@ export function TaskGraphView({
             );
           })}
         </div>
+      </div>
       </div>
     </div>
   );

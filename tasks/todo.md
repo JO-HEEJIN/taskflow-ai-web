@@ -1,9 +1,80 @@
 # TaskFlow AI - Product Hunt Launch Preparation
 
-**Current Phase**: Marketing & Launch
-**Launch Target**: Next Tuesday or Wednesday (Best PH engagement)
-**Launch Time**: 12:01 AM Pacific Time
-**Status**: Production deployed, Guest mode live, Ready for marketing
+**Current Phase**: Critical Bug Fix + Technical Polish
+**Launch Target**: After technical issues resolved
+**Status**: Fixing nested title object bug, then UI/UX polish
+
+---
+
+## IMMEDIATE PRIORITY - Bug Fix
+
+### Nested Title Object Bug (RESOLVED)
+- [x] Added defensive fix in guestStorage.createTask to handle nested objects
+- [x] Fixed CORS configuration to allow localhost:3000, 3002, 3003
+- [x] Backend restarted with new CORS config
+- [ ] Remove debugging console.log statements (pending cleanup)
+
+### Auto-Focus Mode Feature (COMPLETE)
+- [x] Add auto-trigger AI breakdown after task creation
+- [x] Auto-accept generated subtasks
+- [x] Auto-enter focus mode
+- [x] Add loading state (uses taskStore.isLoading)
+- [x] Handle errors gracefully (toast notifications)
+
+### Mobile UI Redesign (PENDING APPROVAL)
+See detailed plan: `/tasks/mobile-ui-redesign.md`
+- [ ] Get user approval on design direction
+- [ ] Decide: mobile-only or desktop too?
+- [ ] Phase 1: Create new mobile layout components
+- [ ] Phase 2: Implement Today tab (subtasks)
+- [ ] Phase 3: Implement Tomorrow tab (focus mode preview)
+- [ ] Phase 4: Implement Weekly tab (constellation view)
+- [ ] Phase 5: Bottom search/filter bar
+- [ ] Phase 6: Responsive breakpoints and polish
+
+---
+
+## Technical Polish - Product Hunt Readiness
+
+### Phase 1: Design System Foundation (COMPLETED)
+- [x] Create design-tokens.css
+- [x] Create base UI components (Button, Card, Modal, Icon, Toast)
+- [x] Update Tailwind config with design tokens
+
+### Phase 2: Mobile UX Fixes (MOSTLY COMPLETE)
+- [x] Fix touch target sizes (minimum 48px)
+- [x] Fix overlapping elements
+- [x] Fix responsive breakpoints
+- [ ] Test on real mobile device (iPhone, Android)
+
+### Phase 3: Onboarding & Empty States
+- [x] Create ADHD-friendly empty states (EmptyStateWithActions)
+- [x] Replace alert() with Toast notifications
+- [ ] Create OnboardingTutorial component (4-step walkthrough)
+- [ ] Enhance loading states with animations
+- [ ] Improve error messages (friendly, actionable)
+
+### Phase 4: Desktop UX Polish
+- [x] Replace emoji icons with Lucide React
+- [ ] Implement keyboard shortcuts (Cmd+N, Cmd+K, Cmd+B, ESC, ?)
+- [ ] Add max-width containers for desktop
+- [ ] Improve hover states consistency
+- [ ] Implement focus trap in modals
+
+### Phase 5: Landing Page
+- [ ] Create landing page structure (/)
+- [ ] Hero section with CTA
+- [ ] Features showcase
+- [ ] How It Works section
+- [ ] Routing setup (/ for landing, /app for main app)
+
+### Phase 6: Final Polish
+- [ ] Audit inline styles, move to Tailwind
+- [ ] Replace magic numbers with design tokens
+- [ ] Performance optimization (reduce star count on mobile)
+- [ ] Accessibility audit (WCAG AA, aria-labels, keyboard nav)
+- [ ] Mobile + Desktop testing across browsers
+- [ ] Clean console (no errors or warnings)
 
 ---
 

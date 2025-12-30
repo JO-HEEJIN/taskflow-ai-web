@@ -1,0 +1,153 @@
+/* TaskFlow AI Design Tokens
+ * Centralized design system for consistent styling
+ * Use these CSS variables instead of hardcoded values
+ */
+
+:root {
+  /* ===== Spacing Scale (4px increments) ===== */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+
+  /* ===== Colors - Purple Theme ===== */
+  --color-primary: #7c3aed;
+  --color-primary-hover: #6d28d9;
+  --color-primary-light: #a78bfa;
+  --color-primary-dark: #5b21b6;
+
+  /* Border colors */
+  --color-border: rgba(167, 139, 250, 0.3);
+  --color-border-light: rgba(167, 139, 250, 0.2);
+  --color-border-strong: rgba(167, 139, 250, 0.5);
+
+  /* Glow effects */
+  --color-glow: rgba(167, 139, 250, 0.4);
+  --color-glow-light: rgba(167, 139, 250, 0.2);
+  --color-glow-strong: rgba(167, 139, 250, 0.6);
+
+  /* ===== Backgrounds ===== */
+  --bg-modal: rgba(0, 0, 0, 0.85);
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-card-dark: rgba(255, 255, 255, 0.9);
+  --bg-glass: rgba(0, 0, 0, 0.5);
+  --bg-glass-light: rgba(0, 0, 0, 0.3);
+
+  /* ===== Blur ===== */
+  --blur-modal: 8px;
+  --blur-overlay: 4px;
+  --blur-glass: 12px;
+
+  /* ===== Typography Scale ===== */
+  --text-tiny: 0.75rem;      /* 12px */
+  --text-small: 0.875rem;    /* 14px */
+  --text-base: 1rem;         /* 16px */
+  --text-lg: 1.125rem;       /* 18px */
+  --text-xl: 1.25rem;        /* 20px */
+  --text-2xl: 1.5rem;        /* 24px */
+  --text-3xl: 1.875rem;      /* 30px */
+  --text-4xl: 2.25rem;       /* 36px */
+  --text-5xl: 3rem;          /* 48px */
+
+  /* ===== Font Weights ===== */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* ===== Line Heights ===== */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  /* ===== Shadows ===== */
+  --shadow-sm: 0 0 10px rgba(167, 139, 250, 0.2);
+  --shadow-md: 0 0 20px rgba(167, 139, 250, 0.3);
+  --shadow-lg: 0 0 40px rgba(167, 139, 250, 0.4);
+  --shadow-xl: 0 0 60px rgba(167, 139, 250, 0.5);
+
+  /* Text shadows */
+  --text-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.5);
+  --text-shadow-md: 0 3px 6px rgba(0, 0, 0, 0.6);
+  --text-shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.7);
+
+  /* ===== Animation Durations ===== */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --duration-slower: 700ms;
+
+  /* ===== Animation Easings ===== */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* ===== Border Radius ===== */
+  --radius-sm: 0.375rem;   /* 6px */
+  --radius-md: 0.5rem;     /* 8px */
+  --radius-lg: 0.75rem;    /* 12px */
+  --radius-xl: 1rem;       /* 16px */
+  --radius-2xl: 1.5rem;    /* 24px */
+  --radius-full: 9999px;   /* Full circle */
+
+  /* ===== Z-Index Hierarchy ===== */
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 50;
+  --z-overlay: 100;
+  --z-modal: 9999;
+  --z-focus-mode: 9999;
+  --z-coach: 9998;
+  --z-toast: 10000;
+}
+
+/* ===== Utility Classes Using Design Tokens ===== */
+
+/* Glassmorphism */
+.glass-card {
+  background: var(--bg-glass);
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(var(--blur-glass));
+  box-shadow: var(--shadow-md);
+}
+
+.glass-modal {
+  background: var(--bg-modal);
+  border: 1px solid var(--color-border);
+  backdrop-filter: blur(var(--blur-modal));
+  box-shadow: var(--shadow-lg);
+}
+
+/* Text shadows for cosmic theme */
+.text-cosmic {
+  text-shadow: var(--text-shadow-sm);
+}
+
+.text-cosmic-strong {
+  text-shadow: var(--text-shadow-md);
+}
+
+/* Smooth transitions */
+.transition-standard {
+  transition-duration: var(--duration-normal);
+  transition-timing-function: var(--ease-in-out);
+}
+
+.transition-fast {
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-out);
+}
+
+/* Touch target minimum size (accessibility) */
+.touch-target {
+  min-width: 48px;
+  min-height: 48px;
+}

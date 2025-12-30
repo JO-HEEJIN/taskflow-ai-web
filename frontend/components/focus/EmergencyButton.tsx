@@ -81,7 +81,7 @@ export function EmergencyButton() {
           opacity: { duration: 0.5, delay: 0.8 },
         }}
         onClick={handleClick}
-        className="fixed bottom-24 left-4 md:bottom-8 md:left-8 z-[9998] w-16 h-16 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
+        className="fixed bottom-4 right-20 md:bottom-8 md:right-24 z-[9998] w-16 h-16 rounded-full flex items-center justify-center transition-transform hover:scale-110 active:scale-95"
         style={{
           background: 'linear-gradient(135deg, #ef4444 0%, #ec4899 100%)',
           boxShadow: '0 4px 20px rgba(239, 68, 68, 0.6)',

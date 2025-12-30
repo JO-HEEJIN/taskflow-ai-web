@@ -4,6 +4,7 @@ import { Task, TaskStatus } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
 import { SearchFilter } from './SearchFilter';
 import { KanbanSidePanel } from './KanbanSidePanel';
+import { Home, Filter, List } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 
 interface KanbanViewProps {
@@ -137,7 +138,7 @@ export function KanbanView({
             onClick={onClose}
             className="flex items-center gap-1 text-gray-600 hover:text-purple-600 px-2 py-1 rounded-lg border border-gray-300 hover:border-purple-500 transition-all text-xs"
           >
-            <span className="text-sm">🌌</span>
+            <Home className="w-4 h-4" />
             <span className="font-medium">Back</span>
           </button>
         </div>
@@ -157,7 +158,7 @@ export function KanbanView({
             onClick={() => setShowFilterMenu(!showFilterMenu)}
             className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all flex items-center gap-1"
           >
-            <span>☰</span>
+            <Filter className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Filter</span>
           </button>
 
@@ -219,13 +220,13 @@ export function KanbanView({
           {columns.map((column) => (
             <div
               key={column.status}
-              className="flex-shrink-0 w-[92vw] md:w-80 bg-gray-100 rounded-lg flex flex-col snap-center"
+              className="flex-shrink-0 w-[92vw] sm:w-[85vw] md:w-80 lg:w-96 bg-gray-100 rounded-lg flex flex-col snap-center"
             >
               {/* Column Header */}
               <div className="p-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
                   <h2 className="font-semibold text-gray-700 flex items-center gap-2">
-                    <span className="text-sm">☰</span>
+                    <List className="w-4 h-4" />
                     {column.title}
                   </h2>
                   <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded">
@@ -272,7 +273,7 @@ export function KanbanView({
                           );
                         }}
                         onClick={(e) => e.stopPropagation()}
-                        className="mt-1 w-4 h-4 rounded border-gray-300 pointer-events-auto"
+                        className="mt-1 w-6 h-6 rounded border-gray-300 pointer-events-auto"
                       />
                       <div className="flex-1">
                         <h3 className="font-medium text-gray-900 mb-1">
@@ -293,7 +294,7 @@ export function KanbanView({
                         </div>
                       </div>
                       <button
-                        className="text-gray-400 hover:text-gray-600 text-sm pointer-events-auto"
+                        className="text-gray-400 hover:text-gray-600 text-lg pointer-events-auto p-3 min-w-[48px] min-h-[48px] flex items-center justify-center"
                         onClick={(e) => e.stopPropagation()}
                       >
                         ⋯

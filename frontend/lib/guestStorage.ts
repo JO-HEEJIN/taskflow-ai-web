@@ -52,6 +52,7 @@ export const guestStorage = {
       if (!tasksJson) return [];
 
       const tasks = JSON.parse(tasksJson);
+      console.log('🔍 Loaded tasks from localStorage:', tasks.map((t: any) => ({ id: t.id, title: t.title, titleType: typeof t.title })));
       return tasks.map((task: any) => ({
         ...task,
         createdAt: new Date(task.createdAt),
@@ -70,6 +71,7 @@ export const guestStorage = {
     if (typeof window === 'undefined') return;
 
     try {
+      console.log('🔍 Saving tasks to localStorage:', tasks.map(t => ({ id: t.id, title: t.title, titleType: typeof t.title })));
       localStorage.setItem(GUEST_TASKS_KEY, JSON.stringify(tasks));
     } catch (error) {
       console.error('Error saving guest tasks:', error);
@@ -83,12 +85,28 @@ export const guestStorage = {
    * Create a new task
    */
   createTask(title: string, description?: string): Task {
+    console.log('🔍 createTask called with:', { title, description, titleType: typeof title });
+
+    // DEFENSIVE: Extract string from object if needed
+    let cleanTitle = title;
+    if (typeof title === 'object' && title !== null) {
+      console.error('ERROR: Title is an object, not a string!', title);
+      // Try to extract the actual title string
+      if ('title' in title) {
+        cleanTitle = (title as any).title;
+        console.log('🔧 Extracted title from nested object:', cleanTitle);
+      } else {
+        console.error('CRITICAL: Cannot extract title from object, using JSON string');
+        cleanTitle = JSON.stringify(title);
+      }
+    }
+
     const tasks = this.getAllTasks();
     const guestId = this.getGuestId() || 'guest';
 
     const newTask: Task = {
       id: uuidv4(),
-      title,
+      title: cleanTitle,
       description,
       status: TaskStatus.PENDING,
       progress: 0,
@@ -98,6 +116,7 @@ export const guestStorage = {
       updatedAt: new Date(),
     };
 
+    console.log('🔍 Created task object:', { id: newTask.id, title: newTask.title, titleType: typeof newTask.title });
     tasks.push(newTask);
     this.saveTasks(tasks);
 

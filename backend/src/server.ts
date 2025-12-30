@@ -15,8 +15,12 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',')
+  : ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003'];
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3002',
+  origin: allowedOrigins,
 }));
 app.use(express.json());
 

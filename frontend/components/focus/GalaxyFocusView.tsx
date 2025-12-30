@@ -163,24 +163,28 @@ export function GalaxyFocusView({
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         onClick={onClose}
-        className="absolute top-4 right-4 md:top-8 md:right-8 text-white/70 hover:text-white transition-colors group z-10"
+        onTouchEnd={(e) => {
+          e.preventDefault();
+          onClose();
+        }}
+        className="absolute top-4 right-4 md:top-8 md:right-8 text-white/70 hover:text-white transition-colors group z-[100]"
       >
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-all">
-          <X className="w-5 h-5" />
+        <div className="flex items-center gap-2 px-4 py-3 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hover:bg-white/20 transition-all">
+          <X className="w-6 h-6" />
           <span className="text-sm font-medium hidden md:inline">Abort Mission (ESC)</span>
         </div>
       </motion.button>
 
-      {/* Progress indicator (top-center) */}
+      {/* Progress indicator (top-right, below close button) - Hidden on mobile */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10"
+        className="hidden md:block absolute top-16 md:top-20 right-4 md:right-8 z-10"
       >
-        <div className="px-6 py-2 rounded-full bg-white/10 backdrop-blur-md border border-purple-500/30">
-          <span className="text-white text-sm font-medium" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-            {completedSubtasks}/{totalSubtasks} completed • {Math.round(progressPercentage)}%
+        <div className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-purple-500/30">
+          <span className="text-white text-xs md:text-sm font-medium" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+            {completedSubtasks}/{totalSubtasks}
           </span>
         </div>
       </motion.div>
@@ -188,15 +192,19 @@ export function GalaxyFocusView({
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center max-w-2xl w-full">
         {/* Mission title */}
-        <motion.h2
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="text-xl md:text-2xl font-light text-blue-200 mb-4 text-center tracking-wide"
-          style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
+          className="mb-4 text-center px-4"
         >
-          Mission: <span className="font-bold text-white">{currentSubtask.title}</span>
-        </motion.h2>
+          <p className="text-sm md:text-base font-light text-blue-200 mb-1" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
+            Mission:
+          </p>
+          <h2 className="text-base md:text-lg font-bold text-white leading-snug" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
+            {currentSubtask.title}
+          </h2>
+        </motion.div>
 
         {/* Subtask type badge */}
         {currentSubtask.stepType && (
@@ -248,23 +256,29 @@ export function GalaxyFocusView({
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="w-full max-w-lg p-6 rounded-2xl mb-6"
-          style={{
-            background: 'rgba(0, 0, 0, 0.5)',
-            border: '1px solid rgba(167, 139, 250, 0.3)',
-            boxShadow: '0 0 30px rgba(167, 139, 250, 0.3), inset 0 0 30px rgba(255, 255, 255, 0.03)',
-            backdropFilter: 'blur(10px)',
-          }}
+          className="w-full max-w-md px-4 mb-6"
         >
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-2 h-2 rounded-full bg-green-400 mt-2 animate-pulse" />
-            <p className="text-blue-100 text-base md:text-lg leading-relaxed" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-              <strong className="text-white">Mission Control:</strong> Focus on this one task.
-              {isTimerRunning
-                ? " You're doing great! Keep going."
-                : " Click the timer to begin your mission."}
-              {` Estimated time: ${estimatedMinutes} minutes.`}
-            </p>
+          <div
+            className="p-4 md:p-6 rounded-2xl"
+            style={{
+              background: 'rgba(0, 0, 0, 0.5)',
+              border: '1px solid rgba(167, 139, 250, 0.3)',
+              boxShadow: '0 0 30px rgba(167, 139, 250, 0.3), inset 0 0 30px rgba(255, 255, 255, 0.03)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-2 h-2 rounded-full bg-green-400 mt-1.5 animate-pulse" />
+              <div className="flex-1">
+                <p className="text-blue-100 text-sm md:text-base leading-relaxed" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                  <strong className="text-white">Mission Control:</strong> Focus on this one task.
+                  {isTimerRunning
+                    ? " You're doing great! Keep going."
+                    : " Click the timer to begin your mission."}
+                  {` Estimated time: ${estimatedMinutes} minutes.`}
+                </p>
+              </div>
+            </div>
           </div>
         </motion.div>
 
@@ -273,12 +287,12 @@ export function GalaxyFocusView({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="flex flex-col sm:flex-row gap-3 w-full max-w-lg"
+          className="flex flex-col sm:flex-row gap-3 w-full max-w-md px-4"
         >
           {/* Complete button */}
           <button
             onClick={handleComplete}
-            className="flex-1 py-4 px-6 text-lg font-bold rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+            className="flex-1 py-3 md:py-4 px-6 text-base md:text-lg font-bold rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
             style={{
               background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
               boxShadow: '0 0 30px rgba(34, 197, 94, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)',
@@ -292,7 +306,7 @@ export function GalaxyFocusView({
           {/* Skip button */}
           <button
             onClick={handleSkip}
-            className="sm:flex-none py-4 px-6 text-sm font-medium text-white/70 hover:text-white rounded-2xl transition-all hover:bg-white/10 border border-white/20 flex items-center justify-center gap-2"
+            className="sm:flex-none py-3 md:py-4 px-6 text-sm font-medium text-white/70 hover:text-white rounded-2xl transition-all hover:bg-white/10 border border-white/20 flex items-center justify-center gap-2"
           >
             <SkipForward className="w-4 h-4" />
             <span>Skip</span>

@@ -10,6 +10,7 @@ interface TaskStore {
   // Actions
   fetchTasks: () => Promise<void>;
   createTask: (title: string, description?: string) => Promise<void>;
+  createTaskWithAutoFocus: (title: string, description?: string) => Promise<string | null>;
   createLinkedTask: (parentTaskId: string, subtaskId: string, subtaskTitle: string) => Promise<Task>;
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   updateTaskStatus: (id: string, status: string) => Promise<void>;
@@ -38,15 +39,50 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   createTask: async (title: string, description?: string) => {
+    console.log('🔍 taskStore.createTask called with:', { title, description, titleType: typeof title });
     set({ isLoading: true, error: null });
     try {
       const { task } = await api.createTask(title, description);
+      console.log('🔍 Received task from API:', { taskId: task.id, title: task.title, titleType: typeof task.title });
       set((state) => ({
         tasks: [...state.tasks, task],
         isLoading: false,
       }));
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
+    }
+  },
+
+  createTaskWithAutoFocus: async (title: string, description?: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      // Step 1: Create task
+      const { task } = await api.createTask(title, description);
+      set((state) => ({
+        tasks: [...state.tasks, task],
+      }));
+
+      // Step 2: Generate AI breakdown
+      const taskToBreakdown = get().tasks.find(t => t.id === task.id);
+      const result = await api.breakdownTask(task.id, taskToBreakdown?.title, taskToBreakdown?.description);
+
+      // Step 3: Add subtasks automatically
+      if (result.suggestions && result.suggestions.length > 0) {
+        const { task: updatedTask } = await api.addSubtasks(task.id, result.suggestions);
+        set((state) => ({
+          tasks: state.tasks.map((t) => (t.id === task.id ? updatedTask : t)),
+          isLoading: false,
+        }));
+
+        // Return task ID so caller can enter focus mode
+        return task.id;
+      }
+
+      set({ isLoading: false });
+      return null;
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
     }
   },
 

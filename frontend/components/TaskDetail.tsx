@@ -3,8 +3,11 @@
 import { Task } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
+import { useToast } from '@/contexts/ToastContext';
 import { ProgressBar } from './ProgressBar';
 import { AIBreakdownModal } from './AIBreakdownModal';
+import { NoSubtasksEmptyState } from './onboarding/NoSubtasksEmptyState';
+import { X, GripVertical, Link2, Unlink, Archive, Map, List as ListIcon, Sparkles, ChevronDown, ChevronRight, ChevronUp, Loader2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
@@ -23,6 +26,7 @@ interface TaskDetailProps {
 
 export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   const { tasks, toggleSubtask, addSubtasks, deleteSubtask, reorderSubtasks, archiveSubtask, createLinkedTask } = useTaskStore();
+  const toast = useToast();
   const [showAIModal, setShowAIModal] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
@@ -68,8 +72,8 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       setNewSubtaskTitle('');
     } catch (error) {
       console.error('Failed to add subtask:', error);
-      alert('Failed to add subtask');
-    } finally {
+      toast.error('Failed to add subtask. Please try again.');
+    } finally{
       setIsAddingSubtask(false);
     }
   };
@@ -80,7 +84,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       await deleteSubtask(task.id, subtaskId);
     } catch (error) {
       console.error('Failed to delete subtask:', error);
-      alert('Failed to delete subtask');
+      toast.error('Failed to delete subtask. Please try again.');
     }
   };
 
@@ -150,7 +154,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       await archiveSubtask(task.id, subtaskId, archived);
     } catch (error) {
       console.error('Failed to archive subtask:', error);
-      alert('Failed to archive subtask');
+      toast.error('Failed to archive subtask. Please try again.');
     }
   };
 
@@ -199,11 +203,12 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
     try {
       const newTask = await createLinkedTask(task.id, subtaskId, subtask.title);
       // Show success with task title
-      const message = `✅ Created new task: "${newTask.title}"\n\nYou can find it in the constellation view.`;
-      alert(message);
+      toast.success(`Created new task: "${newTask.title}"`, {
+        duration: 6000,
+      });
     } catch (error) {
       console.error('Failed to create linked task:', error);
-      alert('❌ Failed to create linked task. Please try again.');
+      toast.error('Failed to create linked task. Please try again.');
     } finally {
       setCreatingLinkedTask(false);
     }
@@ -221,7 +226,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       await useTaskStore.getState().updateTask(task.id, { subtasks: updatedSubtasks });
     } catch (error) {
       console.error('Failed to clear broken link:', error);
-      alert('Failed to clear broken link');
+      toast.error('Failed to clear broken link. Please try again.');
     }
   };
 
@@ -294,9 +299,9 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
               </div>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 text-2xl ml-4"
+                className="text-gray-400 hover:text-gray-600 text-2xl ml-4 p-3 min-w-[48px] min-h-[48px] flex items-center justify-center"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -325,12 +330,12 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                       >
                         {showMindMap ? (
                           <>
-                            <span>📋</span>
+                            <ListIcon className="w-4 h-4" />
                             <span>List View</span>
                           </>
                         ) : (
                           <>
-                            <span>🗺️</span>
+                            <Map className="w-4 h-4" />
                             <span>Mind Map</span>
                           </>
                         )}
@@ -351,17 +356,15 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                       onClick={() => setShowAIModal(true)}
                       className="text-sm bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
                     >
-                      ✨ AI Breakdown
+                      <Sparkles className="w-4 h-4 inline mr-1" />
+                      AI Breakdown
                     </button>
                   )}
                 </div>
               </div>
 
               {activeSubtasks.length === 0 ? (
-                <div className="text-center py-8 text-gray-400">
-                  <p>No subtasks yet</p>
-                  <p className="text-sm mt-1">Use AI to break down this task!</p>
-                </div>
+                <NoSubtasksEmptyState onAIBreakdown={() => setShowAIModal(true)} />
               ) : showMindMap ? (
                 <TaskMindMap taskId={task.id} />
               ) : (
@@ -384,25 +387,25 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                         }`}
                       >
                         {/* Desktop: Drag handle */}
-                        <span className="hidden md:block text-gray-400 cursor-grab active:cursor-grabbing mt-1">☰</span>
+                        <GripVertical className="hidden md:block text-gray-400 cursor-grab active:cursor-grabbing mt-1 w-5 h-5" />
 
                         {/* Mobile: Up/Down buttons */}
                         <div className="flex flex-col gap-1 md:hidden">
                           <button
                             onClick={() => handleMoveSubtask(subtask.id, 'up')}
                             disabled={index === 0}
-                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-1 text-xs"
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-3 text-sm min-w-[40px] min-h-[40px] flex items-center justify-center"
                             title="Move up"
                           >
-                            ▲
+                            <ChevronUp className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleMoveSubtask(subtask.id, 'down')}
                             disabled={index === activeSubtasks.length - 1}
-                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-1 text-xs"
+                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-3 text-sm min-w-[40px] min-h-[40px] flex items-center justify-center"
                             title="Move down"
                           >
-                            ▼
+                            <ChevronDown className="w-4 h-4" />
                           </button>
                         </div>
 
@@ -410,7 +413,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                           type="checkbox"
                           checked={subtask.isCompleted}
                           onChange={() => handleToggleSubtask(subtask.id)}
-                          className="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer flex-shrink-0"
+                          className="mt-1 h-6 w-6 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer flex-shrink-0"
                         />
                         <span
                           className={`flex-1 flex items-center gap-2 ${
@@ -425,7 +428,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                             if (linkedTask) {
                               return (
                                 <span className="text-xs text-blue-600" title={`Linked to: ${linkedTask.title}`}>
-                                  🔗
+                                  <Link2 className="w-3.5 h-3.5 inline" />
                                 </span>
                               );
                             } else {
@@ -438,7 +441,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                                   className="text-xs text-red-600 hover:text-red-800"
                                   title="Broken link - click to clear"
                                 >
-                                  🔗💔
+                                  <Unlink className="w-3.5 h-3.5" />
                                 </button>
                               );
                             }
@@ -447,17 +450,17 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                         <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleArchiveSubtask(subtask.id, true)}
-                            className="text-gray-400 hover:text-blue-600 p-1"
+                            className="text-gray-400 hover:text-blue-600 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center"
                             title="Archive subtask"
                           >
-                            📦
+                            <Archive className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteSubtask(subtask.id)}
-                            className="text-gray-400 hover:text-red-600 p-1"
+                            className="text-gray-400 hover:text-red-600 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center"
                             title="Delete subtask"
                           >
-                            ✕
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
 
@@ -469,7 +472,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                               disabled={creatingLinkedTask}
                               className="hover:underline flex items-center gap-1 disabled:opacity-50 disabled:cursor-wait"
                             >
-                              <span>{creatingLinkedTask ? '⏳' : '✨'}</span>
+                              {creatingLinkedTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                               <span>{creatingLinkedTask ? 'Creating...' : 'New task from this?'}</span>
                             </button>
                             {!creatingLinkedTask && (
@@ -477,7 +480,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                                 onClick={() => setShowPrompt(null)}
                                 className="text-white/80 hover:text-white"
                               >
-                                ✕
+                                <X className="w-4 h-4" />
                               </button>
                             )}
                           </div>
@@ -515,7 +518,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                   onClick={() => setShowArchived(!showArchived)}
                   className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 mb-2"
                 >
-                  <span>{showArchived ? '▼' : '▶'}</span>
+                  {showArchived ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   <span>Archived ({archivedSubtasks.length})</span>
                 </button>
                 {showArchived && (
@@ -527,7 +530,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                           key={subtask.id}
                           className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg opacity-60"
                         >
-                          <span className="text-gray-400">📦</span>
+                          <Archive className="w-4 h-4 text-gray-400 mt-1" />
                           <span className="flex-1 text-gray-500 line-through">
                             {subtask.title}
                           </span>
@@ -543,7 +546,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                             className="text-gray-400 hover:text-red-600"
                             title="Delete permanently"
                           >
-                            ✕
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       ))}
@@ -558,7 +561,8 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                 onClick={() => setShowAIModal(true)}
                 className="w-full text-sm text-primary-600 border border-primary-600 px-4 py-2 rounded-lg hover:bg-primary-50"
               >
-                ✨ Add More with AI
+                <Sparkles className="w-4 h-4 inline mr-1" />
+                Add More with AI
               </button>
             )}
 

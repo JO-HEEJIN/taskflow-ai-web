@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
+import { useToast } from '@/contexts/ToastContext';
+import { Sparkles } from 'lucide-react';
 import { AISubtaskSuggestion } from '@/types';
 
 interface AIBreakdownModalProps {
@@ -12,6 +14,7 @@ interface AIBreakdownModalProps {
 
 export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
   const { generateAIBreakdown, addSubtasks, tasks } = useTaskStore();
+  const toast = useToast();
   const [suggestions, setSuggestions] = useState<AISubtaskSuggestion[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
@@ -41,7 +44,12 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
       setSuggestions(result.suggestions || []);
     } catch (error) {
       console.error('AI breakdown error:', error);
-      alert('Failed to generate AI breakdown');
+      toast.error('AI got distracted by a supernova! Mind trying again?', {
+        action: {
+          label: 'Retry',
+          onClick: handleGenerate,
+        },
+      });
       setSuggestions([]); // Clear on error
     } finally {
       setIsGenerating(false);
@@ -63,7 +71,7 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
 
       onClose();
     } catch (error) {
-      alert('Failed to add subtasks');
+      toast.error('Failed to add subtasks. Please try again.');
     } finally {
       setIsAccepting(false);
     }
@@ -111,7 +119,8 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
                 disabled={isGenerating}
                 className="bg-primary-600 text-white px-8 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
               >
-                ✨ Generate AI Breakdown
+                <Sparkles className="w-4 h-4 inline mr-1" />
+                Generate AI Breakdown
               </button>
             </div>
           ) : (

@@ -6,10 +6,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { User, X, LogIn, LogOut, Trophy } from 'lucide-react';
 import { useGamificationStore, getLevelProgress } from '@/store/useGamificationStore';
 
-export function ProfileButton() {
+interface ProfileButtonProps {
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileButtonProps = {}) {
   const { data: session, status } = useSession();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
   const { xp, level, streak, getActivityForLast30Days } = useGamificationStore();
+
+  // Use external control if provided, otherwise use internal state
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = onOpenChange || setInternalIsOpen;
 
   const isGuest = status !== 'authenticated';
   const activityData = getActivityForLast30Days();
@@ -38,35 +47,37 @@ export function ProfileButton() {
 
   return (
     <>
-      {/* Profile Button */}
-      <motion.button
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setIsOpen(true)}
-        className="fixed top-16 right-4 md:top-6 md:right-6 z-[9998] p-3 rounded-full backdrop-blur-md transition-all"
-        style={{
-          background: isGuest
-            ? 'rgba(100, 100, 100, 0.3)'
-            : 'linear-gradient(135deg, rgba(192, 132, 252, 0.5) 0%, rgba(232, 121, 249, 0.5) 100%)',
-          border: '2px solid rgba(255, 255, 255, 0.3)',
-          boxShadow: '0 0 20px rgba(192, 132, 252, 0.4)',
-        }}
-      >
-        <div className="relative">
-          <User className="w-6 h-6 text-white" />
-          {!isGuest && (
-            <div
-              className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
-              style={{
-                background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                boxShadow: '0 0 10px rgba(251, 191, 36, 0.6)',
-              }}
-            >
-              {level}
-            </div>
-          )}
-        </div>
-      </motion.button>
+      {/* Profile Button - only show if not externally controlled */}
+      {externalIsOpen === undefined && (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsOpen(true)}
+          className="fixed top-16 right-4 md:top-6 md:right-6 z-[9998] p-3 rounded-full backdrop-blur-md transition-all"
+          style={{
+            background: isGuest
+              ? 'rgba(100, 100, 100, 0.3)'
+              : 'linear-gradient(135deg, rgba(192, 132, 252, 0.5) 0%, rgba(232, 121, 249, 0.5) 100%)',
+            border: '2px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 0 20px rgba(192, 132, 252, 0.4)',
+          }}
+        >
+          <div className="relative">
+            <User className="w-6 h-6 text-white" />
+            {!isGuest && (
+              <div
+                className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                style={{
+                  background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
+                  boxShadow: '0 0 10px rgba(251, 191, 36, 0.6)',
+                }}
+              >
+                {level}
+              </div>
+            )}
+          </div>
+        </motion.button>
+      )}
 
       {/* Profile Modal */}
       <AnimatePresence>

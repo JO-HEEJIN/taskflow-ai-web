@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useTaskStore } from '@/store/taskStore';
+import { useCoachStore } from '@/store/useCoachStore';
+import { useToast } from '@/contexts/ToastContext';
 import { Task } from '@/types';
 import { api } from '@/lib/api';
 import '@uiw/react-md-editor/markdown-editor.css';
@@ -19,7 +21,9 @@ interface TaskFormProps {
 }
 
 export function TaskForm({ task, onClose }: TaskFormProps) {
-  const { createTask, updateTask, isLoading } = useTaskStore();
+  const { createTask, createTaskWithAutoFocus, updateTask, isLoading } = useTaskStore();
+  const { enterFocusMode } = useCoachStore();
+  const toast = useToast();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -45,7 +49,7 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
       setDescription((prev) => prev + imageMarkdown);
     } catch (error) {
       console.error('Image upload failed:', error);
-      alert('Failed to upload image. Please try again.');
+      toast.error('Failed to upload image. Please try again.');
     } finally {
       setUploadingImage(false);
     }
@@ -78,19 +82,38 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
     e.preventDefault();
 
     if (!title.trim()) {
-      alert('Task title is required');
+      toast.warning('Task title is required');
       return;
     }
 
     if (isEditMode && task) {
       await updateTask(task.id, { title, description: description || undefined });
+      setTitle('');
+      setDescription('');
+      if (onClose) onClose();
     } else {
-      await createTask(title, description || undefined);
-    }
+      // Use auto-focus flow for new tasks
+      try {
+        const taskId = await createTaskWithAutoFocus(title, description || undefined);
 
-    setTitle('');
-    setDescription('');
-    if (onClose) onClose();
+        setTitle('');
+        setDescription('');
+        if (onClose) onClose();
+
+        // Enter focus mode if task was created with subtasks
+        if (taskId) {
+          setTimeout(() => {
+            const createdTask = useTaskStore.getState().tasks.find(t => t.id === taskId);
+            if (createdTask && createdTask.subtasks.length > 0) {
+              enterFocusMode(taskId, createdTask.subtasks);
+            }
+          }, 100);
+        }
+      } catch (error) {
+        console.error('Failed to create task:', error);
+        toast.error('Failed to create task. Please try again.');
+      }
+    }
   };
 
   // Handle image paste and upload
