@@ -20,7 +20,18 @@ const allowedOrigins = process.env.CORS_ORIGIN
   : ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003'];
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+
+    // Check if origin is in allowed list or is Azure Container App
+    if (allowedOrigins.includes(origin) || origin.includes('azurecontainerapps.io')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
 }));
 app.use(express.json());
 
