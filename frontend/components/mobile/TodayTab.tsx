@@ -66,16 +66,6 @@ export function TodayTab({ task, onBreakdownAndFocus }: TodayTabProps) {
               {index + 1}. {subtask.title}
             </p>
 
-            {/* Description if exists */}
-            {subtask.description && (
-              <p
-                className="text-[13px] text-white/50 mb-2"
-                style={{ lineHeight: '1.4' }}
-              >
-                {subtask.description}
-              </p>
-            )}
-
             {/* Estimated time */}
             {subtask.estimatedMinutes && (
               <div className="flex items-center gap-1.5">
