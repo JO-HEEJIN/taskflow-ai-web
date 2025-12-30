@@ -72,7 +72,7 @@ export function EmptyStateWithActions({
           icon={<Zap className="w-5 h-5" />}
           onClick={() => onCreateSample(randomSample)}
         >
-          Try Example: "{randomSample}"
+          Try Example: {randomSample}
         </Button>
 
         <Button

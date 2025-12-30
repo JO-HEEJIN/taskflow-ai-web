@@ -53,7 +53,7 @@ export function NoSubtasksEmptyState({ onAIBreakdown }: NoSubtasksEmptyStateProp
       >
         <p className="text-sm text-purple-800 text-left">
           <strong className="block mb-2">Example breakdown:</strong>
-          <span className="block mb-1">"Write blog post" becomes:</span>
+          <span className="block mb-1">Write blog post becomes:</span>
           <span className="block ml-4 mb-1">1. Choose topic <span className="text-purple-600 font-medium">(5 min)</span></span>
           <span className="block ml-4 mb-1">2. Create outline <span className="text-purple-600 font-medium">(10 min)</span></span>
           <span className="block ml-4 mb-1">3. Write intro <span className="text-purple-600 font-medium">(15 min)</span></span>
