@@ -14,6 +14,7 @@ import { EmergencyButton } from '@/components/focus/EmergencyButton';
 import { LevelUpModal } from '@/components/rewards/LevelUpModal';
 import { ProfileButton } from '@/components/profile/ProfileButton';
 import { LoadingScreen } from '@/components/LoadingScreen';
+import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
 import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
 import { setUserId } from '@/lib/api';
 import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
@@ -139,6 +140,9 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-hidden relative">
+      {/* Background Music Player */}
+      <BackgroundMusicPlayer />
+
       {/* Profile Button - always available, but button only shows on desktop */}
       {!isMobile && <ProfileButton />}
 

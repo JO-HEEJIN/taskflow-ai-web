@@ -16,6 +16,7 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const { xp, level, streak, getActivityForLast30Days } = useGamificationStore();
   const [musicEnabled, setMusicEnabled] = useState(true);
+  const [continuousMusicEnabled, setContinuousMusicEnabled] = useState(false);
 
   // Use external control if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -25,11 +26,16 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
   const activityData = getActivityForLast30Days();
   const levelProgress = getLevelProgress();
 
-  // Load music preference from localStorage
+  // Load music preferences from localStorage
   useEffect(() => {
     const savedPreference = localStorage.getItem('musicEnabled');
     if (savedPreference !== null) {
       setMusicEnabled(savedPreference === 'true');
+    }
+
+    const savedContinuousMusic = localStorage.getItem('continuousMusicEnabled');
+    if (savedContinuousMusic !== null) {
+      setContinuousMusicEnabled(savedContinuousMusic === 'true');
     }
   }, []);
 
@@ -38,6 +44,16 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
     const newValue = !musicEnabled;
     setMusicEnabled(newValue);
     localStorage.setItem('musicEnabled', String(newValue));
+  };
+
+  // Toggle continuous music and save to localStorage
+  const toggleContinuousMusic = () => {
+    const newValue = !continuousMusicEnabled;
+    setContinuousMusicEnabled(newValue);
+    localStorage.setItem('continuousMusicEnabled', String(newValue));
+
+    // Trigger custom event for background music player
+    window.dispatchEvent(new CustomEvent('continuousMusicToggle', { detail: { enabled: newValue } }));
   };
 
   // Calculate max completions for heatmap intensity
@@ -184,7 +200,8 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
               </div>
 
               {/* Music Toggle Section */}
-              <div className="mb-6 p-4 rounded-xl" style={{ background: 'rgba(167, 139, 250, 0.1)' }}>
+              <div className="mb-6 p-4 rounded-xl space-y-4" style={{ background: 'rgba(167, 139, 250, 0.1)' }}>
+                {/* Loading Screen Music */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {musicEnabled ? (
@@ -193,8 +210,8 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
                       <VolumeX className="w-5 h-5 text-gray-400" />
                     )}
                     <div>
-                      <p className="text-white font-medium">Background Music</p>
-                      <p className="text-xs text-gray-400">Loading screen theme</p>
+                      <p className="text-white font-medium">Loading Music</p>
+                      <p className="text-xs text-gray-400">Plays during loading</p>
                     </div>
                   </div>
                   <button
@@ -209,6 +226,36 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
                     <motion.div
                       className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md"
                       animate={{ x: musicEnabled ? 26 : 2 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  </button>
+                </div>
+
+                {/* Continuous Background Music */}
+                <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+                  <div className="flex items-center gap-3">
+                    {continuousMusicEnabled ? (
+                      <Volume2 className="w-5 h-5 text-purple-300" />
+                    ) : (
+                      <VolumeX className="w-5 h-5 text-gray-400" />
+                    )}
+                    <div>
+                      <p className="text-white font-medium">Ambient Music</p>
+                      <p className="text-xs text-gray-400">Plays except in Focus Mode</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleContinuousMusic}
+                    className="relative w-12 h-6 rounded-full transition-colors"
+                    style={{
+                      background: continuousMusicEnabled
+                        ? 'linear-gradient(135deg, #c084fc 0%, #e879f9 100%)'
+                        : 'rgba(100, 100, 100, 0.5)',
+                    }}
+                  >
+                    <motion.div
+                      className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md"
+                      animate={{ x: continuousMusicEnabled ? 26 : 2 }}
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     />
                   </button>
