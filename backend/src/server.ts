@@ -1,7 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 import { cosmosService } from './services/cosmosService';
+import { timerService } from './services/timerService';
+import { websocketService } from './services/websocketService';
 import tasksRouter from './routes/tasks';
 import aiRouter from './routes/ai';
 import syncRouter from './routes/sync';
@@ -12,6 +15,7 @@ import imagesRouter from './routes/images';
 dotenv.config();
 
 const app = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 3001;
 
 // Middleware
@@ -19,8 +23,8 @@ const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',')
   : ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3003'];
 
-app.use(cors({
-  origin: (origin, callback) => {
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow requests with no origin (mobile apps, curl, etc)
     if (!origin) return callback(null, true);
 
@@ -32,7 +36,17 @@ app.use(cors({
     }
   },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'x-device-token', 'x-user-id'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range'],
+  maxAge: 86400, // 24 hours
+};
+
+app.use(cors(corsOptions));
+
+// Enable pre-flight requests for all routes
+app.options('*', cors(corsOptions));
+
 app.use(express.json());
 
 // Health check
@@ -71,11 +85,18 @@ async function startServer() {
     // Initialize Cosmos DB
     await cosmosService.initialize();
 
+    // Initialize Timer Service
+    await timerService.initialize();
+
+    // Initialize WebSocket Service
+    websocketService.initialize(httpServer);
+
     // Start server
-    app.listen(PORT, () => {
+    httpServer.listen(PORT, () => {
       console.log(`🚀 TaskFlow AI Backend running on http://localhost:${PORT}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🗄️  Cosmos DB: ${cosmosService.isConnected() ? 'Connected' : 'Mock mode'}`);
+      console.log(`🔌 WebSocket: Enabled`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);

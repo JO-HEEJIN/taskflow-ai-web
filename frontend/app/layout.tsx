@@ -8,6 +8,18 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'TaskFlow AI - AI-Powered Task Management',
   description: 'Intelligent task management with AI-powered breakdown and progress tracking',
+  manifest: '/manifest.json',
+  themeColor: '#c084fc',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'TaskFlow AI',
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+  },
 }
 
 export default function RootLayout({

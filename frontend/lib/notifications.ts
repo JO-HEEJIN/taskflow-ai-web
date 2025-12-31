@@ -183,3 +183,248 @@ export function getNotificationPermissionStatus(): NotificationPermission {
   }
   return Notification.permission;
 }
+
+// ========================================
+// Timer Notifications (Phase 4)
+// ========================================
+
+let timerNotificationInterval: NodeJS.Timeout | null = null;
+let timerEndTime: number | null = null;
+
+/**
+ * Format time as MM:SS
+ */
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+/**
+ * Update app badge with minutes remaining
+ */
+export async function updateAppBadge(minutesRemaining: number): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  // @ts-ignore - Badge API may not be in TypeScript types yet
+  if ('setAppBadge' in navigator) {
+    try {
+      // @ts-ignore
+      await navigator.setAppBadge(minutesRemaining);
+    } catch (error) {
+      console.error('Failed to update app badge:', error);
+    }
+  }
+}
+
+/**
+ * Clear app badge
+ */
+export async function clearAppBadge(): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  // @ts-ignore - Badge API may not be in TypeScript types yet
+  if ('clearAppBadge' in navigator) {
+    try {
+      // @ts-ignore
+      await navigator.clearAppBadge();
+    } catch (error) {
+      console.error('Failed to clear app badge:', error);
+    }
+  }
+}
+
+/**
+ * Show a notification
+ */
+export async function showNotification(
+  title: string,
+  options?: NotificationOptions
+): Promise<void> {
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    return;
+  }
+
+  if (Notification.permission !== 'granted') {
+    await requestNotificationPermission();
+  }
+
+  if (Notification.permission === 'granted') {
+    // Use service worker notification if available
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((registration) => {
+        registration.showNotification(title, {
+          ...options,
+          icon: '/icons/icon-192.png',
+          badge: '/icons/icon-192.png',
+        });
+      });
+    } else {
+      // Fallback to regular notification
+      new Notification(title, {
+        ...options,
+        icon: '/icons/icon-192.png',
+      });
+    }
+  }
+}
+
+/**
+ * Update timer notification with current time remaining
+ */
+async function updateTimerNotification(): Promise<void> {
+  if (!timerEndTime) return;
+
+  const now = Date.now();
+  const remaining = Math.max(0, timerEndTime - now);
+  const seconds = Math.floor(remaining / 1000);
+  const minutes = Math.ceil(seconds / 60);
+
+  if (remaining <= 0) {
+    await stopTimerNotification();
+    await showTimerCompletedNotification();
+    return;
+  }
+
+  // Update notification every 10 seconds
+  await showNotification('Focus Timer Active', {
+    body: `Time remaining: ${formatTime(seconds)}`,
+    tag: 'focus-timer',
+    silent: true,
+    requireInteraction: false,
+    data: {
+      type: 'timer-update',
+      endTime: timerEndTime,
+      remaining: seconds,
+    },
+  });
+
+  // Update app badge
+  await updateAppBadge(minutes);
+}
+
+/**
+ * Start timer notification (updates every 10 seconds)
+ */
+export async function startTimerNotification(
+  endTime: number,
+  taskTitle?: string
+): Promise<void> {
+  // Stop any existing timer notification
+  await stopTimerNotification();
+
+  timerEndTime = endTime;
+
+  // Request permission if needed
+  const permission = await requestNotificationPermission();
+  if (permission !== 'granted') {
+    console.warn('Notification permission not granted');
+    return;
+  }
+
+  // Show initial notification
+  const remaining = Math.max(0, endTime - Date.now());
+  const seconds = Math.floor(remaining / 1000);
+
+  await showNotification('Focus Timer Started', {
+    body: taskTitle
+      ? `Working on: ${taskTitle}\nTime: ${formatTime(seconds)}`
+      : `Time: ${formatTime(seconds)}`,
+    tag: 'focus-timer',
+    requireInteraction: false,
+    data: {
+      type: 'timer-start',
+      endTime,
+      taskTitle,
+    },
+  });
+
+  // Update badge
+  await updateAppBadge(Math.ceil(seconds / 60));
+
+  // Update notification every 10 seconds
+  timerNotificationInterval = setInterval(updateTimerNotification, 10000);
+}
+
+/**
+ * Stop timer notification and clear badge
+ */
+export async function stopTimerNotification(): Promise<void> {
+  // Clear interval
+  if (timerNotificationInterval) {
+    clearInterval(timerNotificationInterval);
+    timerNotificationInterval = null;
+  }
+
+  timerEndTime = null;
+
+  // Clear badge
+  await clearAppBadge();
+
+  // Close notification if using service worker
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then((registration) => {
+      registration.getNotifications({ tag: 'focus-timer' }).then((notifications) => {
+        notifications.forEach((notification) => notification.close());
+      });
+    });
+  }
+}
+
+/**
+ * Show timer completed notification
+ */
+export async function showTimerCompletedNotification(): Promise<void> {
+  await showNotification('Focus Timer Completed! 🎉', {
+    body: 'Great work! Time for a break.',
+    tag: 'focus-timer-complete',
+    requireInteraction: true,
+    vibrate: [200, 100, 200, 100, 200],
+    data: {
+      type: 'timer-complete',
+    },
+  });
+
+  // Clear badge
+  await clearAppBadge();
+
+  // Vibrate on mobile
+  if ('vibrate' in navigator) {
+    navigator.vibrate([200, 100, 200, 100, 200]);
+  }
+}
+
+/**
+ * Pause timer notification (stop updates but don't clear)
+ */
+export async function pauseTimerNotification(): Promise<void> {
+  // Clear interval but keep notification visible
+  if (timerNotificationInterval) {
+    clearInterval(timerNotificationInterval);
+    timerNotificationInterval = null;
+  }
+
+  await showNotification('Focus Timer Paused ⏸️', {
+    body: 'Timer is paused. Resume when ready.',
+    tag: 'focus-timer',
+    silent: true,
+    requireInteraction: false,
+  });
+}
+
+/**
+ * Resume timer notification
+ */
+export async function resumeTimerNotification(endTime: number): Promise<void> {
+  timerEndTime = endTime;
+
+  await showNotification('Focus Timer Resumed ▶️', {
+    body: 'Timer is running again!',
+    tag: 'focus-timer',
+    silent: true,
+    requireInteraction: false,
+  });
+
+  // Restart update interval
+  timerNotificationInterval = setInterval(updateTimerNotification, 10000);
+}

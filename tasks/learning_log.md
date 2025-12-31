@@ -674,6 +674,147 @@ Description: ${description}
 
 ---
 
+### Learning 6: Picture-in-Picture Real-Time Synchronization (Dec 31, 2025)
+
+**Challenge:** PiP timer not syncing with main Focus Mode timer
+
+**Problem Discovery Process:**
+
+**Attempt 1: Zustand Store Direct Subscription** ❌
+```typescript
+// PiPTimer.tsx
+const currentTimeLeft = useCoachStore((state) => state.currentTimeLeft);
+const isTimerRunning = useCoachStore((state) => state.isTimerRunning);
+```
+- **Result:** Failed - PiP window is separate Window object
+- **Lesson:** Zustand store doesn't automatically share across different Window contexts
+
+**Attempt 2: Independent `endTime` Calculation** ❌
+```typescript
+const [currentTime, setCurrentTime] = useState(Date.now());
+const currentTimeLeft = endTime > currentTime
+  ? Math.floor((endTime - currentTime) / 1000)
+  : 0;
+```
+- **Result:** PiP countdown worked but didn't sync with main
+- **Lesson:** Independent calculations cause drift and pause/resume issues
+
+**Attempt 3: Props + useEffect Re-render** ❌
+```typescript
+useEffect(() => {
+  if (!isPiPOpen) return;
+  openPiP(<PiPTimer {...newProps} />);
+}, [currentTimeLeft, isTimerRunning]);
+```
+- **Result:** Failed - `openPiP()` doesn't update existing PiP
+- **Lesson:** Document Picture-in-Picture API doesn't auto re-render on props change
+
+**Attempt 4: Local State + Props Sync** ⚠️
+```typescript
+const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
+useEffect(() => {
+  setTimeLeft(initialTimeLeft);
+}, [initialTimeLeft]);
+```
+- **Result:** PiP countdown worked but props never updated
+- **Lesson:** Props don't update if PiP content isn't re-rendered
+
+**Root Cause Identified:**
+```typescript
+// usePictureInPicture.ts - Line 113-115
+const root = createRoot(rootContainer);
+reactRootRef.current = root;
+root.render(content); // ← Only called ONCE when PiP opens!
+```
+
+**Key Discovery:**
+- PiP uses `createRoot().render()` from React 18
+- `render()` is only called when PiP first opens
+- Props changes don't trigger automatic re-renders like normal React components
+- Need to explicitly call `reactRoot.render(newContent)` to update
+
+**✅ Final Solution: `updatePiP()` Function**
+
+```typescript
+// usePictureInPicture.ts
+const updatePiP = useCallback((content: React.ReactNode) => {
+  if (reactRootRef.current && isPiPOpen) {
+    reactRootRef.current.render(content); // ← Explicit re-render!
+  }
+}, [isPiPOpen]);
+
+return {
+  isSupported,
+  isPiPOpen,
+  openPiP,
+  updatePiP, // ← New function exported
+  closePiP,
+};
+```
+
+```typescript
+// GalaxyFocusView.tsx
+useEffect(() => {
+  if (!isPiPOpen) return;
+
+  updatePiP( // ← Use updatePiP instead of openPiP
+    <PiPTimer
+      currentTimeLeft={currentTimeLeft}
+      isTimerRunning={isTimerRunning}
+      {...otherProps}
+    />
+  );
+}, [currentTimeLeft, isTimerRunning, isPiPOpen, updatePiP]);
+```
+
+**Results:**
+- ✅ Perfect synchronization with main timer
+- ✅ Pause/Resume works correctly
+- ✅ Every second updates in real-time
+- ✅ No drift or timing issues
+
+**Core Lessons:**
+
+1. **PiP Window is a Separate Context**
+   - Different JavaScript execution context
+   - Separate DOM tree
+   - Store/Context doesn't automatically share
+
+2. **React's `createRoot` Requires Explicit Render**
+   - Not like normal React components
+   - No automatic re-render on prop changes
+   - Must call `root.render()` manually for updates
+
+3. **Props Pattern for PiP**
+   ```typescript
+   // Open: Create root and render initial content
+   const root = createRoot(container);
+   root.render(<Component {...props} />);
+
+   // Update: Re-render with new props
+   root.render(<Component {...newProps} />);
+   ```
+
+4. **Update Trigger Pattern**
+   ```typescript
+   useEffect(() => {
+     if (externalWindowOpen) {
+       updateExternalWindow(<Component {...state} />);
+     }
+   }, [state1, state2, externalWindowOpen]);
+   ```
+
+**Related Files:**
+- `/frontend/hooks/usePictureInPicture.ts` - Added `updatePiP()` function
+- `/frontend/components/focus/PiPTimer.tsx` - Props-based timer component
+- `/frontend/components/focus/GalaxyFocusView.tsx` - useEffect for real-time updates
+
+**API Reference:**
+- [Document Picture-in-Picture API](https://developer.chrome.com/docs/web-platform/document-picture-in-picture/)
+- [React 18 createRoot](https://react.dev/reference/react-dom/client/createRoot)
+
+---
+
 ## Marketing Insights
 
 ### Insight 1: Reddit is Not for Product Launches

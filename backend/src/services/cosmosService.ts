@@ -10,6 +10,7 @@ class CosmosService {
   private syncContainer: Container | null = null;
   private usersContainer: Container | null = null;
   private pushSubscriptionsContainer: Container | null = null;
+  private timersContainer: Container | null = null;
 
   constructor() {
     const endpoint = process.env.COSMOS_ENDPOINT || '';
@@ -66,6 +67,13 @@ class CosmosService {
       });
       this.pushSubscriptionsContainer = pushSubscriptionsContainer;
 
+      // Create timers container
+      const { container: timersContainer } = await database.containers.createIfNotExists({
+        id: 'timers',
+        partitionKey: { paths: ['/id'] }, // userId as partition key
+      });
+      this.timersContainer = timersContainer;
+
       console.log('✅ Cosmos DB initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize Cosmos DB:', error);
@@ -89,6 +97,10 @@ class CosmosService {
     return this.pushSubscriptionsContainer;
   }
 
+  getTimersContainer(): Container | null {
+    return this.timersContainer;
+  }
+
   // Generic method to get any container by name
   getContainer(containerName: string): Container {
     switch (containerName) {
@@ -104,6 +116,9 @@ class CosmosService {
       case 'pushSubscriptions':
         if (!this.pushSubscriptionsContainer) throw new Error('Push subscriptions container not initialized');
         return this.pushSubscriptionsContainer;
+      case 'timers':
+        if (!this.timersContainer) throw new Error('Timers container not initialized');
+        return this.timersContainer;
       default:
         throw new Error(`Unknown container: ${containerName}`);
     }

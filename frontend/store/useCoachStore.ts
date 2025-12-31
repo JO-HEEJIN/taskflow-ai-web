@@ -23,6 +23,9 @@ interface CoachState {
   activeSubtaskIndex: number;
   isTimerRunning: boolean;
   currentTimeLeft: number; // seconds
+  endTime?: number; // Unix timestamp in ms
+  isPiPActive: boolean; // Picture-in-Picture window active
+  showBreakScreen: boolean; // Show full-screen break screen after timer completion
   messages: Message[];
 
   // Actions
@@ -32,6 +35,9 @@ interface CoachState {
   pauseTimer: () => void;
   tickTimer: () => void;
   resetTimer: () => void;
+  setTimerState: (state: Partial<Pick<CoachState, 'isTimerRunning' | 'currentTimeLeft' | 'endTime'>>) => void;
+  setIsPiPActive: (isActive: boolean) => void;
+  setShowBreakScreen: (show: boolean) => void;
   completeCurrentSubtask: (subtasks: Subtask[]) => void;
   skipCurrentSubtask: (subtasks: Subtask[]) => void;
   addMessage: (role: 'ai' | 'user', content: string) => void;
@@ -44,6 +50,9 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   activeSubtaskIndex: 0,
   isTimerRunning: false,
   currentTimeLeft: 0,
+  endTime: undefined,
+  isPiPActive: false,
+  showBreakScreen: false,
   messages: [],
 
   enterFocusMode: (taskId: string, subtasks: Subtask[]) => {
@@ -77,9 +86,11 @@ export const useCoachStore = create<CoachState>((set, get) => ({
 
   startTimer: (durationMinutes: number) => {
     const seconds = Math.floor(durationMinutes * 60);
+    const endTime = Date.now() + (seconds * 1000);
     set({
       isTimerRunning: true,
       currentTimeLeft: seconds,
+      endTime,
     });
   },
 
@@ -103,7 +114,20 @@ export const useCoachStore = create<CoachState>((set, get) => ({
     set({
       isTimerRunning: false,
       currentTimeLeft: 0,
+      endTime: undefined,
     });
+  },
+
+  setTimerState: (state) => {
+    set(state);
+  },
+
+  setIsPiPActive: (isActive: boolean) => {
+    set({ isPiPActive: isActive });
+  },
+
+  setShowBreakScreen: (show: boolean) => {
+    set({ showBreakScreen: show });
   },
 
   completeCurrentSubtask: (subtasks: Subtask[]) => {

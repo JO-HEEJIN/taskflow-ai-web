@@ -4,12 +4,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Task, Subtask } from '@/types';
 import { OrbitTimer } from './OrbitTimer';
 import { CoachView } from './CoachView';
+import { PiPTimer } from './PiPTimer';
+import { BreakScreen } from './BreakScreen';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
-import { useEffect, useState } from 'react';
+import { useTimerSync } from '@/hooks/useTimerSync';
+import { useTimerWebSocket } from '@/hooks/useTimerWebSocket';
+import { usePictureInPicture } from '@/hooks/usePictureInPicture';
+import { useEffect, useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { X, ChevronRight, SkipForward, MessageCircle } from 'lucide-react';
+import { X, ChevronRight, SkipForward, MessageCircle, Maximize } from 'lucide-react';
 import { api } from '@/lib/api';
+import { playTimerCompletionSound } from '@/lib/sounds';
+import { showTimerCompletedNotification } from '@/lib/notifications';
 
 interface GalaxyFocusViewProps {
   task: Task;
@@ -26,8 +33,11 @@ export function GalaxyFocusView({
   onSkip,
   onClose,
 }: GalaxyFocusViewProps) {
-  const { isTimerRunning, startTimer, pauseTimer, currentTimeLeft, activeSubtaskIndex } = useCoachStore();
+  const { isTimerRunning, startTimer, pauseTimer, currentTimeLeft, endTime, activeSubtaskIndex, setIsPiPActive, showBreakScreen, setShowBreakScreen } = useCoachStore();
   const { addXp } = useGamificationStore();
+  const { broadcastTimerEvent } = useTimerSync();
+  const { startTimerWS, pauseTimerWS, resumeTimerWS, stopTimerWS } = useTimerWebSocket();
+  const { isSupported: isPiPSupported, isPiPOpen, openPiP, updatePiP, closePiP } = usePictureInPicture();
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
   const [showEncouragement, setShowEncouragement] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -36,21 +46,105 @@ export function GalaxyFocusView({
 
   // Initialize timer when subtask changes
   useEffect(() => {
-    // Always restart timer when moving to a new subtask
-    startTimer(estimatedMinutes);
-  }, [currentSubtask.id, estimatedMinutes, startTimer]);
+    // Start timer via WebSocket (server-managed)
+    startTimerWS(task.id, currentSubtask.id, estimatedMinutes);
+
+    // Also broadcast to Phase 1 BroadcastChannel for backward compatibility
+    const newEndTime = Date.now() + (estimatedMinutes * 60 * 1000);
+    broadcastTimerEvent('TIMER_START', {
+      endTime: newEndTime,
+      timeLeft: estimatedMinutes * 60,
+      taskId: task.id,
+      subtaskId: currentSubtask.id,
+    });
+  }, [currentSubtask.id, estimatedMinutes, startTimerWS, broadcastTimerEvent, task.id]);
+
+  // Cleanup: stop timer when component unmounts
+  useEffect(() => {
+    return () => {
+      stopTimerWS();
+      broadcastTimerEvent('TIMER_STOP', {});
+    };
+  }, [stopTimerWS, broadcastTimerEvent]);
 
   const handleToggleTimer = () => {
     if (isTimerRunning) {
-      pauseTimer();
+      // Pause via WebSocket
+      pauseTimerWS();
+      broadcastTimerEvent('TIMER_PAUSE', { isPaused: true });
     } else {
       if (currentTimeLeft === 0) {
-        startTimer(estimatedMinutes);
+        // Restart via WebSocket
+        startTimerWS(task.id, currentSubtask.id, estimatedMinutes);
+        const newEndTime = Date.now() + (estimatedMinutes * 60 * 1000);
+        broadcastTimerEvent('TIMER_START', {
+          endTime: newEndTime,
+          timeLeft: estimatedMinutes * 60,
+          taskId: task.id,
+          subtaskId: currentSubtask.id,
+        });
       } else {
-        useCoachStore.setState({ isTimerRunning: true });
+        // Resume via WebSocket
+        resumeTimerWS();
+        broadcastTimerEvent('TIMER_RESUME', {
+          endTime,
+          timeLeft: currentTimeLeft,
+        });
       }
     }
   };
+
+  // Handle closing Picture-in-Picture (defined before use)
+  const handleClosePiP = useCallback(() => {
+    closePiP();
+    setIsPiPActive(false);
+  }, [closePiP]);
+
+  // Handle opening Picture-in-Picture
+  const handleOpenPiP = async () => {
+    if (!isPiPSupported) {
+      console.warn('Picture-in-Picture is not supported in this browser');
+      return;
+    }
+
+    await openPiP(
+      <PiPTimer
+        taskTitle={task.title}
+        subtaskTitle={currentSubtask.title}
+        currentTimeLeft={currentTimeLeft}
+        isTimerRunning={isTimerRunning}
+        initialDuration={estimatedMinutes * 60}
+        onClose={handleClosePiP}
+        onToggleTimer={handleToggleTimer}
+      />,
+      { width: 320, height: 220 }
+    );
+
+    setIsPiPActive(true);
+  };
+
+  // Update PiP when timer state changes
+  useEffect(() => {
+    if (!isPiPOpen) return;
+
+    // Update PiP content with latest props
+    updatePiP(
+      <PiPTimer
+        taskTitle={task.title}
+        subtaskTitle={currentSubtask.title}
+        currentTimeLeft={currentTimeLeft}
+        isTimerRunning={isTimerRunning}
+        initialDuration={estimatedMinutes * 60}
+        onClose={handleClosePiP}
+        onToggleTimer={handleToggleTimer}
+      />
+    );
+  }, [currentTimeLeft, isTimerRunning, isPiPOpen, task.title, currentSubtask.title, estimatedMinutes, handleClosePiP, handleToggleTimer, updatePiP]);
+
+  // Sync PiP state with store
+  useEffect(() => {
+    setIsPiPActive(isPiPOpen);
+  }, [isPiPOpen, setIsPiPActive]);
 
   const handleComplete = async () => {
     // Supernova confetti effect!
@@ -101,9 +195,63 @@ export function GalaxyFocusView({
     onSkip();
   };
 
-  const handleTimerComplete = () => {
-    // Auto-complete when timer runs out (optional behavior)
+  const handleTimerComplete = async () => {
     console.log('⏰ Timer completed!');
+
+    // PHASE 5: Completion Actions
+
+    // 1. Play completion sound
+    try {
+      await playTimerCompletionSound();
+      console.log('🔊 Completion sound played');
+    } catch (error) {
+      console.error('❌ Failed to play completion sound:', error);
+    }
+
+    // 2. Force window focus
+    if (typeof window !== 'undefined') {
+      try {
+        window.focus();
+        console.log('🎯 Window focused');
+      } catch (error) {
+        console.error('❌ Failed to focus window:', error);
+      }
+    }
+
+    // 3. Vibrate on mobile
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([200, 100, 200, 100, 200]);
+        console.log('📳 Vibration triggered');
+      } catch (error) {
+        console.error('❌ Failed to vibrate:', error);
+      }
+    }
+
+    // 4. Show full-screen break screen
+    useCoachStore.setState({ showBreakScreen: true });
+    console.log('🎉 Break screen shown');
+
+    // 5. Show notification
+    showTimerCompletedNotification();
+  };
+
+  // Break screen handlers
+  const handleTakeBreak = () => {
+    console.log('☕ Taking a 5-minute break');
+    setShowBreakScreen(false);
+    // Start 5-minute break timer
+    startTimerWS(task.id, currentSubtask.id, 5);
+    broadcastTimerEvent('TIMER_START', {
+      endTime: Date.now() + (5 * 60 * 1000),
+      timeLeft: 5 * 60,
+    });
+  };
+
+  const handleContinueWorking = () => {
+    console.log('💪 Continuing work');
+    setShowBreakScreen(false);
+    // Just close the break screen, don't start a new timer
   };
 
   // ESC key to close
@@ -251,6 +399,21 @@ export function GalaxyFocusView({
           />
         </motion.div>
 
+        {/* Pop Out to Window button - Only show if PiP is supported and not already open */}
+        {isPiPSupported && !isPiPOpen && (
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            onClick={handleOpenPiP}
+            className="mb-4 flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/80 hover:text-white rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 transition-all"
+            title="Open timer in always-on-top window"
+          >
+            <Maximize className="w-4 h-4" />
+            <span>Pop Out Timer</span>
+          </motion.button>
+        )}
+
         {/* Mission Control panel */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -388,6 +551,14 @@ export function GalaxyFocusView({
         onClose={() => setIsChatOpen(false)}
         currentTask={task}
         currentSubtask={currentSubtask}
+      />
+
+      {/* Break Screen */}
+      <BreakScreen
+        isOpen={showBreakScreen}
+        onTakeBreak={handleTakeBreak}
+        onContinue={handleContinueWorking}
+        xpEarned={50}
       />
     </motion.div>
   );
