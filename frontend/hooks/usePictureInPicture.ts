@@ -10,6 +10,7 @@ interface UsePictureInPictureReturn {
   isSupported: boolean;
   isPiPOpen: boolean;
   openPiP: (content: React.ReactNode, options?: PiPWindowOptions) => Promise<void>;
+  updatePiP: (content: React.ReactNode) => void;
   closePiP: () => void;
 }
 
