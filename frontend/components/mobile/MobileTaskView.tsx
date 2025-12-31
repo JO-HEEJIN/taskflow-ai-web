@@ -30,6 +30,7 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   const [isBreakingDown, setIsBreakingDown] = useState(false);
   const [showTaskInput, setShowTaskInput] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [showFocusModeHint, setShowFocusModeHint] = useState(false);
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
 
@@ -67,11 +68,8 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
       if (result.suggestions && result.suggestions.length > 0) {
         await addSubtasks(selectedTask.id, result.suggestions);
 
-        // Step 3: Get updated task and enter focus mode
-        const updatedTask = tasks.find(t => t.id === selectedTask.id);
-        if (updatedTask && updatedTask.subtasks.length > 0) {
-          enterFocusMode(selectedTask.id, updatedTask.subtasks);
-        }
+        // Step 3: Show hint to click Focus Mode tab
+        setShowFocusModeHint(true);
       }
     } catch (error) {
       console.error('Failed to breakdown and focus:', error);
@@ -361,7 +359,44 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
         style={{ backgroundColor: '#080A1A' }}
       >
         {/* Tabs - horizontal scrollable */}
-        <div className="overflow-x-auto -mx-6 px-6 mb-8">
+        <div className="overflow-x-auto -mx-6 px-6 mb-8 relative">
+          {/* Focus Mode Hint Arrow */}
+          {showFocusModeHint && (
+            <motion.div
+              className="absolute -top-12 left-[140px] flex flex-col items-center pointer-events-none z-30"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+            >
+              <motion.p
+                animate={{
+                  opacity: [0.6, 1, 0.6],
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                className="text-white/90 text-sm mb-1 font-medium"
+              >
+                Tap here!
+              </motion.p>
+              <motion.div
+                animate={{
+                  y: [0, 8, 0],
+                }}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut",
+                }}
+                className="text-3xl"
+              >
+                ↓
+              </motion.div>
+            </motion.div>
+          )}
+
           <div className="flex gap-8 min-w-max">
             <button
               onClick={() => setActiveTab('today')}
@@ -383,7 +418,10 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
               )}
             </button>
             <button
-              onClick={() => setActiveTab('tomorrow')}
+              onClick={() => {
+                setActiveTab('tomorrow');
+                setShowFocusModeHint(false);
+              }}
               className="relative pb-2 flex-shrink-0"
             >
               <span className={`text-[16px] transition-colors whitespace-nowrap ${
@@ -397,6 +435,24 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
                   style={{
                     width: '100%',
                     background: 'linear-gradient(90deg, #4D6BFF 0%, #3B55D9 100%)',
+                  }}
+                />
+              )}
+              {/* Sparkle effect on Focus Mode tab when hint is shown */}
+              {showFocusModeHint && (
+                <motion.div
+                  className="absolute inset-0 -m-2 rounded-lg"
+                  animate={{
+                    boxShadow: [
+                      '0 0 0px rgba(77, 107, 255, 0)',
+                      '0 0 20px rgba(77, 107, 255, 0.8)',
+                      '0 0 0px rgba(77, 107, 255, 0)',
+                    ],
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: Infinity,
+                    ease: "easeInOut",
                   }}
                 />
               )}
