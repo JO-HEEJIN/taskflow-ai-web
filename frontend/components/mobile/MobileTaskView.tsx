@@ -108,13 +108,17 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   const handleCreateSample = async (sampleTask: string) => {
     try {
       // Create task only (no auto AI breakdown)
-      const taskId = await createTask(sampleTask, 'Sample task to get you started');
+      await createTask(sampleTask, 'Sample task to get you started');
 
-      if (taskId) {
-        // Select the new task and switch to Today (AI Breakdown) tab
-        setSelectedTaskId(taskId);
-        setActiveTab('today');
-      }
+      // Find the newly created task (it will be the last one added)
+      // Wait a bit for the store to update
+      setTimeout(() => {
+        const newTask = useTaskStore.getState().tasks[useTaskStore.getState().tasks.length - 1];
+        if (newTask) {
+          setSelectedTaskId(newTask.id);
+          setActiveTab('today');
+        }
+      }, 100);
     } catch (error) {
       console.error('Failed to create sample task:', error);
     }
