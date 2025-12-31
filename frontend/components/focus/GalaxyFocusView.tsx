@@ -384,6 +384,65 @@ export function GalaxyFocusView({
           </motion.div>
         )}
 
+        {/* AI Coaching Button - Repositioned */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="mb-6 relative"
+        >
+          {/* Arrow Hint */}
+          <motion.div
+            className="absolute -top-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center pointer-events-none"
+            animate={{
+              y: [0, 8, 0],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
+          >
+            <motion.p
+              animate={{
+                opacity: [0.6, 1, 0.6],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="text-white/90 text-xs mb-1 font-medium"
+            >
+              Need help?
+            </motion.p>
+            <motion.div className="text-2xl">↓</motion.div>
+          </motion.div>
+
+          <button
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            className="px-6 py-3 rounded-full transition-all transform hover:scale-105 active:scale-95 flex items-center gap-3"
+            style={{
+              background: isChatOpen
+                ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                : 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
+              boxShadow: '0 0 20px rgba(59, 130, 246, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            {isChatOpen ? (
+              <>
+                <X className="w-5 h-5 text-white" />
+                <span className="text-white text-sm font-medium">Close AI Coach</span>
+              </>
+            ) : (
+              <>
+                <MessageCircle className="w-5 h-5 text-white" />
+                <span className="text-white text-sm font-medium">AI Coaching</span>
+              </>
+            )}
+          </button>
+        </motion.div>
+
         {/* OrbitTimer */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
@@ -523,27 +582,6 @@ export function GalaxyFocusView({
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Chat Toggle Button */}
-      <motion.button
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.6 }}
-        onClick={() => setIsChatOpen(!isChatOpen)}
-        className="fixed bottom-4 left-4 md:bottom-8 md:left-8 z-[9997] p-4 rounded-full transition-all transform hover:scale-110 active:scale-95"
-        style={{
-          background: isChatOpen
-            ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-            : 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
-          boxShadow: '0 0 30px rgba(59, 130, 246, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)',
-        }}
-      >
-        {isChatOpen ? (
-          <X className="w-6 h-6 text-white" />
-        ) : (
-          <MessageCircle className="w-6 h-6 text-white" />
-        )}
-      </motion.button>
 
       {/* Coach Chat Panel */}
       <CoachView
