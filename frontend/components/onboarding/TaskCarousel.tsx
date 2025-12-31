@@ -1,0 +1,165 @@
+'use client';
+
+import { useState } from 'react';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { ChevronLeft, ChevronRight, Clock, AlertCircle } from 'lucide-react';
+import { exampleTasks, ExampleTask } from '@/lib/exampleTasks';
+
+interface TaskCarouselProps {
+  onSelectTask: (taskTitle: string) => void;
+}
+
+export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(0);
+
+  const currentTask = exampleTasks[currentIndex];
+
+  // Navigate to next task
+  const nextTask = () => {
+    setDirection(1);
+    setCurrentIndex((prev) => (prev + 1) % exampleTasks.length);
+  };
+
+  // Navigate to previous task
+  const prevTask = () => {
+    setDirection(-1);
+    setCurrentIndex((prev) => (prev - 1 + exampleTasks.length) % exampleTasks.length);
+  };
+
+  // Handle swipe gesture
+  const handleDragEnd = (event: any, info: PanInfo) => {
+    const swipeThreshold = 50;
+
+    if (info.offset.x > swipeThreshold) {
+      // Swiped right - go to previous
+      prevTask();
+    } else if (info.offset.x < -swipeThreshold) {
+      // Swiped left - go to next
+      nextTask();
+    }
+  };
+
+  // Slide animation variants
+  const slideVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 300 : -300,
+      opacity: 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (direction: number) => ({
+      x: direction < 0 ? 300 : -300,
+      opacity: 0,
+    }),
+  };
+
+  return (
+    <div className="w-full max-w-md mx-auto">
+      {/* Carousel Container */}
+      <div className="relative overflow-hidden">
+        {/* Navigation Arrows */}
+        <button
+          onClick={prevTask}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          aria-label="Previous task"
+        >
+          <ChevronLeft className="w-5 h-5 text-white" />
+        </button>
+
+        <button
+          onClick={nextTask}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          aria-label="Next task"
+        >
+          <ChevronRight className="w-5 h-5 text-white" />
+        </button>
+
+        {/* Task Card */}
+        <div className="px-12 py-4">
+          <AnimatePresence initial={false} custom={direction} mode="wait">
+            <motion.div
+              key={currentIndex}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{
+                x: { type: 'spring', stiffness: 300, damping: 30 },
+                opacity: { duration: 0.2 },
+              }}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragEnd={handleDragEnd}
+              className="cursor-grab active:cursor-grabbing"
+            >
+              <button
+                onClick={() => onSelectTask(currentTask.title)}
+                className="w-full text-left p-6 rounded-2xl transition-all hover:scale-105 active:scale-95"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%)',
+                  border: '1px solid rgba(139, 92, 246, 0.3)',
+                  boxShadow: '0 0 30px rgba(139, 92, 246, 0.3)',
+                }}
+              >
+                {/* Urgency Badge */}
+                {currentTask.urgency === 'high' && (
+                  <div className="flex items-center gap-1 mb-3">
+                    <AlertCircle className="w-4 h-4 text-red-400" />
+                    <span className="text-xs text-red-400 font-semibold uppercase">Urgent</span>
+                  </div>
+                )}
+
+                {/* Title */}
+                <h3 className="text-xl font-bold text-white mb-2">
+                  {currentTask.title}
+                </h3>
+
+                {/* Description */}
+                <p className="text-blue-200 text-sm mb-4 leading-relaxed">
+                  {currentTask.description}
+                </p>
+
+                {/* Time Estimate */}
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-purple-300" />
+                  <span className="text-sm text-purple-300">
+                    Estimated: {currentTask.estimatedTime}
+                  </span>
+                </div>
+              </button>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Dot Indicators */}
+      <div className="flex justify-center gap-2 mt-4">
+        {exampleTasks.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => {
+              setDirection(index > currentIndex ? 1 : -1);
+              setCurrentIndex(index);
+            }}
+            className={`w-2 h-2 rounded-full transition-all ${
+              index === currentIndex
+                ? 'bg-purple-400 w-6'
+                : 'bg-purple-400/30 hover:bg-purple-400/50'
+            }`}
+            aria-label={`Go to task ${index + 1}`}
+          />
+        ))}
+      </div>
+
+      {/* Helper Text */}
+      <p className="text-center text-purple-300/60 text-xs mt-3">
+        Swipe or use arrows to browse
+      </p>
+    </div>
+  );
+}

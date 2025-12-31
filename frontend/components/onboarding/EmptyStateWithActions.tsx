@@ -1,8 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Sparkles, Zap } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { TaskCarousel } from './TaskCarousel';
 
 interface EmptyStateWithActionsProps {
   onCreateSample: (sampleTask: string) => void;
@@ -13,6 +14,7 @@ interface EmptyStateWithActionsProps {
 /**
  * ADHD-Friendly Empty State
  * - Engaging visual (not boring text)
+ * - Realistic task examples in carousel
  * - Immediate action buttons (no reading required)
  * - Optional tour link (skippable)
  */
@@ -21,14 +23,6 @@ export function EmptyStateWithActions({
   onCreateOwn,
   onShowTour,
 }: EmptyStateWithActionsProps) {
-  const sampleTasks = [
-    "Plan weekend trip",
-    "Organize workspace",
-    "Learn a new recipe",
-  ];
-
-  const randomSample = sampleTasks[Math.floor(Math.random() * sampleTasks.length)];
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -59,22 +53,24 @@ export function EmptyStateWithActions({
 
       {/* Subheading */}
       <p className="text-blue-200 text-sm md:text-base mb-8 max-w-md mx-auto text-center leading-relaxed">
-        Create your first task and watch AI break it down into achievable steps.
-        Perfect for ADHD brains that need clear, actionable paths.
+        Try a realistic example or create your own task.
+        Watch AI break it down into achievable steps.
       </p>
 
-      {/* Action Buttons */}
-      <div className="flex flex-col gap-3 w-full max-w-sm mb-6">
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          icon={<Zap className="w-5 h-5" />}
-          onClick={() => onCreateSample(randomSample)}
-        >
-          Try Example: {randomSample}
-        </Button>
+      {/* Task Carousel */}
+      <div className="w-full mb-6">
+        <TaskCarousel onSelectTask={onCreateSample} />
+      </div>
 
+      {/* Divider */}
+      <div className="flex items-center gap-4 w-full max-w-md mb-6">
+        <div className="flex-1 h-px bg-purple-400/20" />
+        <span className="text-purple-300/60 text-sm">Or</span>
+        <div className="flex-1 h-px bg-purple-400/20" />
+      </div>
+
+      {/* Create Your Own Button */}
+      <div className="w-full max-w-sm mb-6">
         <Button
           variant="secondary"
           size="lg"
