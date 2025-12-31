@@ -8,6 +8,13 @@ export function LoadingScreen() {
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   useEffect(() => {
+    // Check if music is enabled in settings
+    const musicEnabled = localStorage.getItem('musicEnabled');
+    if (musicEnabled === 'false') {
+      console.log('Background music disabled by user settings');
+      return;
+    }
+
     // Create and play background music
     const audio = new Audio('/sounds/TaskFlow_Theme.mp3');
     audio.loop = true;
@@ -33,6 +40,10 @@ export function LoadingScreen() {
 
   const fadeOutAndStop = (audio: HTMLAudioElement) => {
     setIsFadingOut(true);
+
+    // Stop loop immediately
+    audio.loop = false;
+
     const fadeOutDuration = 1000; // 1 second fade out
     const fadeOutSteps = 20;
     const stepDuration = fadeOutDuration / fadeOutSteps;
@@ -44,6 +55,8 @@ export function LoadingScreen() {
       } else {
         audio.volume = 0;
         audio.pause();
+        audio.currentTime = 0; // Reset to beginning
+        audio.src = ''; // Clear source to free memory
         clearInterval(fadeInterval);
       }
     }, stepDuration);

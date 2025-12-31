@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, X, LogIn, LogOut, Trophy } from 'lucide-react';
+import { User, X, LogIn, LogOut, Trophy, Volume2, VolumeX } from 'lucide-react';
 import { useGamificationStore, getLevelProgress } from '@/store/useGamificationStore';
 
 interface ProfileButtonProps {
@@ -15,6 +15,7 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
   const { data: session, status } = useSession();
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const { xp, level, streak, getActivityForLast30Days } = useGamificationStore();
+  const [musicEnabled, setMusicEnabled] = useState(true);
 
   // Use external control if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -23,6 +24,21 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
   const isGuest = status !== 'authenticated';
   const activityData = getActivityForLast30Days();
   const levelProgress = getLevelProgress();
+
+  // Load music preference from localStorage
+  useEffect(() => {
+    const savedPreference = localStorage.getItem('musicEnabled');
+    if (savedPreference !== null) {
+      setMusicEnabled(savedPreference === 'true');
+    }
+  }, []);
+
+  // Toggle music and save to localStorage
+  const toggleMusic = () => {
+    const newValue = !musicEnabled;
+    setMusicEnabled(newValue);
+    localStorage.setItem('musicEnabled', String(newValue));
+  };
 
   // Calculate max completions for heatmap intensity
   const maxCompletions = Math.max(...activityData.map(d => d.completions), 1);
@@ -165,6 +181,38 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
                     </>
                   )}
                 </button>
+              </div>
+
+              {/* Music Toggle Section */}
+              <div className="mb-6 p-4 rounded-xl" style={{ background: 'rgba(167, 139, 250, 0.1)' }}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {musicEnabled ? (
+                      <Volume2 className="w-5 h-5 text-purple-300" />
+                    ) : (
+                      <VolumeX className="w-5 h-5 text-gray-400" />
+                    )}
+                    <div>
+                      <p className="text-white font-medium">Background Music</p>
+                      <p className="text-xs text-gray-400">Loading screen theme</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleMusic}
+                    className="relative w-12 h-6 rounded-full transition-colors"
+                    style={{
+                      background: musicEnabled
+                        ? 'linear-gradient(135deg, #c084fc 0%, #e879f9 100%)'
+                        : 'rgba(100, 100, 100, 0.5)',
+                    }}
+                  >
+                    <motion.div
+                      className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md"
+                      animate={{ x: musicEnabled ? 26 : 2 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  </button>
+                </div>
               </div>
 
               {/* Level & XP Section */}
