@@ -323,20 +323,6 @@ export function GalaxyFocusView({
         </div>
       </motion.button>
 
-      {/* Progress indicator (top-right, below close button) - Hidden on mobile */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="hidden md:block absolute top-16 md:top-20 right-4 md:right-8 z-10"
-      >
-        <div className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-purple-500/30">
-          <span className="text-white text-xs md:text-sm font-medium" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-            {completedSubtasks}/{totalSubtasks}
-          </span>
-        </div>
-      </motion.div>
-
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center max-w-2xl w-full">
         {/* Mission title */}
@@ -384,28 +370,13 @@ export function GalaxyFocusView({
           </motion.div>
         )}
 
-        {/* AI Coaching Button - Repositioned */}
+        {/* AI Coaching Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="mb-6 relative"
+          className="mb-6"
         >
-          {/* Arrow Hint - pointing from left */}
-          <motion.div
-            className="absolute top-1/2 -left-12 transform -translate-y-1/2 flex items-center gap-2 pointer-events-none"
-            animate={{
-              x: [0, 8, 0],
-            }}
-            transition={{
-              duration: 1.5,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          >
-            <motion.div className="text-3xl">→</motion.div>
-          </motion.div>
-
           <motion.button
             animate={{
               scale: [1, 1.08, 1],

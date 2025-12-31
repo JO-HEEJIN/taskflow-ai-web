@@ -16,7 +16,7 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const { xp, level, streak, getActivityForLast30Days } = useGamificationStore();
   const [musicEnabled, setMusicEnabled] = useState(true);
-  const [continuousMusicEnabled, setContinuousMusicEnabled] = useState(false);
+  const [continuousMusicEnabled, setContinuousMusicEnabled] = useState(true);
 
   // Use external control if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;

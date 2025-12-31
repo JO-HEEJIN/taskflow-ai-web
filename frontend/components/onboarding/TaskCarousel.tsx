@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, AlertCircle } from 'lucide-react';
 import { exampleTasks } from '@/lib/exampleTasks';
 
@@ -25,19 +25,6 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
   const prevTask = () => {
     setDirection(-1);
     setCurrentIndex((prev) => (prev - 1 + exampleTasks.length) % exampleTasks.length);
-  };
-
-  // Handle swipe gesture
-  const handleDragEnd = (event: any, info: PanInfo) => {
-    const swipeThreshold = 50;
-
-    if (info.offset.x > swipeThreshold) {
-      // Swiped right - go to previous
-      prevTask();
-    } else if (info.offset.x < -swipeThreshold) {
-      // Swiped left - go to next
-      nextTask();
-    }
   };
 
   // Slide animation variants
@@ -74,12 +61,6 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
                 x: { type: 'spring', stiffness: 300, damping: 30 },
                 opacity: { duration: 0.2 },
               }}
-              drag="x"
-              dragDirectionLock={true}
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.2}
-              onDragEnd={handleDragEnd}
-              className="cursor-grab active:cursor-grabbing touch-pan-y"
             >
               <button
                 onClick={() => onSelectTask(currentTask.title)}
@@ -142,7 +123,7 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
 
       {/* Helper Text */}
       <p className="text-center text-purple-300/60 text-xs mt-3">
-        Swipe to browse examples
+        Tap dots to browse examples
       </p>
     </div>
   );
