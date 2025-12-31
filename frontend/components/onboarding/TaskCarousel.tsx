@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Clock, AlertCircle } from 'lucide-react';
-import { exampleTasks, ExampleTask } from '@/lib/exampleTasks';
+import { Clock, AlertCircle } from 'lucide-react';
+import { exampleTasks } from '@/lib/exampleTasks';
 
 interface TaskCarouselProps {
   onSelectTask: (taskTitle: string) => void;
@@ -60,25 +60,8 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
     <div className="w-full max-w-md mx-auto">
       {/* Carousel Container */}
       <div className="relative overflow-hidden">
-        {/* Navigation Arrows */}
-        <button
-          onClick={prevTask}
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-          aria-label="Previous task"
-        >
-          <ChevronLeft className="w-5 h-5 text-white" />
-        </button>
-
-        <button
-          onClick={nextTask}
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-          aria-label="Next task"
-        >
-          <ChevronRight className="w-5 h-5 text-white" />
-        </button>
-
         {/* Task Card */}
-        <div className="px-12 py-4">
+        <div className="px-4 py-4">
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
               key={currentIndex}
@@ -92,10 +75,11 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
                 opacity: { duration: 0.2 },
               }}
               drag="x"
+              dragDirectionLock={true}
               dragConstraints={{ left: 0, right: 0 }}
               dragElastic={0.2}
               onDragEnd={handleDragEnd}
-              className="cursor-grab active:cursor-grabbing"
+              className="cursor-grab active:cursor-grabbing touch-pan-y"
             >
               <button
                 onClick={() => onSelectTask(currentTask.title)}
@@ -158,7 +142,7 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
 
       {/* Helper Text */}
       <p className="text-center text-purple-300/60 text-xs mt-3">
-        Swipe or use arrows to browse
+        Swipe to browse examples
       </p>
     </div>
   );
