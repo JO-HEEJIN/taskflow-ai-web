@@ -11,11 +11,17 @@ interface WeeklyTabProps {
   onTaskClick: (taskId: string) => void;
   onBack?: () => void;
   onSettingsClick?: () => void;
+  onCreateTask?: () => void;
+  showCompletionAnimation?: boolean;
 }
 
-export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettingsClick }: WeeklyTabProps) {
+export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettingsClick, onCreateTask, showCompletionAnimation }: WeeklyTabProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [showTwinkle, setShowTwinkle] = useState(false);
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
+
+  // Check if all tasks are completed
+  const allTasksCompleted = tasks.length > 0 && tasks.every(t => t.status === 'completed');
 
   // Calculate task duration
   const calculateDuration = (task: Task): string => {
@@ -95,6 +101,13 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
     });
   }, [tasks]);
 
+  // Trigger twinkle animation when completion animation is shown
+  useEffect(() => {
+    if (showCompletionAnimation) {
+      setShowTwinkle(true);
+    }
+  }, [showCompletionAnimation]);
+
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -104,12 +117,20 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
 
     const positions = generateConstellationPositions(tasks.length, rect.width, rect.height);
 
+    // Check if clicked on a star
+    let clickedOnStar = false;
     positions.forEach((pos, index) => {
       const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
       if (distance < 20) {
         onTaskClick(tasks[index].id);
+        clickedOnStar = true;
       }
     });
+
+    // If clicked on empty space, create new task
+    if (!clickedOnStar && onCreateTask) {
+      onCreateTask();
+    }
   };
 
   return (
@@ -179,12 +200,37 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
         </div>
 
         {/* Constellation View */}
-        <div className="w-full aspect-square max-h-[60vh] rounded-2xl overflow-hidden">
+        <div className="w-full aspect-square max-h-[60vh] rounded-2xl overflow-hidden relative">
           <canvas
             ref={canvasRef}
             className="w-full h-full cursor-pointer"
             onClick={handleCanvasClick}
           />
+
+          {/* Completion Animation - Twinkling and "Tap here" hint */}
+          {(showTwinkle || allTasksCompleted) && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              {/* Twinkling star effect */}
+              <div
+                className="absolute w-32 h-32 rounded-full animate-pulse"
+                style={{
+                  background: 'radial-gradient(circle, rgba(34, 197, 94, 0.4) 0%, transparent 70%)',
+                  animation: 'twinkleBig 2s ease-in-out infinite',
+                }}
+              />
+
+              {/* "Tap here for a new task!" text */}
+              <p
+                className="text-white text-lg font-bold text-center px-6 relative z-10"
+                style={{
+                  textShadow: '0 0 20px rgba(34, 197, 94, 0.8)',
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }}
+              >
+                Tap here for a new task!
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -199,11 +245,31 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
         </div>
       </div>
 
-      {/* Twinkle animation */}
+      {/* Animations */}
       <style jsx>{`
         @keyframes twinkle {
           0%, 100% { opacity: 0.3; }
           50% { opacity: 1; }
+        }
+        @keyframes twinkleBig {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.4;
+          }
+          50% {
+            transform: scale(1.3);
+            opacity: 0.8;
+          }
+        }
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 0.6;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.05);
+          }
         }
       `}</style>
     </div>

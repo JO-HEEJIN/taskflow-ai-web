@@ -216,7 +216,7 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
 
   if (tasks.length === 0) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center relative overflow-hidden">
+      <div className="w-screen h-screen flex items-start justify-center relative overflow-y-auto">
         {/* Aurora Background */}
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
@@ -229,7 +229,7 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
         <div className="absolute inset-0 bg-black/60" />
 
         {/* Empty State Content */}
-        <div className="relative z-10">
+        <div className="relative z-10 w-full">
           <EmptyStateWithActions
             onCreateSample={handleCreateSampleTask}
             onCreateOwn={() => onBackgroundClick && onBackgroundClick()}

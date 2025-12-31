@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
@@ -19,7 +19,7 @@ interface MobileTaskViewProps {
 }
 
 export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskViewProps) {
-  const { tasks, generateAIBreakdown, addSubtasks, createTask } = useTaskStore();
+  const { tasks, generateAIBreakdown, addSubtasks, createTask, createTaskWithAutoFocus } = useTaskStore();
   const { enterFocusMode } = useCoachStore();
   const [activeTab, setActiveTab] = useState<TabType>('today');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
@@ -31,6 +31,7 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   const [showTaskInput, setShowTaskInput] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [showFocusModeHint, setShowFocusModeHint] = useState(false);
+  const [showCompletionAnimation, setShowCompletionAnimation] = useState(false);
   const [showIconHint, setShowIconHint] = useState(() => {
     // Check if user has seen icon hint before
     if (typeof window !== 'undefined') {
@@ -40,6 +41,19 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   });
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
+
+  // Auto-navigate to constellation view when all tasks are completed
+  useEffect(() => {
+    const allCompleted = tasks.length > 0 && tasks.every(t => t.status === 'completed');
+    if (allCompleted && activeTab !== 'weekly') {
+      // Small delay for smooth transition
+      setTimeout(() => {
+        setActiveTab('weekly');
+        setShowConstellation(true);
+        setShowCompletionAnimation(true);
+      }, 500);
+    }
+  }, [tasks, activeTab]);
 
   // Calculate task duration from subtasks
   const calculateDuration = (task: any): string => {
@@ -93,8 +107,14 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   // Handle creating a sample task
   const handleCreateSample = async (sampleTask: string) => {
     try {
-      await createTask(sampleTask);
-      // After creating, the task will be in the list and selected automatically
+      // Use auto-focus flow: create + AI breakdown + add subtasks
+      const taskId = await createTaskWithAutoFocus(sampleTask);
+
+      if (taskId) {
+        // Select the new task and switch to Today (AI Breakdown) tab
+        setSelectedTaskId(taskId);
+        setActiveTab('today');
+      }
     } catch (error) {
       console.error('Failed to create sample task:', error);
     }
@@ -204,12 +224,20 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
           setSelectedTaskId(id);
           setShowConstellation(false);
           setActiveTab('today');
+          setShowCompletionAnimation(false);
         }}
         onBack={() => {
           setShowConstellation(false);
           setActiveTab('today');
+          setShowCompletionAnimation(false);
         }}
         onSettingsClick={onSettingsClick}
+        onCreateTask={() => {
+          setShowTaskInput(true);
+          setShowConstellation(false);
+          setShowCompletionAnimation(false);
+        }}
+        showCompletionAnimation={showCompletionAnimation}
       />
     );
   }
