@@ -114,7 +114,7 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   // Show empty state when no tasks
   if (tasks.length === 0 && !showTaskInput) {
     return (
-      <div className="min-h-screen w-full relative overflow-hidden bg-gradient-to-b from-[#050715] to-[#0F1230]">
+      <div className="min-h-screen w-full relative overflow-x-hidden overflow-y-auto bg-gradient-to-b from-[#050715] to-[#0F1230]">
         {/* Settings Icon - Top Right */}
         <button
           onClick={onSettingsClick}
@@ -137,7 +137,7 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   // Show task input modal
   if (showTaskInput) {
     return (
-      <div className="min-h-screen w-full relative overflow-hidden bg-gradient-to-b from-[#050715] to-[#0F1230]">
+      <div className="min-h-screen w-full relative overflow-x-hidden overflow-y-auto bg-gradient-to-b from-[#050715] to-[#0F1230]">
         {/* Settings Icon - Top Right */}
         <button
           onClick={onSettingsClick}
@@ -208,7 +208,7 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   }
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden bg-gradient-to-b from-[#050715] to-[#0F1230]">
+    <div className="min-h-screen w-full relative overflow-x-hidden overflow-y-auto bg-gradient-to-b from-[#050715] to-[#0F1230]">
       {/* Background stars - subtle scattered */}
       <div className="absolute inset-0 pointer-events-none">
         {Array.from({ length: 40 }).map((_, i) => (

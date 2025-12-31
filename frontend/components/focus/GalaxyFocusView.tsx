@@ -276,7 +276,7 @@ export function GalaxyFocusView({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 1.1 }}
       transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center px-4"
+      className="fixed inset-0 z-[9999] overflow-y-auto flex flex-col items-center justify-start px-4 py-20"
       style={{
         background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 1) 0%, rgba(10, 5, 20, 1) 100%)',
       }}

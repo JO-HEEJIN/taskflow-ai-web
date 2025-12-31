@@ -1435,3 +1435,201 @@ When stuck on a decision, ask these questions:
 
 If answers are: YES, REDUCE, YES, NO, YES → Build it
 Otherwise → Skip it or redesign
+
+---
+
+### Learning 7: State Synchronization - Independent Components vs Global Store (Dec 31, 2025)
+
+**Challenge:** OrbitTimer (main Focus Mode timer) stuck at 0 after break, while PiP timer worked correctly
+
+**User Report:**
+> "휴식을 취하고 다음 subtask를 시작할 때 focus mode의 시간이 0에 멈춰있어. 그런데 pip에서는 제대로 시간이 흘러가는 거 같아."
+
+**Problem Analysis:**
+
+**OrbitTimer Implementation (BEFORE FIX):**
+```typescript
+// OrbitTimer.tsx - Lines 21-30
+const [timeLeft, setTimeLeft] = useState(duration * 60); // Independent local state
+
+// Reset timer when duration changes
+useEffect(() => {
+  setTimeLeft(duration * 60); // Only syncs with duration prop
+}, [duration]);
+
+// Independent countdown
+useEffect(() => {
+  if (isPlaying && timeLeft > 0) {
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }
+}, [isPlaying, timeLeft]);
+```
+
+**PiPTimer Implementation (Working Correctly):**
+```typescript
+// PiPTimer.tsx - Lines 30-40
+const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
+const [isRunning, setIsRunning] = useState(initialIsRunning);
+
+// Sync with props from store
+useEffect(() => {
+  setTimeLeft(initialTimeLeft); // Props come from store's currentTimeLeft
+}, [initialTimeLeft]);
+
+useEffect(() => {
+  setIsRunning(initialIsRunning); // Props come from store's isTimerRunning
+}, [initialIsRunning]);
+```
+
+**Root Cause:**
+
+OrbitTimer maintained **completely independent state** disconnected from the global timer state:
+
+1. **Initial State:** `useState(duration * 60)` - Only knows the duration, not actual time left
+2. **Reset Logic:** Only resets when `duration` prop changes
+3. **No Store Connection:** Never reads `currentTimeLeft` from Zustand store
+4. **Separate Countdown:** Runs its own `setInterval` independently
+
+**The Bug Scenario:**
+
+```
+User Flow:
+1. Start subtask 1 (5 min timer)
+   - OrbitTimer: duration = 5, timeLeft = 300s ✓
+   - Store: currentTimeLeft = 300s ✓
+
+2. Timer runs for 2 minutes
+   - OrbitTimer: timeLeft = 180s (counting down independently)
+   - Store: currentTimeLeft = 180s (managed by WebSocket)
+
+3. Timer completes
+   - OrbitTimer: onComplete() called, timeLeft = 0
+   - Store: currentTimeLeft = 0, showBreakScreen = true ✓
+
+4. User clicks "Take 5-min Break"
+   - handleTakeBreak() starts new timer
+   - Store: currentTimeLeft = 300s (new 5-min timer) ✓
+   - OrbitTimer: Still showing 0 ❌ (duration hasn't changed!)
+
+5. Break timer runs
+   - Store: currentTimeLeft counting down (299, 298, 297...)
+   - OrbitTimer: STUCK AT 0 ❌ (no sync with store)
+   - PiPTimer: Counting down correctly ✓ (synced with store)
+```
+
+**Why PiP Worked But OrbitTimer Didn't:**
+
+| Component | State Source | Sync Mechanism |
+|-----------|-------------|----------------|
+| **OrbitTimer** | `duration` prop (minutes) | Only resets when duration changes |
+| **PiPTimer** | `currentTimeLeft` from store (seconds) | Syncs every time store updates |
+
+**The Critical Difference:**
+- `duration` = Initial timer length (doesn't change between breaks of same duration)
+- `currentTimeLeft` = Actual remaining time (always updates from store)
+
+**✅ Solution: Connect OrbitTimer to Store**
+
+```typescript
+// OrbitTimer.tsx - AFTER FIX
+import { useCoachStore } from '@/store/useCoachStore';
+
+export function OrbitTimer({ duration, isPlaying, ... }) {
+  const { currentTimeLeft } = useCoachStore(); // ← Read from store
+  const [timeLeft, setTimeLeft] = useState(currentTimeLeft || duration * 60);
+
+  // Sync with store's currentTimeLeft
+  useEffect(() => {
+    setTimeLeft(currentTimeLeft || duration * 60); // ← Sync with store
+  }, [currentTimeLeft, duration]); // ← Watch currentTimeLeft changes
+
+  // Rest of the countdown logic remains the same...
+}
+```
+
+**Results After Fix:**
+- ✅ OrbitTimer syncs with global timer state
+- ✅ Works correctly after breaks
+- ✅ Matches PiP timer behavior
+- ✅ No more stuck-at-zero bug
+
+**Core Lessons:**
+
+1. **Don't Rely on Derived Props for State**
+   - `duration` is initial config, not current state
+   - Use actual state values (`currentTimeLeft`) from store
+
+2. **Independent State = Sync Problems**
+   - Multiple timers should share single source of truth
+   - Independent countdowns will diverge over time
+
+3. **Test State Transitions**
+   - Test not just initial render, but state changes
+   - Break → Resume flow revealed the bug
+   - Multiple subtasks revealed the sync issue
+
+4. **Match Patterns Across Similar Components**
+   - OrbitTimer and PiPTimer both display same timer
+   - Should use same state source and sync pattern
+   - Don't implement different patterns for same data
+
+5. **Props vs Store for Timers**
+   ```typescript
+   // ❌ Wrong: Using initial config as state
+   const [timeLeft, setTimeLeft] = useState(duration * 60);
+
+   // ✅ Right: Using actual current state
+   const { currentTimeLeft } = useCoachStore();
+   const [timeLeft, setTimeLeft] = useState(currentTimeLeft);
+   ```
+
+6. **When to Use Local State vs Global Store**
+   - **Use Global Store:** When multiple components need same data
+   - **Use Local State:** When data is truly component-specific
+   - **Timer is Global:** Multiple views (OrbitTimer, PiP, FloatingWidget) all show same timer
+
+**Prevention Pattern:**
+
+```typescript
+// Pattern for timer display components:
+function TimerDisplay({ duration /* for styling only */ }) {
+  // ALWAYS sync with store, not just props
+  const { currentTimeLeft, isTimerRunning } = useCoachStore();
+  const [displayTime, setDisplayTime] = useState(currentTimeLeft);
+
+  // Sync with store
+  useEffect(() => {
+    setDisplayTime(currentTimeLeft);
+  }, [currentTimeLeft]);
+
+  // Local countdown for smooth UI (optional)
+  useEffect(() => {
+    if (isTimerRunning && displayTime > 0) {
+      const interval = setInterval(() => {
+        setDisplayTime(prev => prev - 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isTimerRunning, displayTime]);
+
+  return <div>{formatTime(displayTime)}</div>;
+}
+```
+
+**Key Insight:**
+When building features with multiple views of the same data (timer, counter, progress bar, etc.), establish the state source pattern early. All views must read from the same source, or they will inevitably diverge.
+
+**Git Commit:**
+```
+commit 842f062
+Fix OrbitTimer sync issue with store state
+
+OrbitTimer was maintaining independent local state that didn't sync
+with the global timer state from Zustand store. This caused the timer
+to freeze at 0 when switching subtasks after a break, while PiP timer
+continued working correctly.
+```
+

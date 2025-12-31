@@ -67,7 +67,7 @@ export function CoachView({ isOpen, onClose, currentTask, currentSubtask }: Coac
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 100 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="fixed right-0 top-0 h-full z-[9998] w-full md:w-96"
+          className="fixed right-0 top-0 h-full z-[9998] w-full md:w-96 flex flex-col"
           style={{
             background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 0.98) 0%, rgba(10, 5, 20, 0.98) 100%)',
             border: '1px solid rgba(167, 139, 250, 0.3)',
@@ -107,7 +107,7 @@ export function CoachView({ isOpen, onClose, currentTask, currentSubtask }: Coac
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 h-[calc(100%-140px)]">
+          <div className="flex-1 overflow-y-auto p-4" style={{ minHeight: 0 }}>
             {messages.map((msg, index) => (
               <ChatMessage
                 key={index}
