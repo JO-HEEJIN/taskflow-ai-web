@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { useCoachStore } from '@/store/useCoachStore';
 
 interface OrbitTimerProps {
   duration: number; // minutes
@@ -18,18 +19,19 @@ export function OrbitTimer({
   onToggle,
   color = '#c084fc',
 }: OrbitTimerProps) {
-  const [timeLeft, setTimeLeft] = useState(duration * 60); // Convert to seconds
+  const { currentTimeLeft } = useCoachStore();
+  const [timeLeft, setTimeLeft] = useState(currentTimeLeft || duration * 60);
   const radius = 120;
   const stroke = 8;
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
 
-  // Reset timer when duration changes
+  // Sync with store's currentTimeLeft
   useEffect(() => {
-    setTimeLeft(duration * 60);
-  }, [duration]);
+    setTimeLeft(currentTimeLeft || duration * 60);
+  }, [currentTimeLeft, duration]);
 
-  // Timer logic
+  // Timer logic (independent countdown for smooth UI, but syncs with store)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isPlaying && timeLeft > 0) {
