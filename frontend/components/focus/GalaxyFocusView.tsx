@@ -391,11 +391,11 @@ export function GalaxyFocusView({
           transition={{ delay: 0.25 }}
           className="mb-6 relative"
         >
-          {/* Arrow Hint */}
+          {/* Arrow Hint - pointing from left */}
           <motion.div
-            className="absolute -top-12 left-1/2 transform -translate-x-1/2 flex flex-col items-center pointer-events-none"
+            className="absolute top-1/2 -left-12 transform -translate-y-1/2 flex items-center gap-2 pointer-events-none"
             animate={{
-              y: [0, 8, 0],
+              x: [0, 8, 0],
             }}
             transition={{
               duration: 1.5,
@@ -403,23 +403,18 @@ export function GalaxyFocusView({
               ease: "easeInOut",
             }}
           >
-            <motion.p
-              animate={{
-                opacity: [0.6, 1, 0.6],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              className="text-white/90 text-xs mb-1 font-medium"
-            >
-              Need help?
-            </motion.p>
-            <motion.div className="text-2xl">↓</motion.div>
+            <motion.div className="text-3xl">→</motion.div>
           </motion.div>
 
-          <button
+          <motion.button
+            animate={{
+              scale: [1, 1.08, 1],
+            }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: "easeInOut",
+            }}
             onClick={() => setIsChatOpen(!isChatOpen)}
             className="px-6 py-3 rounded-full transition-all transform hover:scale-105 active:scale-95 flex items-center gap-3"
             style={{
@@ -440,7 +435,7 @@ export function GalaxyFocusView({
                 <span className="text-white text-sm font-medium">AI Coaching</span>
               </>
             )}
-          </button>
+          </motion.button>
         </motion.div>
 
         {/* OrbitTimer */}

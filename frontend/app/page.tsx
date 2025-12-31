@@ -18,6 +18,7 @@ import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
 import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
 import { setUserId } from '@/lib/api';
 import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
+import { unlockAudioForMobile } from '@/lib/sounds';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -41,6 +42,24 @@ export default function Home() {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Unlock audio on first user interaction (mobile requirement)
+  useEffect(() => {
+    const handleFirstInteraction = async () => {
+      await unlockAudioForMobile();
+    };
+
+    // Listen for first interaction
+    window.addEventListener('click', handleFirstInteraction, { once: true });
+    window.addEventListener('touchstart', handleFirstInteraction, { once: true });
+    window.addEventListener('keydown', handleFirstInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+    };
   }, []);
 
   const editingTask = editingTaskId ? tasks.find(t => t.id === editingTaskId) : undefined;

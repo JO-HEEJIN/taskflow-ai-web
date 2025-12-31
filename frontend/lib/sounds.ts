@@ -6,6 +6,7 @@
 class SoundManager {
   private audioContext: AudioContext | null = null;
   private sounds: Map<string, HTMLAudioElement> = new Map();
+  private audioUnlocked: boolean = false;
 
   /**
    * Initialize audio context (needed for some browsers)
@@ -21,6 +22,32 @@ class SoundManager {
     // Resume audio context if suspended (required by some browsers)
     if (this.audioContext.state === 'suspended') {
       this.audioContext.resume();
+    }
+  }
+
+  /**
+   * Unlock audio on mobile browsers (requires user interaction)
+   * Call this on first user interaction (click, touch, etc.)
+   */
+  async unlockAudio(): Promise<void> {
+    if (typeof window === 'undefined') return;
+    if (this.audioUnlocked) return;
+
+    this.initAudioContext();
+
+    // Play a silent audio to unlock (mobile requirement)
+    try {
+      const silentAudio = new Audio();
+      silentAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+      silentAudio.volume = 0;
+      await silentAudio.play();
+      silentAudio.pause();
+      silentAudio.remove();
+
+      this.audioUnlocked = true;
+      console.log('✅ Audio unlocked for mobile');
+    } catch (error) {
+      console.warn('Failed to unlock audio:', error);
     }
   }
 
@@ -53,6 +80,8 @@ class SoundManager {
   async play(soundId: string, volume: number = 0.7): Promise<void> {
     if (typeof window === 'undefined') return;
 
+    // Ensure audio is unlocked before playing (mobile requirement)
+    await this.unlockAudio();
     this.initAudioContext();
 
     try {
@@ -182,6 +211,9 @@ export async function initSounds(): Promise<void> {
  */
 export async function playTimerCompletionSound(): Promise<void> {
   try {
+    // Ensure audio is unlocked first (mobile requirement)
+    await soundManager.unlockAudio();
+
     // Try to play the audio file first
     await soundManager.playTimerComplete();
   } catch (error) {
@@ -189,4 +221,12 @@ export async function playTimerCompletionSound(): Promise<void> {
     // Fallback to generated chime
     await soundManager.playCompletionChime();
   }
+}
+
+/**
+ * Unlock audio for mobile browsers
+ * Call this on first user interaction
+ */
+export async function unlockAudioForMobile(): Promise<void> {
+  await soundManager.unlockAudio();
 }

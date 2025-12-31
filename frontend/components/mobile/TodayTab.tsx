@@ -3,6 +3,7 @@
 import { Task } from '@/types';
 import { CheckCircle2, Circle, Clock } from 'lucide-react';
 import { useTaskStore } from '@/store/taskStore';
+import { motion } from 'framer-motion';
 
 interface TodayTabProps {
   task: Task;
@@ -25,6 +26,33 @@ export function TodayTab({ task, onBreakdownAndFocus }: TodayTabProps) {
       >
         <p className="text-lg text-white/70 mb-2">No subtasks yet</p>
         <p className="text-sm text-white/40">Tap to AI breakdown & start Focus Mode</p>
+
+        {/* Sparkle "Tap here!" animation */}
+        <motion.div
+          animate={{
+            opacity: [0.5, 1, 0.5],
+            scale: [1, 1.1, 1],
+          }}
+          transition={{
+            duration: 1.5,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+          className="mt-4 inline-block"
+        >
+          <span
+            className="text-lg font-semibold"
+            style={{
+              background: 'linear-gradient(135deg, #c084fc 0%, #60a5fa 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              textShadow: '0 0 20px rgba(192, 132, 252, 0.5)',
+              filter: 'drop-shadow(0 0 8px rgba(192, 132, 252, 0.6))',
+            }}
+          >
+            ✨ Tap here! ✨
+          </span>
+        </motion.div>
       </button>
     );
   }

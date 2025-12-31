@@ -31,6 +31,13 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   const [showTaskInput, setShowTaskInput] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [showFocusModeHint, setShowFocusModeHint] = useState(false);
+  const [showIconHint, setShowIconHint] = useState(() => {
+    // Check if user has seen icon hint before
+    if (typeof window !== 'undefined') {
+      return !localStorage.getItem('iconHintSeen');
+    }
+    return true;
+  });
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
 
@@ -249,22 +256,9 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
           {selectedTask ? calculateDuration(selectedTask) : '0 min'}
         </p>
 
-        {/* Tap Hint Arrow - shows when user has tasks but might not know to tap */}
-        {tasks.length > 0 && (
-          <div className="absolute top-[110px] left-1/2 transform -translate-x-1/2 flex flex-col items-center pointer-events-none z-20">
-            <motion.div
-              animate={{
-                y: [0, 10, 0],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              className="text-4xl"
-            >
-              ↓
-            </motion.div>
+        {/* Tap Hint Arrow - shows when user hasn't tapped an icon yet */}
+        {tasks.length > 0 && showIconHint && (
+          <div className="absolute top-[135px] left-[-40px] flex items-center gap-2 pointer-events-none z-20">
             <motion.p
               animate={{
                 opacity: [0.6, 1, 0.6],
@@ -274,10 +268,23 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
                 repeat: Infinity,
                 ease: "easeInOut",
               }}
-              className="text-white/70 text-xs mt-1"
+              className="text-white text-sm font-medium"
             >
               Tap icon
             </motion.p>
+            <motion.div
+              animate={{
+                x: [0, 10, 0],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="text-4xl"
+            >
+              →
+            </motion.div>
           </div>
         )}
 
@@ -338,8 +345,15 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
               return (
                 <button
                   key={task.id}
-                  onClick={() => setSelectedTaskId(task.id)}
-                  className="transition-all opacity-30 hover:opacity-50"
+                  onClick={() => {
+                    setSelectedTaskId(task.id);
+                    // Hide icon hint and save to localStorage
+                    if (showIconHint) {
+                      setShowIconHint(false);
+                      localStorage.setItem('iconHintSeen', 'true');
+                    }
+                  }}
+                  className="transition-all opacity-60 hover:opacity-100"
                 >
                   <img
                     src={`/${iconNumber}.png`}
@@ -360,43 +374,6 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
       >
         {/* Tabs - horizontal scrollable */}
         <div className="overflow-x-auto -mx-6 px-6 mb-8 relative">
-          {/* Focus Mode Hint Arrow */}
-          {showFocusModeHint && (
-            <motion.div
-              className="absolute -top-12 left-[140px] flex flex-col items-center pointer-events-none z-30"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <motion.p
-                animate={{
-                  opacity: [0.6, 1, 0.6],
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                className="text-white/90 text-sm mb-1 font-medium"
-              >
-                Tap here!
-              </motion.p>
-              <motion.div
-                animate={{
-                  y: [0, 8, 0],
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                className="text-3xl"
-              >
-                ↓
-              </motion.div>
-            </motion.div>
-          )}
-
           <div className="flex gap-8 min-w-max">
             <button
               onClick={() => setActiveTab('today')}
@@ -445,12 +422,13 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
                   animate={{
                     boxShadow: [
                       '0 0 0px rgba(77, 107, 255, 0)',
-                      '0 0 20px rgba(77, 107, 255, 0.8)',
+                      '0 0 30px rgba(77, 107, 255, 1)',
                       '0 0 0px rgba(77, 107, 255, 0)',
                     ],
+                    scale: [1, 1.08, 1],
                   }}
                   transition={{
-                    duration: 2,
+                    duration: 1.5,
                     repeat: Infinity,
                     ease: "easeInOut",
                   }}
