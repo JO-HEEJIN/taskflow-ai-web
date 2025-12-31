@@ -638,3 +638,111 @@ A: "Guest data stays in your browser. Authenticated data is stored in Azure Cosm
 ---
 
 Ready to capture screenshots and create the demo video! 🚀
+
+---
+
+## 🎯 NEW: Realistic ADHD Task Examples with Carousel - Dec 31, 2025
+
+### Goal
+Replace generic sample tasks with 6 realistic ADHD scenarios in a swipeable carousel format.
+
+### 6 Example Tasks (English Only)
+1. File Tax Return (3 days until deadline)
+2. Prepare for Job Interview (tomorrow at 9 AM)
+3. Finish Assignment (due tomorrow, haven't started)
+4. Prepare for Doctor Appointment (in 1 hour)
+5. Pack for Trip (leaving tomorrow morning)
+6. Complete Daily Routine (clean, exercise, work/study, sleep)
+
+### Implementation Plan
+
+#### Phase 1: Create Task Examples Data
+- [ ] Create new file: `/frontend/lib/exampleTasks.ts`
+- [ ] Define 6 realistic ADHD task examples with:
+  - Task title (English only - localization later)
+  - Short description (1-2 sentences)
+  - Estimated time
+  - Urgency indicator
+
+#### Phase 2: Build Carousel Component
+- [ ] Create new file: `/frontend/components/onboarding/TaskCarousel.tsx`
+- [ ] Implement swipeable carousel using framer-motion
+- [ ] Support left/right swipe gestures
+- [ ] Support infinite loop (6 to 1, 1 to 6)
+- [ ] Show navigation indicators (dots)
+- [ ] Display one task at a time
+
+#### Phase 3: Update EmptyStateWithActions
+- [ ] Replace random sample button with TaskCarousel component
+- [ ] Keep "Create Your Own Task" button below carousel
+- [ ] Pass onCreateSample callback to carousel
+- [ ] Update styling for better mobile UX
+
+#### Phase 4: Test and Polish
+- [ ] Test swipe gestures on mobile
+- [ ] Test infinite loop navigation
+- [ ] Verify all 6 tasks create properly
+- [ ] Check responsive design
+
+### Technical Decisions
+- Use framer-motion for swipe animations (already in project)
+- Keep carousel simple - no auto-play, user-controlled only
+- Infinite loop for better UX
+- One task visible at a time to avoid scroll
+
+### Files to Create
+1. `/frontend/lib/exampleTasks.ts` - Task data
+2. `/frontend/components/onboarding/TaskCarousel.tsx` - Carousel component
+
+### Files to Modify
+1. `/frontend/components/onboarding/EmptyStateWithActions.tsx` - Use carousel instead of random button
+
+### Review
+
+**Implementation completed successfully on Dec 31, 2025**
+
+#### What was built:
+
+1. **exampleTasks.ts** - Created data file with 6 realistic ADHD scenarios:
+   - File Tax Return (3 days deadline)
+   - Prepare for Job Interview (tomorrow 9 AM)
+   - Finish Assignment (due tomorrow, not started)
+   - Prepare for Doctor Appointment (in 1 hour)
+   - Pack for Trip (leaving tomorrow)
+   - Complete Daily Routine (clean, exercise, work, sleep)
+
+2. **TaskCarousel.tsx** - Built swipeable carousel component:
+   - Swipe left/right gestures using framer-motion
+   - Click arrows for navigation
+   - Infinite loop (wraps from 6 to 1, 1 to 6)
+   - Dot indicators showing current position
+   - Smooth slide animations
+   - Urgency badges for high-priority tasks
+   - Time estimates displayed
+   - Mobile-friendly touch interactions
+
+3. **EmptyStateWithActions.tsx** - Updated empty state:
+   - Replaced random sample button with TaskCarousel
+   - Added "Or" divider for visual separation
+   - Kept "Create Your Own Task" button below carousel
+   - Improved copy to mention realistic examples
+
+#### Technical approach:
+- Used framer-motion drag API for swipe detection
+- Implemented infinite loop with modulo arithmetic
+- All text in English only (localization deferred)
+- Kept components simple and focused
+- No breaking changes to existing functionality
+
+#### Files created:
+- `/frontend/lib/exampleTasks.ts`
+- `/frontend/components/onboarding/TaskCarousel.tsx`
+
+#### Files modified:
+- `/frontend/components/onboarding/EmptyStateWithActions.tsx`
+
+#### Build status:
+- Frontend compiling successfully
+- No TypeScript errors
+- No runtime errors
+- Ready for testing on actual devices
