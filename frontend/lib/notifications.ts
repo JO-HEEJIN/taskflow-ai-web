@@ -379,19 +379,18 @@ export async function showTimerCompletedNotification(): Promise<void> {
     body: 'Great work! Time for a break.',
     tag: 'focus-timer-complete',
     requireInteraction: true,
-    vibrate: [200, 100, 200, 100, 200],
     data: {
       type: 'timer-complete',
     },
   });
 
-  // Clear badge
-  await clearAppBadge();
-
-  // Vibrate on mobile
+  // Vibrate on mobile (handled separately, not part of NotificationOptions)
   if ('vibrate' in navigator) {
     navigator.vibrate([200, 100, 200, 100, 200]);
   }
+
+  // Clear badge
+  await clearAppBadge();
 }
 
 /**
