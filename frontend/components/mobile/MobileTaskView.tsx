@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
 import { Settings } from 'lucide-react';
@@ -250,25 +251,86 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
           {selectedTask ? calculateDuration(selectedTask) : '0 min'}
         </p>
 
+        {/* Tap Hint Arrow - shows when user has tasks but might not know to tap */}
+        {tasks.length > 0 && (
+          <div className="absolute top-[110px] left-1/2 transform -translate-x-1/2 flex flex-col items-center pointer-events-none z-20">
+            <motion.div
+              animate={{
+                y: [0, 10, 0],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="text-4xl"
+            >
+              ↓
+            </motion.div>
+            <motion.p
+              animate={{
+                opacity: [0.6, 1, 0.6],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              className="text-white/70 text-xs mt-1"
+            >
+              Tap icon
+            </motion.p>
+          </div>
+        )}
+
         {/* Icon Selector (Horizontal Scroll) */}
-        <div className="flex items-center justify-center gap-6 px-8">
+        <div className="flex items-center justify-center gap-6 px-8 relative">
           {/* Show up to 5 tasks with 01.png ~ 05.png */}
           {tasks.slice(0, 5).map((task, idx) => {
             const isActive = task.id === selectedTaskId;
             const iconNumber = String(idx + 1).padStart(2, '0'); // 01, 02, 03, 04, 05
 
             if (isActive) {
-              // Active item (center) - with dashed circle
+              // Active item (center) - with dashed circle and sparkle animation
               return (
                 <div key={task.id} className="relative">
+                  {/* Sparkle effect */}
+                  <motion.div
+                    className="absolute inset-0 rounded-full"
+                    animate={{
+                      boxShadow: [
+                        '0 0 0px rgba(192, 132, 252, 0)',
+                        '0 0 20px rgba(192, 132, 252, 0.8)',
+                        '0 0 0px rgba(192, 132, 252, 0)',
+                      ],
+                      scale: [1, 1.1, 1],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                    }}
+                  />
                   <div
-                    className="w-[60px] h-[60px] rounded-full border border-dashed flex items-center justify-center"
+                    className="w-[60px] h-[60px] rounded-full border border-dashed flex items-center justify-center relative z-10"
                     style={{ borderColor: 'rgba(255, 255, 255, 0.3)', borderWidth: '1px' }}
                   >
-                    <img
+                    <motion.img
                       src={`/${iconNumber}.png`}
                       alt={task.title}
                       className="w-[40px] h-[40px] object-contain"
+                      animate={{
+                        filter: [
+                          'brightness(1)',
+                          'brightness(1.3)',
+                          'brightness(1)',
+                        ],
+                      }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
                     />
                   </div>
                 </div>
