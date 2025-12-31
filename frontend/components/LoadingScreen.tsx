@@ -39,27 +39,8 @@ export function LoadingScreen() {
   };
 
   useEffect(() => {
-    // Try to autoplay immediately (will fail on most browsers, but worth trying)
-    const attemptAutoplay = async () => {
-      await unlockAudio();
-    };
-    attemptAutoplay();
-
-    // Add global listeners for first user interaction to unlock audio
-    const handleFirstInteraction = () => {
-      unlockAudio();
-    };
-
-    window.addEventListener('click', handleFirstInteraction, { once: true });
-    window.addEventListener('touchstart', handleFirstInteraction, { once: true });
-    window.addEventListener('keydown', handleFirstInteraction, { once: true });
-
     // Cleanup on unmount - fade out and stop
     return () => {
-      window.removeEventListener('click', handleFirstInteraction);
-      window.removeEventListener('touchstart', handleFirstInteraction);
-      window.removeEventListener('keydown', handleFirstInteraction);
-
       if (audioRef.current) {
         fadeOutAndStop(audioRef.current);
       }
@@ -92,10 +73,11 @@ export function LoadingScreen() {
 
   return (
     <motion.div
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-black"
+      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-black cursor-pointer"
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
+      onClick={unlockAudio}
     >
       <div className="flex flex-col items-center gap-6">
         {/* Animated logo or icon */}
@@ -133,7 +115,7 @@ export function LoadingScreen() {
           Loading TaskFlow...
         </motion.div>
 
-        {/* Music indicator */}
+        {/* Music indicator - shows when audio is playing */}
         {!isFadingOut && audioUnlocked && (
           <motion.div
             className="flex items-center gap-2 text-purple-300 text-sm"
@@ -157,6 +139,17 @@ export function LoadingScreen() {
               transition={{ duration: 0.5, repeat: Infinity, delay: 0.2 }}
             />
           </motion.div>
+        )}
+
+        {/* Hint to click - shows when audio not yet unlocked */}
+        {!audioUnlocked && (
+          <motion.p
+            className="text-purple-300/60 text-sm mt-4"
+            animate={{ opacity: [0.4, 0.8, 0.4] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          >
+            Click anywhere to start
+          </motion.p>
         )}
       </div>
     </motion.div>
