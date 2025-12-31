@@ -12,6 +12,8 @@ interface TaskCarouselProps {
 export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null);
+  const [touchEnd, setTouchEnd] = useState<{ x: number; y: number } | null>(null);
 
   const currentTask = exampleTasks[currentIndex];
 
@@ -25,6 +27,43 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
   const prevTask = () => {
     setDirection(-1);
     setCurrentIndex((prev) => (prev - 1 + exampleTasks.length) % exampleTasks.length);
+  };
+
+  // Touch handlers for mobile swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd({
+      x: e.targetTouches[0].clientX,
+      y: e.targetTouches[0].clientY,
+    });
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const deltaX = touchStart.x - touchEnd.x;
+    const deltaY = touchStart.y - touchEnd.y;
+    const absDeltaX = Math.abs(deltaX);
+    const absDeltaY = Math.abs(deltaY);
+
+    // Only trigger swipe if horizontal movement is greater than vertical
+    // This allows vertical scrolling while enabling horizontal swipe
+    if (absDeltaX > absDeltaY && absDeltaX > 50) {
+      if (deltaX > 0) {
+        // Swiped left - go to next
+        nextTask();
+      } else {
+        // Swiped right - go to previous
+        prevTask();
+      }
+    }
   };
 
   // Slide animation variants
@@ -66,7 +105,12 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
         </button>
 
         {/* Task Card */}
-        <div className="px-4 py-4">
+        <div
+          className="px-4 py-4"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
               key={currentIndex}
@@ -142,7 +186,7 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
       {/* Helper Text */}
       <p className="text-center text-purple-300/60 text-xs mt-3">
         <span className="hidden md:inline">Use arrows or tap dots to browse examples</span>
-        <span className="md:hidden">Tap dots to browse examples</span>
+        <span className="md:hidden">Swipe or tap dots to browse examples</span>
       </p>
     </div>
   );
