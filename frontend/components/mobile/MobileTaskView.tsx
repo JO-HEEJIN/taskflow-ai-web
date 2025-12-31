@@ -8,6 +8,7 @@ import { TodayTab } from './TodayTab';
 import { TomorrowTab } from './TomorrowTab';
 import { WeeklyTab } from './WeeklyTab';
 import { ZodiacIcon } from './ZodiacIcon';
+import { EmptyStateWithActions } from '@/components/onboarding/EmptyStateWithActions';
 
 type TabType = 'today' | 'tomorrow' | 'weekly';
 
@@ -17,7 +18,7 @@ interface MobileTaskViewProps {
 }
 
 export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskViewProps) {
-  const { tasks, generateAIBreakdown, addSubtasks } = useTaskStore();
+  const { tasks, generateAIBreakdown, addSubtasks, createTask } = useTaskStore();
   const { enterFocusMode } = useCoachStore();
   const [activeTab, setActiveTab] = useState<TabType>('today');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
@@ -26,6 +27,8 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   const [showConstellation, setShowConstellation] = useState(false);
   const [showTitlePopup, setShowTitlePopup] = useState(false);
   const [isBreakingDown, setIsBreakingDown] = useState(false);
+  const [showTaskInput, setShowTaskInput] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
 
@@ -80,6 +83,110 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   const handleWeeklyClick = () => {
     setShowConstellation(true);
   };
+
+  // Handle creating a sample task
+  const handleCreateSample = async (sampleTask: string) => {
+    try {
+      await createTask(sampleTask);
+      // After creating, the task will be in the list and selected automatically
+    } catch (error) {
+      console.error('Failed to create sample task:', error);
+    }
+  };
+
+  // Handle creating own task
+  const handleCreateOwn = () => {
+    setShowTaskInput(true);
+  };
+
+  // Handle submitting new task
+  const handleSubmitTask = async () => {
+    if (!newTaskTitle.trim()) return;
+
+    try {
+      await createTask(newTaskTitle.trim());
+      setNewTaskTitle('');
+      setShowTaskInput(false);
+    } catch (error) {
+      console.error('Failed to create task:', error);
+    }
+  };
+
+  // Show empty state when no tasks
+  if (tasks.length === 0 && !showTaskInput) {
+    return (
+      <div className="min-h-screen w-full relative overflow-hidden bg-gradient-to-b from-[#050715] to-[#0F1230]">
+        {/* Settings Icon - Top Right */}
+        <button
+          onClick={onSettingsClick}
+          className="absolute top-8 right-6 z-50 p-1.5 text-white/50 hover:text-white/70 transition-colors"
+        >
+          <Settings className="w-5 h-5" strokeWidth={1.5} />
+        </button>
+
+        {/* Empty State */}
+        <div className="flex items-center justify-center min-h-screen px-4">
+          <EmptyStateWithActions
+            onCreateSample={handleCreateSample}
+            onCreateOwn={handleCreateOwn}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Show task input modal
+  if (showTaskInput) {
+    return (
+      <div className="min-h-screen w-full relative overflow-hidden bg-gradient-to-b from-[#050715] to-[#0F1230]">
+        {/* Settings Icon - Top Right */}
+        <button
+          onClick={onSettingsClick}
+          className="absolute top-8 right-6 z-50 p-1.5 text-white/50 hover:text-white/70 transition-colors"
+        >
+          <Settings className="w-5 h-5" strokeWidth={1.5} />
+        </button>
+
+        {/* Task Input Modal */}
+        <div className="flex items-center justify-center min-h-screen px-6">
+          <div className="w-full max-w-md">
+            <h2 className="text-2xl font-bold text-white mb-4 text-center">Create New Task</h2>
+            <input
+              type="text"
+              value={newTaskTitle}
+              onChange={(e) => setNewTaskTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSubmitTask();
+                }
+              }}
+              placeholder="Enter task title..."
+              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/40 focus:outline-none focus:border-purple-400 mb-4"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowTaskInput(false);
+                  setNewTaskTitle('');
+                }}
+                className="flex-1 py-3 px-4 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitTask}
+                disabled={!newTaskTitle.trim()}
+                className="flex-1 py-3 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // If Weekly tab is active, show full constellation view
   if (showConstellation || activeTab === 'weekly') {
