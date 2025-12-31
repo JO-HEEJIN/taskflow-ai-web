@@ -1633,3 +1633,195 @@ to freeze at 0 when switching subtasks after a break, while PiP timer
 continued working correctly.
 ```
 
+### Learning 8: Azure Container Apps Deployment - Source vs Image Deployment (Dec 31, 2025)
+
+**Challenge:** Attempted to deploy new code changes but deployment failed with "Unhealthy" status
+
+**User Context:**
+- User had been successfully deploying without Docker installed locally
+- Sudden deployment issues after code changes
+- Confusion about deployment mechanism
+
+**Trial and Error Timeline:**
+
+**Attempt 1: Image-Based Deployment** ❌
+```bash
+az containerapp update --name taskflow-frontend \
+  --resource-group birth2death-imagine-cup-2026 \
+  --image ghcr.io/jo-heejin/taskflow-frontend:latest
+```
+- **Result:** Deployment "succeeded" but revision marked "Unhealthy"
+- **Problem:** Image in ghcr.io was old/didn't exist
+- **Lesson:** Container Apps pulled old image, not new code
+
+**Attempt 2: Checking GitHub Actions** ❌
+```bash
+gh run list --limit 5
+# All runs: "completed failure"
+```
+- **Discovery:** GitHub Actions has only Azure Static Web Apps workflow
+- **Problem:** No Docker build workflow exists
+- **Lesson:** Images weren't being built automatically
+
+**Attempt 3: Assuming Local Docker Needed** ❌
+```bash
+docker --version
+# Error: command not found: docker
+```
+- **Confusion:** User never had Docker installed locally
+- **Question:** How was deployment working before?
+- **Assistant Error:** Incorrectly suggested installing Docker and building manually
+
+**Attempt 4: Discovery of Azure Container Registry (ACR)** ✅
+```bash
+az acr list
+# Found: cad11689e6f1acr.azurecr.io
+
+az acr repository list --name cad11689e6f1acr
+# Found: taskflow-backend, taskflow-frontend
+
+az acr task list --registry cad11689e6f1acr
+# Found: cli_build_containerapp (Enabled)
+```
+
+**Root Cause Identified:**
+
+The deployment was using **Azure Container Registry (ACR)** with **automated build tasks**, not GitHub Container Registry (ghcr.io):
+
+1. **Container Apps Configuration:**
+   ```json
+   "registries": [
+     {
+       "server": "cad11689e6f1acr.azurecr.io",
+       "username": "cad11689e6f1acr"
+     }
+   ]
+   ```
+
+2. **ACR Task (Oryx Build):**
+   ```yaml
+   version: v1.1.0
+   steps:
+     - cmd: mcr.microsoft.com/oryx/cli oryx dockerfile --output ./Dockerfile .
+     - build: -t $Registry/taskflow-backend:TAG -f Dockerfile .
+     - push: ["$Registry/taskflow-backend:TAG"]
+   ```
+
+3. **Build Process:**
+   - Azure Oryx automatically generates Dockerfile from source
+   - Builds Docker image in the cloud
+   - Pushes to Azure Container Registry
+   - No local Docker installation required!
+
+**✅ Correct Solution: Source-Based Deployment**
+
+```bash
+cd frontend && az containerapp up \
+  --name taskflow-frontend \
+  --resource-group birth2death-imagine-cup-2026 \
+  --source . \
+  --ingress external \
+  --target-port 3000 \
+  --registry-server cad11689e6f1acr.azurecr.io
+```
+
+**How `az containerapp up --source .` Works:**
+
+1. **Upload Source Code:** Packages local directory and uploads to Azure
+2. **Create ACR Task:** Generates build task with Oryx buildpack
+3. **Cloud Build:** Builds Docker image in Azure (no local Docker needed)
+4. **Push to ACR:** Stores image in Azure Container Registry
+5. **Deploy to Container Apps:** Creates new revision with fresh image
+
+**Results:**
+- ✅ No local Docker installation required
+- ✅ Builds from latest source code
+- ✅ Automatic Dockerfile generation via Oryx
+- ✅ Fast cloud-based builds
+- ✅ Seamless deployment to Container Apps
+
+**Core Lessons:**
+
+1. **Azure Container Apps Has Two Deployment Methods:**
+
+   | Method | Command | Use Case |
+   |--------|---------|----------|
+   | **Image-based** | `az containerapp update --image <url>` | Pre-built images (CI/CD pipelines) |
+   | **Source-based** | `az containerapp up --source .` | Direct from source code (no Docker needed) |
+
+2. **Oryx Buildpack Magic:**
+   - Detects language (Node.js, Python, .NET, etc.)
+   - Generates optimized Dockerfile automatically
+   - No Dockerfile needed in repo (though you can provide one)
+   - Works like Heroku's buildpacks
+
+3. **When GitHub Actions Fails:**
+   - Don't assume you need local Docker
+   - Check if Azure has alternative deployment methods
+   - `az containerapp up` can bypass GitHub Actions entirely
+
+4. **Image vs Source Deployment:**
+   ```bash
+   # ❌ Wrong: When images aren't being built
+   az containerapp update --image ghcr.io/repo:latest
+   # (Pulls old/non-existent image)
+
+   # ✅ Right: When you have source code
+   az containerapp up --source .
+   # (Builds from source in Azure)
+   ```
+
+5. **Debugging Container Apps Deployments:**
+   ```bash
+   # Check which registry is configured
+   az containerapp show --name APP --resource-group RG \
+     --query "properties.configuration.registries"
+
+   # Check ACR repositories
+   az acr repository list --name REGISTRY
+
+   # Check ACR build tasks
+   az acr task list --registry REGISTRY
+
+   # Check revision health
+   az containerapp revision list --name APP --resource-group RG \
+     --query "[].{Name:name, Health:properties.healthState}"
+   ```
+
+6. **Azure Container Apps Architecture:**
+   ```
+   Local Code
+      ↓ (az containerapp up --source .)
+   Azure Upload
+      ↓
+   ACR Task (Oryx)
+      ↓ (Dockerfile generation + docker build)
+   Docker Image
+      ↓ (push to ACR)
+   Azure Container Registry
+      ↓ (deploy)
+   Container Apps (new revision)
+   ```
+
+**Key Insight:**
+
+Modern cloud platforms abstract away Docker complexity. Don't assume you need Docker installed locally. Azure Container Apps + Oryx provides "source-to-cloud" deployment similar to Heroku or Vercel - just push code and let the cloud handle the rest.
+
+**Prevention Pattern:**
+
+When deployment fails:
+1. **Check registry source:** Is app pulling from right registry?
+2. **Check image existence:** Does the image tag actually exist?
+3. **Check build mechanism:** How are images being built?
+4. **Consider source deployment:** Can you deploy from source instead?
+
+**Emotional Learning:**
+
+When deployment breaks and you don't understand why:
+1. **Don't panic** - There's always a logical explanation
+2. **Check assumptions** - "I need Docker" might be wrong
+3. **Read the docs** - Cloud platforms have multiple deployment paths
+4. **Ask "how did this work before?"** - Reveals the actual mechanism
+5. **Document the process** - Future you will thank present you
+
+---
