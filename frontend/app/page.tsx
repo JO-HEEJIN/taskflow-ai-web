@@ -13,6 +13,7 @@ import { GalaxyFocusView } from '@/components/focus/GalaxyFocusView';
 import { EmergencyButton } from '@/components/focus/EmergencyButton';
 import { LevelUpModal } from '@/components/rewards/LevelUpModal';
 import { ProfileButton } from '@/components/profile/ProfileButton';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
 import { setUserId } from '@/lib/api';
 import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
@@ -133,11 +134,7 @@ export default function Home() {
 
   // Show loading while checking authentication
   if (status === 'loading') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-black">
-        <div className="text-white text-xl">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (
