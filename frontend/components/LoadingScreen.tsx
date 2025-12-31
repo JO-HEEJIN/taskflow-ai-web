@@ -6,8 +6,14 @@ import { motion } from 'framer-motion';
 export function LoadingScreen() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [showStartButton, setShowStartButton] = useState(true);
 
-  useEffect(() => {
+  // Unlock audio on user interaction
+  const unlockAudio = async () => {
+    setShowStartButton(false);
+    setAudioUnlocked(true);
+
     // Check if music is enabled in settings
     const musicEnabled = localStorage.getItem('musicEnabled');
     if (musicEnabled === 'false') {
@@ -21,15 +27,16 @@ export function LoadingScreen() {
     audio.volume = 0.6;
     audioRef.current = audio;
 
-    // Start playing
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch((error) => {
-        console.log('Audio autoplay prevented:', error);
-        // Autoplay might be blocked, that's okay
-      });
+    // Start playing after user interaction
+    try {
+      await audio.play();
+      console.log('Audio unlocked and playing');
+    } catch (error) {
+      console.log('Audio play failed:', error);
     }
+  };
 
+  useEffect(() => {
     // Cleanup on unmount - fade out and stop
     return () => {
       if (audioRef.current) {
@@ -87,48 +94,84 @@ export function LoadingScreen() {
           }}
         />
 
-        {/* Loading text */}
-        <motion.div
-          className="text-white text-xl font-medium"
-          animate={{
-            opacity: [0.5, 1, 0.5],
-          }}
-          transition={{
-            duration: 1.5,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          style={{
-            textShadow: '0 0 20px rgba(192, 132, 252, 0.8)',
-          }}
-        >
-          Loading TaskFlow...
-        </motion.div>
-
-        {/* Music indicator */}
-        {!isFadingOut && (
-          <motion.div
-            className="flex items-center gap-2 text-purple-300 text-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.6 }}
-            transition={{ delay: 0.5 }}
-          >
-            <motion.div
-              className="w-1 h-3 bg-purple-400 rounded-full"
-              animate={{ scaleY: [1, 1.5, 1] }}
-              transition={{ duration: 0.5, repeat: Infinity, delay: 0 }}
-            />
-            <motion.div
-              className="w-1 h-3 bg-purple-400 rounded-full"
-              animate={{ scaleY: [1, 1.5, 1] }}
-              transition={{ duration: 0.5, repeat: Infinity, delay: 0.1 }}
-            />
-            <motion.div
-              className="w-1 h-3 bg-purple-400 rounded-full"
-              animate={{ scaleY: [1, 1.5, 1] }}
-              transition={{ duration: 0.5, repeat: Infinity, delay: 0.2 }}
-            />
+        {/* Loading text or Start button */}
+        {showStartButton ? (
+          <motion.div className="flex flex-col items-center gap-4">
+            <motion.button
+              onClick={unlockAudio}
+              className="px-8 py-4 rounded-full text-white text-lg font-semibold"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+              }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{
+                duration: 0.3,
+              }}
+              style={{
+                background: 'linear-gradient(135deg, #c084fc 0%, #e879f9 100%)',
+                boxShadow: '0 0 30px rgba(192, 132, 252, 0.6)',
+              }}
+            >
+              🎵 Tap to Start
+            </motion.button>
+            <motion.p
+              className="text-purple-300 text-sm text-center max-w-xs px-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.7 }}
+              transition={{ delay: 0.3 }}
+            >
+              Enable sound for the best experience
+            </motion.p>
           </motion.div>
+        ) : (
+          <>
+            {/* Loading text */}
+            <motion.div
+              className="text-white text-xl font-medium"
+              animate={{
+                opacity: [0.5, 1, 0.5],
+              }}
+              transition={{
+                duration: 1.5,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+              style={{
+                textShadow: '0 0 20px rgba(192, 132, 252, 0.8)',
+              }}
+            >
+              Loading TaskFlow...
+            </motion.div>
+
+            {/* Music indicator */}
+            {!isFadingOut && audioUnlocked && (
+              <motion.div
+                className="flex items-center gap-2 text-purple-300 text-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 0.6 }}
+                transition={{ delay: 0.5 }}
+              >
+                <motion.div
+                  className="w-1 h-3 bg-purple-400 rounded-full"
+                  animate={{ scaleY: [1, 1.5, 1] }}
+                  transition={{ duration: 0.5, repeat: Infinity, delay: 0 }}
+                />
+                <motion.div
+                  className="w-1 h-3 bg-purple-400 rounded-full"
+                  animate={{ scaleY: [1, 1.5, 1] }}
+                  transition={{ duration: 0.5, repeat: Infinity, delay: 0.1 }}
+                />
+                <motion.div
+                  className="w-1 h-3 bg-purple-400 rounded-full"
+                  animate={{ scaleY: [1, 1.5, 1] }}
+                  transition={{ duration: 0.5, repeat: Infinity, delay: 0.2 }}
+                />
+              </motion.div>
+            )}
+          </>
         )}
       </div>
     </motion.div>
