@@ -216,20 +216,20 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
 
   if (tasks.length === 0) {
     return (
-      <div className="w-screen h-screen flex items-start justify-center relative overflow-y-auto">
+      <div className="w-screen min-h-screen flex flex-col relative overflow-y-auto">
         {/* Aurora Background */}
         <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          className="fixed inset-0 bg-cover bg-center bg-no-repeat"
           style={{
             backgroundImage: 'url(/aurora-bg.jpg)',
             filter: 'blur(8px)',
             transform: 'scale(1.1)',
           }}
         />
-        <div className="absolute inset-0 bg-black/60" />
+        <div className="fixed inset-0 bg-black/60" />
 
         {/* Empty State Content */}
-        <div className="relative z-10 w-full">
+        <div className="relative z-10 w-full flex-1">
           <EmptyStateWithActions
             onCreateSample={handleCreateSampleTask}
             onCreateOwn={() => onBackgroundClick && onBackgroundClick()}

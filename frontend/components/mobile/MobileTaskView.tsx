@@ -107,8 +107,8 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
   // Handle creating a sample task
   const handleCreateSample = async (sampleTask: string) => {
     try {
-      // Use auto-focus flow: create + AI breakdown + add subtasks
-      const taskId = await createTaskWithAutoFocus(sampleTask);
+      // Create task only (no auto AI breakdown)
+      const taskId = await createTask(sampleTask, 'Sample task to get you started');
 
       if (taskId) {
         // Select the new task and switch to Today (AI Breakdown) tab
