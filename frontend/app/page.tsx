@@ -15,6 +15,7 @@ import { LevelUpModal } from '@/components/rewards/LevelUpModal';
 import { ProfileButton } from '@/components/profile/ProfileButton';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
+import { AudioPermissionScreen } from '@/components/onboarding/AudioPermissionScreen';
 import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
 import { setUserId } from '@/lib/api';
 import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
@@ -32,6 +33,19 @@ export default function Home() {
   const [newLevel, setNewLevel] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [audioPermissionGranted, setAudioPermissionGranted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('audioPermissionGranted') === 'true';
+    }
+    return false;
+  });
+
+  // Handle audio permission
+  const handleAllowAudio = async () => {
+    await unlockAudioForMobile();
+    localStorage.setItem('audioPermissionGranted', 'true');
+    setAudioPermissionGranted(true);
+  };
 
   // Detect mobile device
   useEffect(() => {
@@ -155,6 +169,11 @@ export default function Home() {
   // Show loading while checking authentication
   if (status === 'loading') {
     return <LoadingScreen />;
+  }
+
+  // Show audio permission screen first
+  if (!audioPermissionGranted) {
+    return <AudioPermissionScreen onAllow={handleAllowAudio} />;
   }
 
   return (
