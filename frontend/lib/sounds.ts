@@ -208,30 +208,31 @@ export async function initSounds(): Promise<void> {
 
 /**
  * Play timer completion sound with fallback
+ * Works even when tab is in background
  */
 export async function playTimerCompletionSound(): Promise<void> {
   try {
-    // Ensure audio is unlocked first (mobile requirement)
-    await soundManager.unlockAudio();
+    // Try to play the actual audio file first
+    // This works in background tabs unlike some browser restrictions
+    const timerSound = new Audio('/sounds/timer-complete.mp3');
+    timerSound.volume = 0.7;
 
-    // On mobile, Web Audio API beep is more reliable than audio files
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-    if (isMobile) {
-      // Use Web Audio API beep for mobile (more reliable)
-      console.log('Using Web Audio API beep for mobile');
-      await soundManager.playCompletionChime();
-    } else {
-      // Try audio file on desktop, fallback to beep
-      try {
-        await soundManager.playTimerComplete();
-      } catch (error) {
-        console.warn('Audio file not available, using beep fallback');
-        await soundManager.playCompletionChime();
-      }
+    // Resume AudioContext if suspended (helps with background tab playback)
+    if (soundManager['audioContext'] && soundManager['audioContext'].state === 'suspended') {
+      await soundManager['audioContext'].resume();
     }
+
+    await timerSound.play();
+    console.log('Timer completion sound played');
   } catch (error) {
-    console.error('Failed to play completion sound:', error);
+    console.warn('Audio file failed, using Web Audio API beep:', error);
+    // Fallback to Web Audio API beep
+    try {
+      await soundManager.unlockAudio();
+      await soundManager.playCompletionChime();
+    } catch (beepError) {
+      console.error('Failed to play any completion sound:', beepError);
+    }
   }
 }
 

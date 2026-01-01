@@ -259,13 +259,15 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   };
 
   const handleEnterFocusMode = () => {
-    // Unlock timer-complete.mp3 for iOS (play then pause)
+    // Unlock timer-complete.mp3 for iOS (silent play then pause)
     try {
       const timerSound = new Audio('/sounds/timer-complete.mp3');
       timerSound.volume = 0;
+      timerSound.muted = true; // Extra safety: mute the audio
       timerSound.play().then(() => {
         timerSound.pause();
         timerSound.currentTime = 0;
+        timerSound.muted = false;
         timerSound.volume = 0.7;
         console.log('Timer completion sound unlocked for iOS');
       }).catch(err => console.warn('Failed to unlock timer sound:', err));
