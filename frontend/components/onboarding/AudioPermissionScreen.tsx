@@ -7,10 +7,20 @@ interface AudioPermissionScreenProps {
 }
 
 export function AudioPermissionScreen({ onAllow }: AudioPermissionScreenProps) {
+  const handleClick = () => {
+    console.log('Audio permission clicked');
+    onAllow();
+  };
+
   return (
     <div
       className="min-h-screen w-full bg-black flex items-center justify-center cursor-pointer"
-      onClick={onAllow}
+      onClick={handleClick}
+      onTouchEnd={(e) => {
+        e.preventDefault();
+        console.log('Audio permission touched');
+        handleClick();
+      }}
     >
       <motion.div
         initial={{ opacity: 0 }}
