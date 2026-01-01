@@ -20,7 +20,11 @@ export function TomorrowTab({ task }: TomorrowTabProps) {
   const handleStartFocus = async () => {
     if (nextSubtask) {
       // Unlock audio for mobile browsers (user interaction required)
-      await unlockAudioForMobile();
+      try {
+        await unlockAudioForMobile();
+      } catch (error) {
+        console.warn('Failed to unlock audio:', error);
+      }
       enterFocusMode(task.id, task.subtasks);
     }
   };
