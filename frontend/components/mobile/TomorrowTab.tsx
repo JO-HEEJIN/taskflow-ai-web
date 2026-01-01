@@ -3,6 +3,7 @@
 import { Task } from '@/types';
 import { useCoachStore } from '@/store/useCoachStore';
 import { Play, Clock } from 'lucide-react';
+import { unlockAudioForMobile } from '@/lib/sounds';
 
 interface TomorrowTabProps {
   task: Task;
@@ -16,8 +17,10 @@ export function TomorrowTab({ task }: TomorrowTabProps) {
     .filter(st => !st.isCompleted && !st.isArchived)
     .sort((a, b) => a.order - b.order)[0];
 
-  const handleStartFocus = () => {
+  const handleStartFocus = async () => {
     if (nextSubtask) {
+      // Unlock audio for mobile browsers (user interaction required)
+      await unlockAudioForMobile();
       enterFocusMode(task.id, task.subtasks);
     }
   };
