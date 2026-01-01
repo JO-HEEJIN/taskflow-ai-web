@@ -35,8 +35,9 @@ export function useTimerSync() {
       try {
         const { endTime, isPaused, taskId } = JSON.parse(savedState);
 
-        // Only restore if timer hasn't expired
-        if (endTime && endTime > Date.now()) {
+        // Only restore if timer hasn't expired AND we're in focus mode
+        const { isFocusMode } = useCoachStore.getState();
+        if (endTime && endTime > Date.now() && isFocusMode) {
           const timeLeft = Math.floor((endTime - Date.now()) / 1000);
 
           useCoachStore.setState({
@@ -45,11 +46,17 @@ export function useTimerSync() {
             endTime,
           });
         } else {
-          // Clear expired timer
+          // Clear expired or invalid timer
           localStorage.removeItem(STORAGE_KEY);
+          useCoachStore.setState({
+            isTimerRunning: false,
+            currentTimeLeft: 0,
+            endTime: undefined,
+          });
         }
       } catch (error) {
         console.error('Failed to restore timer state:', error);
+        localStorage.removeItem(STORAGE_KEY);
       }
     }
   }, []);

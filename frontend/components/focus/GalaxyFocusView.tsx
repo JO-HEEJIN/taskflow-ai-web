@@ -146,6 +146,18 @@ export function GalaxyFocusView({
     setIsPiPActive(isPiPOpen);
   }, [isPiPOpen, setIsPiPActive]);
 
+  // Auto-open PiP on focus mode entry (desktop only)
+  useEffect(() => {
+    if (isPiPSupported && !isPiPOpen) {
+      // Small delay to ensure the main view is rendered first
+      const timer = setTimeout(() => {
+        handleOpenPiP();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, []); // Only run once on mount
+
   const handleComplete = async () => {
     // Supernova confetti effect!
     confetti({

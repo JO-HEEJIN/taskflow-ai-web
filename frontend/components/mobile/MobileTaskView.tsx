@@ -138,6 +138,16 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
       await createTask(newTaskTitle.trim());
       setNewTaskTitle('');
       setShowTaskInput(false);
+
+      // Find the newly created task and navigate to it
+      setTimeout(() => {
+        const newTask = useTaskStore.getState().tasks[useTaskStore.getState().tasks.length - 1];
+        if (newTask) {
+          setSelectedTaskId(newTask.id);
+          setActiveTab('today'); // Navigate to AI Breakdown tab
+          setShowConstellation(false); // Ensure we're not in constellation view
+        }
+      }, 100);
     } catch (error) {
       console.error('Failed to create task:', error);
     }
