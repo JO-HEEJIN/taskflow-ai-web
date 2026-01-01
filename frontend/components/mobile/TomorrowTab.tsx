@@ -17,14 +17,12 @@ export function TomorrowTab({ task }: TomorrowTabProps) {
     .filter(st => !st.isCompleted && !st.isArchived)
     .sort((a, b) => a.order - b.order)[0];
 
-  const handleStartFocus = async () => {
+  const handleStartFocus = () => {
     if (nextSubtask) {
-      // Unlock audio for mobile browsers (user interaction required)
-      try {
-        await unlockAudioForMobile();
-      } catch (error) {
-        console.warn('Failed to unlock audio:', error);
-      }
+      // Unlock audio for mobile browsers (non-blocking)
+      unlockAudioForMobile().catch(err => console.warn('Failed to unlock audio:', err));
+
+      // Immediately enter focus mode
       enterFocusMode(task.id, task.subtasks);
     }
   };
