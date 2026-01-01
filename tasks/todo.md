@@ -1,3 +1,100 @@
+# TaskFlow AI - Mobile Scroll Fix - Jan 1, 2026
+
+**Status**: DEPLOYED - Awaiting user testing
+**Priority**: CRITICAL - Production bug affecting mobile users
+
+---
+
+## URGENT: Mobile Scroll Not Working
+
+### Problem
+User tested on mobile and scroll still not working:
+- Chrome mobile browser - scroll broken
+- KakaoTalk in-app browser - scroll broken
+- Despite previous fixes, onboarding view still not scrollable
+
+### Root Cause Analysis
+Previous fix only addressed TaskList.tsx empty state component by using `fixed inset-0` positioning. However, the actual ROOT CAUSE was never fixed:
+- `page.tsx` line 161 has `overflow-hidden` on the main container
+- This parent overflow-hidden blocks ALL scrolling across the app
+- Mobile browsers (especially WebView-based like KakaoTalk) enforce this more strictly
+- Focus mode worked because it uses `fixed` positioning which escapes parent context
+
+### Solution
+Remove `overflow-hidden` from page.tsx main element to allow proper scrolling on all mobile browsers.
+
+### Tasks
+
+**Step 1: Code Changes**
+- [x] Read page.tsx to confirm overflow-hidden exists
+- [x] Remove overflow-hidden from main element in page.tsx (line 161)
+- [x] Verify no other components rely on this overflow-hidden
+
+**Step 2: Testing**
+- [x] Test build compiles successfully
+- [ ] Verify onboarding scroll works (awaiting user testing)
+- [ ] Verify other views still work (awaiting user testing)
+- [ ] Check that nothing else broke (awaiting user testing)
+
+**Step 3: Commit and Deploy**
+- [x] Stage changes (only page.tsx)
+- [x] Commit with clean message (no Claude attribution)
+- [x] Push to origin/main
+- [x] Deploy to Azure Container Apps
+- [x] Verify deployment successful
+
+**Step 4: Production Verification**
+- [ ] Test on actual mobile device (Chrome) - awaiting user testing
+- [ ] Test on KakaoTalk browser - awaiting user testing
+- [ ] Verify scroll works smoothly - awaiting user testing
+- [ ] Confirm no regressions - awaiting user testing
+
+### Files Modified
+- `/frontend/app/page.tsx` - Remove overflow-hidden from main element
+
+### Code Change
+```typescript
+// BEFORE (line 161)
+<main className="min-h-screen overflow-hidden relative">
+
+// AFTER
+<main className="min-h-screen relative">
+```
+
+### Deployment Details
+- **Commit**: d96049e
+- **Deployed**: January 1, 2026 at 6:08 AM KST
+- **Build**: Successfully built Docker image
+- **Status**: HTTP 200 - Site accessible
+- **URL**: https://taskflow-frontend.bravesky-cb93d4eb.eastus.azurecontainerapps.io
+
+### Review
+
+**What was changed:**
+- Removed `overflow-hidden` from main container in page.tsx line 161
+- This was the root cause blocking all scrolling on mobile browsers
+- Single line change: `className="min-h-screen overflow-hidden relative"` to `className="min-h-screen relative"`
+
+**Why this fixes the issue:**
+- Parent overflow-hidden was blocking all child component scrolling
+- Mobile browsers (especially WebView-based like KakaoTalk) enforce overflow rules more strictly than desktop
+- Focus mode worked because it uses `fixed` positioning which escapes parent overflow context
+- By removing overflow-hidden, child components can now scroll properly
+
+**Verification completed:**
+- Build compiled successfully with no errors
+- Docker image built and pushed to Azure Container Registry
+- Container app updated successfully
+- Site is accessible and returning HTTP 200
+- No TypeScript errors or build failures
+
+**Next step:**
+- User needs to test on actual mobile devices (Chrome mobile and KakaoTalk browser)
+- Verify scroll works as expected
+- Confirm no visual regressions in other parts of the app
+
+---
+
 # TaskFlow AI - Product Hunt Launch Preparation
 
 **Current Phase**: Phase 5 Timer Features Deployment
@@ -237,28 +334,28 @@ See detailed plan: `/tasks/mobile-ui-redesign.md`
 
 ---
 
-## ✅ Completed Development
+## Completed Development
 
-- ✅ Guest mode with localStorage
-- ✅ AI Breakdown for all users (including guests)
-- ✅ Data migration on sign-in
-- ✅ Kanban board with drag-and-drop
-- ✅ Linked tasks and mind map visualization
-- ✅ Search and filter
-- ✅ Subtask management (create, delete, reorder, archive)
-- ✅ Markdown support
-- ✅ Notion-style side panel
-- ✅ Cosmic glassmorphism theme
-- ✅ Backend deployed to Azure Container Apps
-- ✅ Frontend deployed to Azure Container Apps
+- Guest mode with localStorage
+- AI Breakdown for all users (including guests)
+- Data migration on sign-in
+- Kanban board with drag-and-drop
+- Linked tasks and mind map visualization
+- Search and filter
+- Subtask management (create, delete, reorder, archive)
+- Markdown support
+- Notion-style side panel
+- Cosmic glassmorphism theme
+- Backend deployed to Azure Container Apps
+- Frontend deployed to Azure Container Apps
 
 ### Recent Fixes (Dec 29, 2025)
-- ✅ Profile UI with gamification (level, XP, 30-day activity heatmap)
-- ✅ Mobile UI positioning fixes (emergency button, profile button)
-- ✅ Encouragement popup centered display
-- ✅ Focus Mode timer auto-reset on subtask change
-- ✅ Focus Mode skip completed subtasks (smart navigation)
-- ✅ Timer/message duration synchronization (AI mentions correct minutes)
+- Profile UI with gamification (level, XP, 30-day activity heatmap)
+- Mobile UI positioning fixes (emergency button, profile button)
+- Encouragement popup centered display
+- Focus Mode timer auto-reset on subtask change
+- Focus Mode skip completed subtasks (smart navigation)
+- Timer/message duration synchronization (AI mentions correct minutes)
 
 **Live URLs:**
 - Frontend: https://taskflow-frontend.bravesky-cb93d4eb.eastus.azurecontainerapps.io
@@ -266,7 +363,7 @@ See detailed plan: `/tasks/mobile-ui-redesign.md`
 
 ---
 
-## 📸 Phase 1: Screenshot Capture (Highest Priority)
+## Phase 1: Screenshot Capture (Highest Priority)
 
 Reference: `/tasks/screenshot-guide.md`
 
@@ -289,7 +386,7 @@ Reference: `/tasks/screenshot-guide.md`
 **Screenshot 2: AI Breakdown - Before**
 - [ ] Create task: "Build a marketing website"
 - [ ] Open task detail panel
-- [ ] Show "✨ AI Breakdown" button
+- [ ] Show "AI Breakdown" button
 - [ ] Cursor hovering over button
 - [ ] Save as: `taskflow-02-ai-before.png`
 - Caption: "Got an overwhelming task? Click AI Breakdown."
@@ -331,7 +428,7 @@ Reference: `/tasks/screenshot-guide.md`
 
 ---
 
-## 🎬 Phase 2: Demo Video Creation
+## Phase 2: Demo Video Creation
 
 Reference: `/tasks/demo-video-script.md`
 
@@ -352,9 +449,9 @@ Reference: `/tasks/demo-video-script.md`
 - [ ] 25-30s: CTA with URL overlay
 
 ### 2.3 Add Text Overlays
-- [ ] 0-5s: "ADHD brain: 'I should build a website' 😰"
-- [ ] 5-10s: "TaskFlow AI to the rescue ✨"
-- [ ] 10-20s: "Suddenly, it's doable! 🎉"
+- [ ] 0-5s: "ADHD brain: 'I should build a website'"
+- [ ] 5-10s: "TaskFlow AI to the rescue"
+- [ ] 10-20s: "Suddenly, it's doable!"
 - [ ] 25-30s: "Start instantly. No signup required. [URL]"
 
 ### 2.4 Export Video
@@ -371,7 +468,7 @@ Reference: `/tasks/demo-video-script.md`
 
 ---
 
-## 📝 Phase 3: Product Hunt Submission Preparation
+## Phase 3: Product Hunt Submission Preparation
 
 Reference: `/tasks/product-hunt-launch.md`
 
@@ -379,11 +476,11 @@ Reference: `/tasks/product-hunt-launch.md`
 
 **Tagline (60 chars max):**
 - [ ] Draft: "AI task breakdown for ADHD brains. Zero friction."
-- [ ] Verify character count (currently 50 chars - ✓)
+- [ ] Verify character count (currently 50 chars)
 
 **Product Description (140 chars max):**
 - [ ] Draft: "Breaks overwhelming tasks into bite-sized steps using AI. Start instantly—no signup required. Built specifically for ADHD minds."
-- [ ] Verify character count (currently 139 chars - ✓)
+- [ ] Verify character count (currently 139 chars)
 
 **Topics/Categories:**
 - [ ] Select: Productivity
@@ -408,7 +505,7 @@ Reference: `/tasks/product-hunt-launch.md`
 
 ---
 
-## 🚀 Phase 4: Launch Day Execution
+## Phase 4: Launch Day Execution
 
 ### 4.1 Pre-Launch (24 hours before)
 - [ ] All screenshots uploaded and ready
@@ -451,7 +548,7 @@ Reference: `/tasks/product-hunt-launch.md`
 
 ---
 
-## 📱 Phase 5: Social Media Marketing
+## Phase 5: Social Media Marketing
 
 ### 5.1 Twitter/X Launch Thread
 
@@ -510,7 +607,7 @@ Reference: `/tasks/product-hunt-launch.md`
 
 ---
 
-## 📊 Success Metrics to Track
+## Success Metrics to Track
 
 ### Product Hunt Metrics
 - [ ] Upvotes (Target: 100+ for good visibility)
@@ -522,7 +619,7 @@ Reference: `/tasks/product-hunt-launch.md`
 - [ ] Unique visitors from PH (Track via URL params)
 - [ ] Guest mode task creations
 - [ ] AI Breakdown usage rate
-- [ ] Guest → authenticated conversion rate
+- [ ] Guest to authenticated conversion rate
 - [ ] Average session duration
 - [ ] Bounce rate
 
@@ -535,7 +632,7 @@ Reference: `/tasks/product-hunt-launch.md`
 
 ---
 
-## 💬 Pre-Written Responses to Common Questions
+## Pre-Written Responses to Common Questions
 
 **Q: "Is this free?"**
 A: "Yes! Guest mode is completely free with full AI features. Sign in with Google to sync across devices (also free, powered by Azure credits)."
@@ -560,25 +657,25 @@ A: "Guest data stays in your browser. Authenticated data is stored in Azure Cosm
 
 ---
 
-## 🎯 Current Status
+## Current Status
 
-**Development:** ✅ Complete
-**Production Deployment:** ✅ Live
-**Guest Mode:** ✅ Working
-**AI Breakdown:** ✅ Available to all users
+**Development:** Complete
+**Production Deployment:** Live
+**Guest Mode:** Working
+**AI Breakdown:** Available to all users
 
 **Marketing Status:**
-- Reddit posts: ❌ Low engagement (300+ views, 0 comments)
-- Product Hunt: 🟡 In preparation (this checklist)
-- Twitter: ⏳ Pending
-- Other platforms: ⏳ Pending
+- Reddit posts: Low engagement (300+ views, 0 comments)
+- Product Hunt: In preparation (this checklist)
+- Twitter: Pending
+- Other platforms: Pending
 
 **Next Immediate Action:**
-📸 Capture screenshots following the guide in `/tasks/screenshot-guide.md`
+Capture screenshots following the guide in `/tasks/screenshot-guide.md`
 
 ---
 
-## 🚧 Blockers/Decisions Needed
+## Blockers/Decisions Needed
 
 - [ ] Choose launch date (next Tuesday or Wednesday?)
 - [ ] Decide on Hunter (self-launch vs find a hunter)
@@ -587,7 +684,7 @@ A: "Guest data stays in your browser. Authenticated data is stored in Azure Cosm
 
 ---
 
-## 📅 Suggested Timeline
+## Suggested Timeline
 
 **Today (Dec 27):**
 - Capture all screenshots
@@ -618,7 +715,7 @@ A: "Guest data stays in your browser. Authenticated data is stored in Azure Cosm
 
 ---
 
-## 💡 Key Insights from Reddit Attempt
+## Key Insights from Reddit Attempt
 
 **What didn't work:**
 - Long posts (too much text, people didn't read)
@@ -637,11 +734,11 @@ A: "Guest data stays in your browser. Authenticated data is stored in Azure Cosm
 
 ---
 
-Ready to capture screenshots and create the demo video! 🚀
+Ready to capture screenshots and create the demo video!
 
 ---
 
-## 🎯 NEW: Realistic ADHD Task Examples with Carousel - Dec 31, 2025
+## NEW: Realistic ADHD Task Examples with Carousel - Dec 31, 2025
 
 ### Goal
 Replace generic sample tasks with 6 realistic ADHD scenarios in a swipeable carousel format.

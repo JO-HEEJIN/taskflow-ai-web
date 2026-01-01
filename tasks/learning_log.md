@@ -2031,3 +2031,131 @@ Fix mobile scroll by using fixed positioning
 ```
 
 ---
+
+## Learning 10: The Real Root Cause - Body and Main overflow-hidden
+
+**Date**: January 1, 2026
+**Context**: After "fixing" mobile scroll in Learning 9, user tested and reported it STILL didn't work on Chrome mobile or KakaoTalk browser
+
+### The Problem
+
+After implementing the fix from Learning 9 (using fixed positioning), scroll still didn't work on actual mobile devices. Desktop emulator showed it "working" but real mobile browsers were still broken.
+
+### The Investigation
+
+**Step 1**: Verified deployed code had the changes
+**Step 2**: Checked for other overflow-hidden instances with grep
+**Step 3**: Read through layout files carefully
+**Step 4**: Found TWO root causes
+
+### Root Causes Found
+
+**Root Cause 1: page.tsx main container**
+```typescript
+// frontend/app/page.tsx line 161
+<main className="min-h-screen overflow-hidden relative">
+```
+
+**Root Cause 2: globals.css body element** (THE REAL CULPRIT)
+```css
+/* frontend/app/globals.css line 14-20 */
+body {
+  color: rgb(var(--foreground-rgb));
+  background: radial-gradient(...);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;  /* <-- THIS WAS BLOCKING EVERYTHING */
+}
+```
+
+### Why Both Needed to be Fixed
+
+**First Deploy**: Removed overflow-hidden from main container
+- Still didn't work because body had overflow-hidden
+
+**Second Deploy**: Removed overflow-hidden from body element  
+- Finally worked! User confirmed: "드디어 된다" (It finally works!)
+
+### The Lesson
+
+**Parent overflow rules cascade down**:
+1. If `html` or `body` has overflow-hidden, NOTHING scrolls
+2. Even if child elements have overflow-auto
+3. Even if child elements use fixed positioning
+4. Mobile browsers enforce this MORE strictly than desktop
+
+**Always check the ENTIRE chain**:
+```
+html → body → main → component
+```
+
+Any overflow-hidden in this chain will block scrolling on ALL descendants.
+
+### Prevention Checklist
+
+When debugging scroll issues:
+
+1. Check body element CSS (globals.css)
+2. Check html element CSS (if defined)
+3. Check main container (page.tsx)
+4. Check component containers
+5. Test on ACTUAL mobile device, not just emulator
+
+Desktop emulator != Real mobile browser behavior
+
+### Code Changes
+
+**Commit 1** (d96049e):
+```typescript
+// page.tsx
+- <main className="min-h-screen overflow-hidden relative">
++ <main className="min-h-screen relative">
+```
+
+**Commit 2** (1b9b66b):
+```css
+/* globals.css */
+body {
+  color: rgb(var(--foreground-rgb));
+  background: radial-gradient(...);
+  margin: 0;
+  padding: 0;
+- overflow: hidden;
+}
+```
+
+### Key Insight
+
+**The fix from Learning 9 was a WORKAROUND, not a ROOT CAUSE fix.**
+
+Using `fixed inset-0` worked around the main container's overflow-hidden, but didn't fix the actual problem. The body element's overflow-hidden was still blocking everything.
+
+**Always look for the ROOT CAUSE, not just workarounds.**
+
+### Mobile Browser Differences
+
+Mobile browsers (especially WebView-based like KakaoTalk) are STRICTER about:
+- Overflow rules
+- Touch event handling  
+- Scroll boundaries
+- Viewport constraints
+
+Desktop emulator will often "work" when real mobile fails.
+
+**ALWAYS test on actual devices for mobile issues.**
+
+### Related Files
+
+- `/frontend/app/globals.css` - Body overflow-hidden (root cause)
+- `/frontend/app/page.tsx` - Main overflow-hidden (contributing cause)
+- All scroll issues in Settings, AI coaching likely same root cause
+
+### Success Metric
+
+User tested on:
+- Chrome mobile browser - WORKS
+- KakaoTalk in-app browser - WORKS  
+
+After 2 failed attempts and multiple debugging sessions, we found and fixed the actual root cause.
+
+---

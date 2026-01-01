@@ -127,7 +127,7 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 100, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-              className="w-full max-w-md mt-16 md:mt-20 rounded-2xl p-6 md:p-8"
+              className="w-full max-w-md mt-16 md:mt-20 rounded-2xl p-6 md:p-8 max-h-[calc(100vh-8rem)] overflow-y-auto"
               style={{
                 background: 'rgba(0, 0, 0, 0.95)',
                 border: '2px solid rgba(167, 139, 250, 0.4)',
