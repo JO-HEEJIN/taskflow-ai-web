@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Play, Pause, X } from 'lucide-react';
 
 interface PiPTimerProps {
@@ -20,35 +20,16 @@ interface PiPTimerProps {
 export function PiPTimer({
   taskTitle,
   subtaskTitle,
-  currentTimeLeft: initialTimeLeft,
-  isTimerRunning: initialIsRunning,
+  currentTimeLeft,
+  isTimerRunning,
   initialDuration,
   onClose,
   onToggleTimer,
 }: PiPTimerProps) {
-  // Local state for independent countdown
-  const [timeLeft, setTimeLeft] = useState(initialTimeLeft);
-  const [isRunning, setIsRunning] = useState(initialIsRunning);
-
-  // Sync with props
-  useEffect(() => {
-    setTimeLeft(initialTimeLeft);
-  }, [initialTimeLeft]);
-
-  useEffect(() => {
-    setIsRunning(initialIsRunning);
-  }, [initialIsRunning]);
-
-  // Independent countdown
-  useEffect(() => {
-    if (!isRunning || timeLeft <= 0) return;
-
-    const interval = setInterval(() => {
-      setTimeLeft(prev => Math.max(0, prev - 1));
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [isRunning, timeLeft]);
+  // Use props directly - no local state needed
+  // Parent component updates every second
+  const timeLeft = currentTimeLeft;
+  const isRunning = isTimerRunning;
 
   // Format time as MM:SS
   const formatTime = (seconds: number) => {
@@ -93,7 +74,7 @@ export function PiPTimer({
   const shouldPulse = progressPercentage < 50;
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center px-6 py-2 text-white relative overflow-visible">
+    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center px-6 py-1 text-white relative overflow-visible">
       {/* Animated background glow */}
       <div
         className="absolute inset-0 opacity-30 pointer-events-none"

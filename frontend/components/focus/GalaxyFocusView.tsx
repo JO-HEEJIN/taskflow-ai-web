@@ -117,7 +117,7 @@ export function GalaxyFocusView({
         onClose={handleClosePiP}
         onToggleTimer={handleToggleTimer}
       />,
-      { width: 320, height: 190 }
+      { width: 320, height: 175 }
     );
 
     setIsPiPActive(true);

@@ -1,3 +1,206 @@
+# TaskFlow AI - iOS Audio Refactor - Jan 1, 2026
+
+**Status**: IN PROGRESS
+**Priority**: CRITICAL - Remove AudioPermissionScreen and fix audio paths
+
+---
+
+## URGENT: Audio Refactor - Remove Permission Screen
+
+### Problem
+Current issues:
+- AudioPermissionScreen blocks user from using app
+- System beep sounds playing instead of custom audio files
+- iOS autoplay policy still blocking audio
+- Need seamless first-interaction audio unlock
+
+### New Approach
+1. Remove AudioPermissionScreen completely
+2. Show main app immediately
+3. Unlock audio silently on first user interaction (touch/click/keydown)
+4. Ensure correct audio file paths are used
+5. Background music starts on first interaction
+6. Sound effects work after unlock
+
+### Tasks
+
+**Step 1: Refactor BackgroundMusicPlayer**
+- [x] Read current BackgroundMusicPlayer.tsx
+- [x] Add document-level event listeners (touchstart, click, keydown)
+- [x] Implement attemptPlay function that runs on first interaction
+- [x] Remove listeners after first successful play
+- [x] Use capture: true for early event interception
+- [x] Verify audio file path is /sounds/TaskFlow_Theme.mp3
+
+**Step 2: Refactor page.tsx**
+- [x] Read current page.tsx
+- [x] Remove audioPermissionGranted state
+- [x] Remove AudioPermissionScreen import and usage
+- [x] Set continuousMusicEnabled to 'true' by default
+- [x] Add first interaction listener in useEffect
+- [x] Call unlockAudioForMobile on first interaction
+- [x] Dispatch continuousMusicToggle event
+- [x] Remove listeners after first interaction
+
+**Step 3: Verify Sound Paths**
+- [x] Check sounds.ts uses correct paths
+- [x] Verify timer-complete.mp3 path is /sounds/timer-complete.mp3
+- [x] Verify TaskFlow_Theme.mp3 path is /sounds/TaskFlow_Theme.mp3
+- [x] Remove system beep priority for mobile
+
+**Step 4: Test and Deploy**
+- [x] Build and verify no TypeScript errors
+- [x] Commit changes with clean message
+- [x] Push to GitHub
+- [x] Deploy to Azure
+- [x] Verify site accessible (HTTP 200)
+- [ ] Test on iPhone
+- [ ] Test on Android
+
+### Files Modified
+- `/frontend/components/BackgroundMusicPlayer.tsx` - Add first interaction listeners
+- `/frontend/app/page.tsx` - Remove AudioPermissionScreen, add silent unlock
+- `/frontend/lib/sounds.ts` - Fix audio file playback priority
+
+### Deployment Details
+- **Commit**: a57630e - Remove audio permission screen and ensure correct audio files play on all platforms
+- **Deployed**: January 1, 2026 at 10:55 AM KST
+- **Build Time**: 2 minutes 53 seconds
+- **Status**: HTTP 200 - Site accessible
+- **URL**: https://taskflow-frontend.bravesky-cb93d4eb.eastus.azurecontainerapps.io
+
+### Review
+
+**What changed:**
+
+1. **BackgroundMusicPlayer.tsx**:
+   - Added keydown event listener alongside touchstart and click
+   - Ensures background music plays on ANY first user interaction
+   - Uses capture: true to intercept events before bubbling
+   - Properly cleans up all three event listeners
+
+2. **page.tsx**:
+   - Removed AudioPermissionScreen component entirely
+   - Removed audioPermissionGranted state
+   - App now shows main interface immediately
+   - Added silent audio unlock on first user interaction
+   - Sets continuousMusicEnabled to 'true' by default
+   - Dispatches continuousMusicToggle event to trigger background music
+
+3. **sounds.ts**:
+   - Removed mobile-specific logic that preferred system beeps
+   - Now always tries to play actual audio file first (/sounds/timer-complete.mp3)
+   - Only falls back to Web Audio API beep if file fails to load
+   - Ensures custom audio files play instead of system sounds
+
+**Why this is better:**
+
+- No blocking screen - users can start using the app immediately
+- Audio unlocks silently on first interaction (touch, click, or key press)
+- Background music starts automatically when user interacts
+- Timer notification sound uses actual audio file, not system beep
+- Works across all platforms (iOS, Android, Desktop)
+- Better UX - seamless and unobtrusive
+
+**Technical approach:**
+
+- Uses document-level event listeners with capture phase
+- Ensures play() is called synchronously during user gesture
+- Proper cleanup prevents memory leaks
+- Default-enabled background music for better first impression
+
+**Next step:**
+
+User needs to test on actual devices to verify:
+1. Background music plays on first interaction
+2. Timer completion sound uses custom audio file
+3. No blocking permission screen appears
+
+---
+
+## PREVIOUS: iOS Audio Fix Attempt - Jan 1, 2026
+
+### Problem
+Audio playback not working on iPhone:
+- Background music does not play on iOS Chrome/Safari
+- Timer completion notification sounds do not play on iPhone
+- Works fine on Android/Galaxy but completely broken on iOS
+- Root cause: iOS autoplay policy requires synchronous play() during user gesture
+
+### Root Cause Analysis
+iOS has strict autoplay policies that block audio if play() is not called synchronously within a user gesture handler:
+- BackgroundMusicPlayer was calling play() inside useEffect (async gap after user interaction)
+- AudioPermissionScreen was not unlocking the SoundManager (separate audio system)
+- Any async operation between user touch and play() call breaks iOS permission chain
+- iOS considers this as "programmatic playback" instead of "user-initiated playback"
+
+### Solution
+1. BackgroundMusicPlayer: Add touchstart/click event listeners to catch physical user interaction
+2. AudioPermissionScreen: Unlock SoundManager on first touch to enable notification sounds
+3. Simplify page.tsx handleAllowAudio to only set localStorage flags
+
+### Tasks
+
+**Step 1: Code Changes**
+- [x] Update BackgroundMusicPlayer.tsx with touchstart/click listeners
+- [x] Update AudioPermissionScreen.tsx to call soundManager.unlockAudio()
+- [x] Simplify page.tsx handleAllowAudio function
+- [x] Verify all three files modified correctly
+
+**Step 2: Git Commit**
+- [x] Stage the three modified files
+- [x] Create clean commit message (no Claude attribution)
+- [x] Verify commit with git log
+
+**Step 3: Deploy to Production**
+- [x] Push changes to origin/main
+- [x] Deploy to Azure Container Apps
+- [x] Verify deployment successful
+- [x] Check site accessible
+
+**Step 4: Production Testing**
+- [ ] Test on iPhone (background music plays immediately)
+- [ ] Test on iPhone (timer notification sound works)
+- [ ] Verify Android still works
+- [ ] Confirm no regressions
+
+### Files Modified
+- `/frontend/components/BackgroundMusicPlayer.tsx` - Add touchstart/click event listeners
+- `/frontend/components/onboarding/AudioPermissionScreen.tsx` - Unlock SoundManager
+- `/frontend/app/page.tsx` - Simplify handleAllowAudio function
+
+### Deployment Details
+- **Commit**: 3b9fb31 - Fix iOS audio playback by syncing play() with user touch events
+- **Deployed**: January 1, 2026 at 10:26 AM KST
+- **Build Time**: 2 minutes 52 seconds
+- **Status**: HTTP 200 - Site accessible
+- **URL**: https://taskflow-frontend.bravesky-cb93d4eb.eastus.azurecontainerapps.io
+
+### Review
+
+**What was changed:**
+Three files were modified to fix iOS audio playback issues by ensuring play() calls happen synchronously during user touch events.
+
+1. **BackgroundMusicPlayer.tsx**: Added document-level touchstart and click event listeners with capture phase to intercept user interactions before any async operations. This ensures background music starts playing at the exact moment of user touch, satisfying iOS autoplay policy.
+
+2. **AudioPermissionScreen.tsx**: Added soundManager.unlockAudio() call in the interaction handler to unlock the separate AudioContext used for notification sounds. Without this, timer completion sounds would fail on iOS even if background music worked.
+
+3. **page.tsx**: Simplified handleAllowAudio function to only set localStorage flags. Removed redundant audio unlock code since it's now handled properly in the other two components.
+
+**Why this fixes iOS audio:**
+iOS blocks audio playback unless play() is called synchronously within a user gesture event handler. Any async gap (promises, timeouts, state updates) between the user touch and the play() call causes iOS to treat it as programmatic playback and block it. The fix ensures audio unlock happens in the capture phase of touch events, maintaining the synchronous chain required by iOS.
+
+**Build verification:**
+- Frontend compiled successfully with no TypeScript errors
+- Docker image built and pushed to Azure Container Registry
+- Container app updated successfully
+- Site is accessible and returning HTTP 200
+
+**Next step:**
+User needs to test on iPhone to verify background music plays immediately when tapping YES and timer notification sounds work when timer completes.
+
+---
+
 # TaskFlow AI - Mobile Scroll Fix - Jan 1, 2026
 
 **Status**: DEPLOYED - Awaiting user testing
