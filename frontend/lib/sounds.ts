@@ -214,14 +214,21 @@ export async function playTimerCompletionSound(): Promise<void> {
     // Ensure audio is unlocked first (mobile requirement)
     await soundManager.unlockAudio();
 
-    // Try to play the actual audio file first
-    try {
-      await soundManager.playTimerComplete();
-      console.log('Timer completion sound played');
-    } catch (error) {
-      // Fallback to beep only if audio file fails
-      console.warn('Audio file failed, using beep fallback:', error);
+    // On mobile, Web Audio API beep is more reliable than audio files
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      // Use Web Audio API beep for mobile (more reliable)
+      console.log('Using Web Audio API beep for mobile');
       await soundManager.playCompletionChime();
+    } else {
+      // Try audio file on desktop, fallback to beep
+      try {
+        await soundManager.playTimerComplete();
+      } catch (error) {
+        console.warn('Audio file not available, using beep fallback');
+        await soundManager.playCompletionChime();
+      }
     }
   } catch (error) {
     console.error('Failed to play completion sound:', error);
