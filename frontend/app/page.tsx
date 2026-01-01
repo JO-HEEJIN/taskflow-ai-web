@@ -158,7 +158,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen overflow-hidden relative">
+    <main className="min-h-screen relative">
       {/* Background Music Player */}
       <BackgroundMusicPlayer />
 
