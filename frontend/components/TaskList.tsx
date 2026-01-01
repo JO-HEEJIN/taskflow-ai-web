@@ -96,6 +96,20 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
 
       // If task was created with subtasks, enter focus mode
       if (taskId) {
+        // Unlock timer-complete.mp3 for iOS (play then pause)
+        try {
+          const timerSound = new Audio('/sounds/timer-complete.mp3');
+          timerSound.volume = 0;
+          timerSound.play().then(() => {
+            timerSound.pause();
+            timerSound.currentTime = 0;
+            timerSound.volume = 0.7;
+            console.log('Timer completion sound unlocked for iOS');
+          }).catch(err => console.warn('Failed to unlock timer sound:', err));
+        } catch (error) {
+          console.warn('Failed to create timer sound:', error);
+        }
+
         // Small delay to ensure store is updated
         setTimeout(() => {
           const task = useTaskStore.getState().tasks.find(t => t.id === taskId);

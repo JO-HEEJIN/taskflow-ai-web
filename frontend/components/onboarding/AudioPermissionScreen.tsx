@@ -59,7 +59,7 @@ export function AudioPermissionScreen({ onAllow }: AudioPermissionScreenProps) {
           transition={{ delay: 1.0, duration: 1.5 }}
           className="text-2xl font-bold text-white"
         >
-          YES
+          CLICK ME
         </motion.p>
       </motion.div>
     </div>
