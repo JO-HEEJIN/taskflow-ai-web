@@ -15,7 +15,6 @@ import { LevelUpModal } from '@/components/rewards/LevelUpModal';
 import { ProfileButton } from '@/components/profile/ProfileButton';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { BackgroundMusicPlayer } from '@/components/BackgroundMusicPlayer';
-import { AudioPermissionScreen } from '@/components/onboarding/AudioPermissionScreen';
 import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@/lib/notifications';
 import { setUserId } from '@/lib/api';
 import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
@@ -33,22 +32,6 @@ export default function Home() {
   const [newLevel, setNewLevel] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [audioPermissionGranted, setAudioPermissionGranted] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('audioPermissionGranted') === 'true';
-    }
-    return false;
-  });
-
-  // Handle audio permission
-  const handleAllowAudio = () => {
-    // Enable background music by default
-    localStorage.setItem('continuousMusicEnabled', 'true');
-
-    // Transition to onboarding
-    localStorage.setItem('audioPermissionGranted', 'true');
-    setAudioPermissionGranted(true);
-  };
 
   // Detect mobile device
   useEffect(() => {
@@ -61,21 +44,32 @@ export default function Home() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Unlock audio on first user interaction (mobile requirement)
+  // Initialize audio and unlock on first user interaction
   useEffect(() => {
+    // Set continuous music to enabled by default
+    if (localStorage.getItem('continuousMusicEnabled') === null) {
+      localStorage.setItem('continuousMusicEnabled', 'true');
+    }
+
     const handleFirstInteraction = async () => {
+      // Unlock audio context for sound effects
       await unlockAudioForMobile();
+
+      // Trigger background music player to start
+      window.dispatchEvent(new CustomEvent('continuousMusicToggle', {
+        detail: { enabled: true }
+      }));
     };
 
     // Listen for first interaction
-    window.addEventListener('click', handleFirstInteraction, { once: true });
-    window.addEventListener('touchstart', handleFirstInteraction, { once: true });
-    window.addEventListener('keydown', handleFirstInteraction, { once: true });
+    document.addEventListener('touchstart', handleFirstInteraction, { capture: true, once: true });
+    document.addEventListener('click', handleFirstInteraction, { capture: true, once: true });
+    document.addEventListener('keydown', handleFirstInteraction, { capture: true, once: true });
 
     return () => {
-      window.removeEventListener('click', handleFirstInteraction);
-      window.removeEventListener('touchstart', handleFirstInteraction);
-      window.removeEventListener('keydown', handleFirstInteraction);
+      document.removeEventListener('touchstart', handleFirstInteraction);
+      document.removeEventListener('click', handleFirstInteraction);
+      document.removeEventListener('keydown', handleFirstInteraction);
     };
   }, []);
 
@@ -172,11 +166,6 @@ export default function Home() {
   // Show loading while checking authentication
   if (status === 'loading') {
     return <LoadingScreen />;
-  }
-
-  // Show audio permission screen first
-  if (!audioPermissionGranted) {
-    return <AudioPermissionScreen onAllow={handleAllowAudio} />;
   }
 
   return (
