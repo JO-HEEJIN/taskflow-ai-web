@@ -4,6 +4,7 @@ import { Task } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useToast } from '@/contexts/ToastContext';
+import { unlockTimerCompletionAudio } from '@/lib/sounds';
 import { ProgressBar } from './ProgressBar';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { NoSubtasksEmptyState } from './onboarding/NoSubtasksEmptyState';
@@ -259,21 +260,8 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   };
 
   const handleEnterFocusMode = () => {
-    // Unlock timer-complete.mp3 for iOS (silent play then pause)
-    try {
-      const timerSound = new Audio('/sounds/timer-complete.mp3');
-      timerSound.volume = 0;
-      timerSound.muted = true; // Extra safety: mute the audio
-      timerSound.play().then(() => {
-        timerSound.pause();
-        timerSound.currentTime = 0;
-        timerSound.muted = false;
-        timerSound.volume = 0.7;
-        console.log('Timer completion sound unlocked for iOS');
-      }).catch(err => console.warn('Failed to unlock timer sound:', err));
-    } catch (error) {
-      console.warn('Failed to create timer sound:', error);
-    }
+    // Unlock timer-complete.mp3 for iOS
+    unlockTimerCompletionAudio();
 
     const { enterFocusMode } = useCoachStore.getState();
     enterFocusMode(task.id, task.subtasks);

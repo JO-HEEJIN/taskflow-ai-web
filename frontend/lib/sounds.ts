@@ -194,6 +194,9 @@ class SoundManager {
 // Export singleton instance
 export const soundManager = new SoundManager();
 
+// Global timer completion audio instance for iOS unlock
+let timerCompletionAudio: HTMLAudioElement | null = null;
+
 /**
  * Initialize sound manager with preloaded sounds
  */
@@ -207,22 +210,50 @@ export async function initSounds(): Promise<void> {
 }
 
 /**
+ * Unlock timer completion audio for iOS
+ * MUST be called during a user gesture (click, touch)
+ */
+export function unlockTimerCompletionAudio(): void {
+  if (typeof window === 'undefined') return;
+
+  // Create global audio instance if not exists
+  if (!timerCompletionAudio) {
+    timerCompletionAudio = new Audio('/sounds/timer-complete.mp3');
+  }
+
+  // Unlock with silent play
+  timerCompletionAudio.volume = 0;
+  timerCompletionAudio.muted = true;
+  timerCompletionAudio.play().then(() => {
+    timerCompletionAudio!.pause();
+    timerCompletionAudio!.currentTime = 0;
+    timerCompletionAudio!.muted = false;
+    timerCompletionAudio!.volume = 0.7;
+    console.log('Timer completion sound unlocked for iOS');
+  }).catch(err => console.warn('Failed to unlock timer sound:', err));
+}
+
+/**
  * Play timer completion sound with fallback
  * Works even when tab is in background
  */
 export async function playTimerCompletionSound(): Promise<void> {
   try {
-    // Try to play the actual audio file first
-    // This works in background tabs unlike some browser restrictions
-    const timerSound = new Audio('/sounds/timer-complete.mp3');
-    timerSound.volume = 0.7;
+    // Use the global unlocked audio instance for iOS compatibility
+    if (!timerCompletionAudio) {
+      timerCompletionAudio = new Audio('/sounds/timer-complete.mp3');
+      timerCompletionAudio.volume = 0.7;
+    }
 
     // Resume AudioContext if suspended (helps with background tab playback)
     if (soundManager['audioContext'] && soundManager['audioContext'].state === 'suspended') {
       await soundManager['audioContext'].resume();
     }
 
-    await timerSound.play();
+    // Reset to beginning and play
+    timerCompletionAudio.currentTime = 0;
+    timerCompletionAudio.volume = 0.7;
+    await timerCompletionAudio.play();
     console.log('Timer completion sound played');
   } catch (error) {
     console.warn('Audio file failed, using Web Audio API beep:', error);
