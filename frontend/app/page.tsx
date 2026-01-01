@@ -42,16 +42,10 @@ export default function Home() {
 
   // Handle audio permission
   const handleAllowAudio = () => {
-    // Unlock audio without waiting (non-blocking)
-    unlockAudioForMobile().catch(err => console.warn('Audio unlock failed:', err));
-
     // Enable background music by default
     localStorage.setItem('continuousMusicEnabled', 'true');
 
-    // Trigger music to start playing
-    window.dispatchEvent(new CustomEvent('continuousMusicToggle', { detail: { enabled: true } }));
-
-    // Immediately transition to onboarding
+    // Transition to onboarding
     localStorage.setItem('audioPermissionGranted', 'true');
     setAudioPermissionGranted(true);
   };
