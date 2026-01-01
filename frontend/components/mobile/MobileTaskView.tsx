@@ -39,6 +39,7 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
     }
     return true;
   });
+  const [searchQuery, setSearchQuery] = useState('');
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
 
@@ -236,6 +237,8 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
           setShowCompletionAnimation(false);
         }}
         onSettingsClick={onSettingsClick}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
         onCreateTask={() => {
           setShowTaskInput(true);
           setShowConstellation(false);

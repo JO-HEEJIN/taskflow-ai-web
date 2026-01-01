@@ -298,10 +298,6 @@ export function TaskGraphView({
   const showDetails = zoom > 0.6;
   const showFullDetails = zoom > 0.8;
 
-  if (positions.length === 0) {
-    return null;
-  }
-
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       {/* Aurora Background */}
@@ -507,7 +503,16 @@ export function TaskGraphView({
           </svg>
 
           {/* Task nodes */}
-          {positions.map((pos) => {
+          {positions.length === 0 ? (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <p className="text-white text-xl mb-2">No tasks found</p>
+                <p className="text-purple-300 text-sm">
+                  {statusFilter !== 'all' ? 'Try a different filter' : 'Create a new task to get started'}
+                </p>
+              </div>
+            </div>
+          ) : positions.map((pos) => {
             // Calculate size based on depth: each level is 20% smaller
             const depthScale = Math.pow(0.8, pos.depth);
 

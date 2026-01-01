@@ -13,12 +13,22 @@ interface WeeklyTabProps {
   onSettingsClick?: () => void;
   onCreateTask?: () => void;
   showCompletionAnimation?: boolean;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
 }
 
-export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettingsClick, onCreateTask, showCompletionAnimation }: WeeklyTabProps) {
+export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettingsClick, onCreateTask, showCompletionAnimation, searchQuery = '', onSearchChange }: WeeklyTabProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [showTwinkle, setShowTwinkle] = useState(false);
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
+
+  // Filter tasks based on search query
+  const filteredTasks = searchQuery.trim()
+    ? tasks.filter(task =>
+        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : tasks;
 
   // Check if all tasks are completed
   const allTasksCompleted = tasks.length > 0 && tasks.every(t => t.status === 'completed');
@@ -54,7 +64,7 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
     ctx.clearRect(0, 0, rect.width, rect.height);
 
     // Generate constellation positions for tasks
-    const positions = generateConstellationPositions(tasks.length, rect.width, rect.height);
+    const positions = generateConstellationPositions(filteredTasks.length, rect.width, rect.height);
 
     // Draw connections first (behind stars)
     ctx.strokeStyle = 'rgba(167, 139, 250, 0.2)';
@@ -68,7 +78,7 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
 
     // Draw stars
     positions.forEach((pos, index) => {
-      const task = tasks[index];
+      const task = filteredTasks[index];
 
       // Outer glow
       const gradient = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, 15);
@@ -99,7 +109,7 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
       ctx.arc(pos.x, pos.y, 1.5, 0, Math.PI * 2);
       ctx.fill();
     });
-  }, [tasks]);
+  }, [filteredTasks]);
 
   // Trigger twinkle animation when completion animation is shown
   useEffect(() => {
@@ -115,14 +125,14 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const positions = generateConstellationPositions(tasks.length, rect.width, rect.height);
+    const positions = generateConstellationPositions(filteredTasks.length, rect.width, rect.height);
 
     // Check if clicked on a star
     let clickedOnStar = false;
     positions.forEach((pos, index) => {
       const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
       if (distance < 20) {
-        onTaskClick(tasks[index].id);
+        onTaskClick(filteredTasks[index].id);
         clickedOnStar = true;
       }
     });
@@ -176,13 +186,26 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
         </h1>
 
         {/* Task Duration */}
-        <p className="text-sm text-white/40 text-center mb-8">
+        <p className="text-sm text-white/40 text-center mb-4">
           {selectedTask ? calculateDuration(selectedTask) : 'Weekly Overview'}
         </p>
 
+        {/* Search Input */}
+        {onSearchChange && (
+          <div className="max-w-md mx-auto mb-6">
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/50 backdrop-blur-md text-sm"
+            />
+          </div>
+        )}
+
         {/* Task Icons Row */}
         <div className="flex items-center justify-center gap-4 mb-8">
-          {tasks.slice(0, Math.min(5, tasks.length)).map((task, idx) => (
+          {filteredTasks.slice(0, Math.min(5, filteredTasks.length)).map((task, idx) => (
             <button
               key={task.id}
               onClick={() => onTaskClick(task.id)}
