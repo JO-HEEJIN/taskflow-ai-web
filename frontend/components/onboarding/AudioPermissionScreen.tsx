@@ -8,7 +8,10 @@ interface AudioPermissionScreenProps {
 
 export function AudioPermissionScreen({ onAllow }: AudioPermissionScreenProps) {
   return (
-    <div className="min-h-screen w-full bg-black flex items-center justify-center">
+    <div
+      className="min-h-screen w-full bg-black flex items-center justify-center cursor-pointer"
+      onClick={onAllow}
+    >
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -25,16 +28,15 @@ export function AudioPermissionScreen({ onAllow }: AudioPermissionScreenProps) {
           Do you want to outdo yourself?
         </motion.h1>
 
-        {/* YES button */}
-        <motion.button
+        {/* YES text */}
+        <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.0, duration: 1.5 }}
-          onClick={onAllow}
-          className="text-2xl font-bold text-white hover:opacity-70 transition-opacity"
+          className="text-2xl font-bold text-white"
         >
-          Click YES
-        </motion.button>
+          YES
+        </motion.p>
       </motion.div>
     </div>
   );
