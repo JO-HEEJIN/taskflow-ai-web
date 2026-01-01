@@ -22,7 +22,7 @@ export function AudioPermissionScreen({ onAllow }: AudioPermissionScreenProps) {
           transition={{ delay: 0.5, duration: 1.5 }}
           className="text-4xl md:text-5xl font-bold text-white mb-12"
         >
-          Do you really wanna beat?
+          Do you want to outdo yourself?
         </motion.h1>
 
         {/* YES button */}
