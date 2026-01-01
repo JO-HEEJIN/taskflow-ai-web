@@ -1825,3 +1825,209 @@ When deployment breaks and you don't understand why:
 5. **Document the process** - Future you will thank present you
 
 ---
+
+### Learning 9: Mobile Scroll Issues - Parent Overflow vs Component Positioning (Jan 1, 2026)
+
+**Challenge:** Mobile onboarding view and other views had broken vertical scrolling, but Focus mode worked perfectly
+
+**User Report:**
+> "왜...모바일 브라우저에서 focus mode에서는 아주 여기저기 잘 움직여지는데 왜 온보딩 뷰를 비롯해서 다른 뷰들은 잘 안 움직여지는 건지 원인을 분석해줄래? 단순 스크롤 추가로 해결이 안 되는 문제 같아."
+
+**Initial Assumptions (All Wrong):** ❌
+1. Tried adding `overflow-y-auto` to empty state container → Didn't work
+2. Tried `min-h-screen` instead of `h-screen` → Still broken
+3. Tried adjusting EmptyStateWithActions padding → No effect
+4. Tried removing drag functionality from carousel → Not the issue
+
+**Debugging Approach:**
+1. **Compare working vs broken:**
+   - Focus mode: Scrolls perfectly ✅
+   - Onboarding view: Doesn't scroll ❌
+   - Other views: Don't scroll ❌
+
+2. **Analyze Focus mode structure:**
+   ```tsx
+   // GalaxyFocusView.tsx - Line 279
+   <motion.div
+     className="fixed inset-0 z-[9999] overflow-y-auto flex flex-col items-center justify-start px-4 py-20"
+   >
+   ```
+
+3. **Analyze broken onboarding view:**
+   ```tsx
+   // TaskList.tsx (BEFORE FIX)
+   <div className="w-screen min-h-screen flex flex-col relative overflow-y-auto">
+     <div className="fixed inset-0 bg-cover..." /> {/* Background */}
+     <div className="relative z-10 w-full flex-1">
+       <EmptyStateWithActions />
+     </div>
+   </div>
+   ```
+
+4. **Check parent container:**
+   ```tsx
+   // page.tsx - Line 161 (ROOT CAUSE!)
+   <main className="min-h-screen overflow-hidden relative">
+   ```
+
+**Root Cause Identified:**
+
+The `main` element in `page.tsx` had **`overflow-hidden`** which prevented ALL child components from scrolling!
+
+**Why Focus Mode Worked:**
+- Focus mode uses `fixed inset-0` positioning
+- Fixed positioning escapes the parent's overflow context
+- Creates its own stacking context independent of `main`
+
+**Why Other Views Didn't Work:**
+- They were positioned `relative` or `static` inside `main`
+- Parent's `overflow-hidden` blocked all scrolling
+- Even adding `overflow-y-auto` to child didn't help (parent wins)
+
+**✅ Solution: Match Focus Mode Pattern**
+
+```tsx
+// TaskList.tsx - AFTER FIX
+<div className="fixed inset-0 overflow-y-auto flex flex-col items-center justify-start">
+  {/* Aurora Background */}
+  <div
+    className="absolute inset-0 bg-cover bg-center bg-no-repeat pointer-events-none"
+    style={{ backgroundImage: 'url(/aurora-bg.jpg)', ... }}
+  />
+  <div className="absolute inset-0 bg-black/60 pointer-events-none" />
+
+  {/* Empty State Content */}
+  <div className="relative z-10 w-full">
+    <EmptyStateWithActions />
+  </div>
+</div>
+```
+
+**Key Changes:**
+1. `relative min-h-screen` → `fixed inset-0` (viewport-filling)
+2. `overflow-y-auto` on container (allows scrolling)
+3. `justify-start` instead of `justify-center` (prevents top cutoff)
+4. `pointer-events-none` on background layers (allows interaction with content)
+5. Background `fixed` → `absolute` (relative to container, not viewport)
+
+**Results:**
+- ✅ Mobile onboarding now scrolls smoothly
+- ✅ Pattern matches working Focus mode
+- ✅ Applies to both desktop and mobile
+- ✅ Background doesn't interfere with touch events
+
+**Core Lessons:**
+
+1. **Parent Overflow Trumps Child Overflow**
+   ```tsx
+   {/* ❌ Child overflow-y-auto doesn't work */}
+   <main className="overflow-hidden">
+     <div className="overflow-y-auto"> {/* Blocked by parent */}
+   </main>
+
+   {/* ✅ Fixed positioning escapes parent */}
+   <main className="overflow-hidden">
+     <div className="fixed inset-0 overflow-y-auto"> {/* Works! */}
+   </main>
+   ```
+
+2. **Compare Working vs Broken Components**
+   - Don't guess at solutions
+   - Find similar component that works
+   - Identify structural differences
+   - Match the working pattern
+
+3. **Fixed vs Relative Positioning for Full-Screen Views**
+
+   | Pattern | When to Use | Scrolling |
+   |---------|-------------|-----------|
+   | `min-h-screen relative` | Normal page content | Relies on parent allowing scroll |
+   | `fixed inset-0` | Full-screen overlays | Creates own scroll context |
+
+4. **CSS Positioning Context Hierarchy**
+   ```
+   <main overflow-hidden>          ← Blocks all scroll
+     <div relative overflow-auto>  ← Can't scroll (parent blocks)
+     <div fixed overflow-auto>     ← CAN scroll (escapes parent)
+   </main>
+   ```
+
+5. **pointer-events-none for Background Layers**
+   - Prevents background from capturing touch events
+   - Allows scroll gestures to pass through
+   - Critical for mobile touch interaction
+
+6. **Mobile Scroll Debugging Checklist**
+   - Check parent `overflow` settings (all ancestors)
+   - Verify positioning context (`fixed` vs `relative`)
+   - Test background layer `pointer-events`
+   - Compare with working similar component
+   - Test on actual mobile device (browser DevTools can lie)
+
+**Prevention Pattern:**
+
+When building full-screen views:
+```tsx
+// Template for full-screen scrollable views
+<div className="fixed inset-0 overflow-y-auto flex flex-col justify-start">
+  {/* Background (pointer-events-none) */}
+  <div className="absolute inset-0 pointer-events-none">
+    {/* Background content */}
+  </div>
+
+  {/* Scrollable content */}
+  <div className="relative z-10 w-full">
+    {/* Your content here */}
+  </div>
+</div>
+```
+
+**Why This Pattern Works:**
+
+1. **`fixed inset-0`**:
+   - Fills viewport regardless of parent
+   - Escapes parent overflow constraints
+   - Creates independent stacking context
+
+2. **`overflow-y-auto`**:
+   - Enables vertical scrolling when content exceeds viewport
+   - Won't scroll if content fits (no unnecessary scrollbar)
+
+3. **`flex flex-col justify-start`**:
+   - Prevents vertical centering that cuts off top content
+   - Aligns content to top naturally
+   - Allows bottom content to extend beyond viewport
+
+4. **`absolute` backgrounds with `pointer-events-none`**:
+   - Positions relative to container, not viewport
+   - Doesn't block touch events
+   - Allows scroll gestures to work
+
+**Mobile-Specific Considerations:**
+
+Mobile browsers have quirks with overflow:
+- iOS Safari: `overflow-y-auto` can be janky without `-webkit-overflow-scrolling: touch`
+- Mobile Chrome: Fixed elements can cause repaints
+- Touch events: Background layers MUST have `pointer-events-none`
+
+**Key Insight:**
+
+When debugging layout issues, always **compare working vs broken implementations**. The solution is often hiding in plain sight in a component that already works correctly. Don't reinvent patterns - copy what works.
+
+**Related Files:**
+- `/frontend/app/page.tsx` - Main container with `overflow-hidden` (root cause)
+- `/frontend/components/TaskList.tsx` - Fixed empty state container
+- `/frontend/components/focus/GalaxyFocusView.tsx` - Working reference pattern
+
+**Git Commit:**
+```
+commit 3cf910e
+Fix mobile scroll by using fixed positioning
+
+- Change TaskList empty state to fixed inset-0 (like Focus mode)
+- Add pointer-events-none to background layers
+- This matches the working Focus mode pattern
+- Root cause: main has overflow-hidden, so views need fixed positioning
+```
+
+---
