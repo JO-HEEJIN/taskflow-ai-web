@@ -59,6 +59,29 @@ export function GalaxyFocusView({
     });
   }, [currentSubtask.id, estimatedMinutes, startTimerWS, broadcastTimerEvent, task.id]);
 
+  // Client-side timer sync based on endTime (works even in background tabs)
+  useEffect(() => {
+    if (!isTimerRunning || !endTime) return;
+
+    // Update currentTimeLeft based on endTime every 100ms
+    // This ensures accurate countdown even when tab is in background
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const remainingMs = Math.max(0, endTime - now);
+      const remainingSec = Math.floor(remainingMs / 1000);
+
+      // Update store with calculated time
+      useCoachStore.setState({ currentTimeLeft: remainingSec });
+
+      // Log for debugging
+      if (remainingSec % 10 === 0) {
+        console.log(`⏱️  Timer: ${remainingSec}s remaining (based on endTime: ${new Date(endTime).toISOString()})`);
+      }
+    }, 100); // Update every 100ms for smooth countdown
+
+    return () => clearInterval(interval);
+  }, [isTimerRunning, endTime]);
+
   // Cleanup: stop timer when component unmounts
   useEffect(() => {
     return () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useCoachStore } from '@/store/useCoachStore';
 
 interface OrbitTimerProps {
@@ -20,32 +20,20 @@ export function OrbitTimer({
   color = '#c084fc',
 }: OrbitTimerProps) {
   const { currentTimeLeft } = useCoachStore();
-  const [timeLeft, setTimeLeft] = useState(currentTimeLeft || duration * 60);
   const radius = 120;
   const stroke = 8;
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
 
-  // Sync with store's currentTimeLeft
-  useEffect(() => {
-    setTimeLeft(currentTimeLeft || duration * 60);
-  }, [currentTimeLeft, duration]);
+  // Use currentTimeLeft directly from store (no local state needed)
+  // GalaxyFocusView updates this based on endTime every 100ms
+  const timeLeft = currentTimeLeft || duration * 60;
 
-  // Timer logic (independent countdown for smooth UI, but syncs with store)
+  // Trigger onComplete when timer reaches 0
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            onComplete();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (isPlaying && timeLeft === 0) {
+      onComplete();
     }
-    return () => clearInterval(interval);
   }, [isPlaying, timeLeft, onComplete]);
 
   const totalSeconds = duration * 60;
