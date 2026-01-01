@@ -101,7 +101,7 @@ export function GalaxyFocusView({
   }, [closePiP]);
 
   // Handle opening Picture-in-Picture
-  const handleOpenPiP = async () => {
+  const handleOpenPiP = useCallback(async () => {
     if (!isPiPSupported) {
       console.warn('Picture-in-Picture is not supported in this browser');
       return;
@@ -117,11 +117,11 @@ export function GalaxyFocusView({
         onClose={handleClosePiP}
         onToggleTimer={handleToggleTimer}
       />,
-      { width: 320, height: 220 }
+      { width: 320, height: 190 }
     );
 
     setIsPiPActive(true);
-  };
+  }, [isPiPSupported, openPiP, task.title, currentSubtask.title, currentTimeLeft, isTimerRunning, estimatedMinutes, handleClosePiP, handleToggleTimer]);
 
   // Update PiP when timer state changes
   useEffect(() => {
@@ -148,15 +148,15 @@ export function GalaxyFocusView({
 
   // Auto-open PiP on focus mode entry (desktop only)
   useEffect(() => {
-    if (isPiPSupported && !isPiPOpen) {
+    if (isPiPSupported && !isPiPOpen && currentTimeLeft > 0) {
       // Small delay to ensure the main view is rendered first
       const timer = setTimeout(() => {
         handleOpenPiP();
-      }, 500);
+      }, 300);
 
       return () => clearTimeout(timer);
     }
-  }, []); // Only run once on mount
+  }, [isPiPSupported, isPiPOpen, currentTimeLeft, handleOpenPiP]);
 
   const handleComplete = async () => {
     // Supernova confetti effect!

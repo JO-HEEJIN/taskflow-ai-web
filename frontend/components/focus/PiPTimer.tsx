@@ -93,7 +93,7 @@ export function PiPTimer({
   const shouldPulse = progressPercentage < 50;
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center px-6 py-4 text-white relative overflow-visible">
+    <div className="w-full h-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center px-6 py-2 text-white relative overflow-visible">
       {/* Animated background glow */}
       <div
         className="absolute inset-0 opacity-30 pointer-events-none"
