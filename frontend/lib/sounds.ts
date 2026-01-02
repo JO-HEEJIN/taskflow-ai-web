@@ -9,6 +9,7 @@ class SoundManager {
   private sounds: Map<string, HTMLAudioElement> = new Map();
   private audioUnlocked: boolean = false;
   private timerCompletionAudio: HTMLAudioElement | null = null;
+  private timerAudioSource: MediaElementAudioSourceNode | null = null;
 
   // Private constructor for Singleton
   private constructor() {
@@ -175,6 +176,9 @@ class SoundManager {
     });
 
     try {
+      // Ensure AudioContext is available
+      this.initAudioContext();
+
       // Resume AudioContext if suspended (helps with background tab playback)
       if (this.audioContext && this.audioContext.state === 'suspended') {
         console.log('🔄 Resuming suspended AudioContext...');
@@ -189,6 +193,20 @@ class SoundManager {
         this.timerCompletionAudio.volume = 0.7;
       }
 
+      // CRITICAL FIX: Connect HTMLAudioElement to Web Audio API
+      // This ensures the audio routing follows the active AudioContext
+      if (this.audioContext && !this.timerAudioSource && this.timerCompletionAudio) {
+        try {
+          console.log('🔗 Connecting timer audio to AudioContext...');
+          this.timerAudioSource = this.audioContext.createMediaElementSource(this.timerCompletionAudio);
+          this.timerAudioSource.connect(this.audioContext.destination);
+          console.log('✅ Audio source connected to destination');
+        } catch (sourceError) {
+          // Ignore error if source already connected (should be handled by check above, but extra safety)
+          console.warn('⚠️ Could not connect node (might be already connected):', sourceError);
+        }
+      }
+
       // Log audio element state
       console.log('🎵 Audio element state:', {
         src: this.timerCompletionAudio.src,
@@ -196,6 +214,8 @@ class SoundManager {
         paused: this.timerCompletionAudio.paused,
         muted: this.timerCompletionAudio.muted,
         volume: this.timerCompletionAudio.volume,
+        contextState: this.audioContext?.state,
+        hasSourceNode: !!this.timerAudioSource
       });
 
       // Ensure unmuted and correct volume
