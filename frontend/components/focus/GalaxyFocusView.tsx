@@ -249,10 +249,10 @@ export function GalaxyFocusView({
     });
 
     // CRITICAL: Stop the timer immediately to prevent re-triggering
-    // Set endTime to null first to stop the interval immediately
+    // Set endTime to undefined first to stop the interval immediately
     useCoachStore.setState({
       isTimerRunning: false,
-      endTime: null,
+      endTime: undefined,
       currentTimeLeft: 0
     });
 
