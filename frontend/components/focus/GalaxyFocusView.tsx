@@ -15,7 +15,7 @@ import { useEffect, useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { X, ChevronRight, SkipForward, MessageCircle, Maximize } from 'lucide-react';
 import { api } from '@/lib/api';
-import { playTimerCompletionSound } from '@/lib/sounds';
+import { playTimerCompletionSound, unlockTimerCompletionAudio } from '@/lib/sounds';
 import { showTimerCompletedNotification } from '@/lib/notifications';
 
 interface GalaxyFocusViewProps {
@@ -43,6 +43,12 @@ export function GalaxyFocusView({
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
+
+  // Unlock timer completion audio on mount (requires user gesture - focus mode entry)
+  useEffect(() => {
+    unlockTimerCompletionAudio();
+    console.log('🔓 Timer completion audio unlocked on focus mode entry');
+  }, []);
 
   // Initialize timer when subtask changes
   useEffect(() => {
@@ -232,6 +238,11 @@ export function GalaxyFocusView({
 
   const handleTimerComplete = async () => {
     console.log('⏰ Timer completed!');
+
+    // CRITICAL: Stop the timer immediately to prevent re-triggering
+    stopTimerWS();
+    broadcastTimerEvent('TIMER_STOP', {});
+    useCoachStore.setState({ isTimerRunning: false });
 
     // PHASE 5: Completion Actions
 

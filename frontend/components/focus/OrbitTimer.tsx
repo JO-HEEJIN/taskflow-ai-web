@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useCoachStore } from '@/store/useCoachStore';
 
 interface OrbitTimerProps {
@@ -24,14 +24,23 @@ export function OrbitTimer({
   const stroke = 8;
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
+  const hasCompletedRef = useRef(false);
 
   // Use currentTimeLeft directly from store (no local state needed)
   // GalaxyFocusView updates this based on endTime every 100ms
   const timeLeft = currentTimeLeft || duration * 60;
 
-  // Trigger onComplete when timer reaches 0
+  // Reset completion flag when timer restarts
   useEffect(() => {
-    if (isPlaying && timeLeft === 0) {
+    if (timeLeft > 0) {
+      hasCompletedRef.current = false;
+    }
+  }, [timeLeft]);
+
+  // Trigger onComplete when timer reaches 0 (only once)
+  useEffect(() => {
+    if (isPlaying && timeLeft === 0 && !hasCompletedRef.current) {
+      hasCompletedRef.current = true;
       onComplete();
     }
   }, [isPlaying, timeLeft, onComplete]);
