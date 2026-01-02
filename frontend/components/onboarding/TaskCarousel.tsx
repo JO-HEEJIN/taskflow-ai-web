@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, AlertCircle } from 'lucide-react';
+import { Clock, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { exampleTasks } from '@/lib/exampleTasks';
 
 interface TaskCarouselProps {
@@ -86,6 +86,24 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
     <div className="w-full max-w-md mx-auto">
       {/* Carousel Container */}
       <div className="relative overflow-hidden">
+        {/* Left Arrow (Desktop only) */}
+        <button
+          onClick={prevTask}
+          className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 transition-all hover:scale-110"
+          aria-label="Previous task"
+        >
+          <ChevronLeft className="w-6 h-6 text-purple-300" />
+        </button>
+
+        {/* Right Arrow (Desktop only) */}
+        <button
+          onClick={nextTask}
+          className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 items-center justify-center rounded-full bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 transition-all hover:scale-110"
+          aria-label="Next task"
+        >
+          <ChevronRight className="w-6 h-6 text-purple-300" />
+        </button>
+
         {/* Task Card */}
         <div
           className="px-4 py-4"
@@ -167,7 +185,7 @@ export function TaskCarousel({ onSelectTask }: TaskCarouselProps) {
 
       {/* Helper Text */}
       <p className="text-center text-purple-300/60 text-xs mt-3">
-        <span className="hidden md:inline">Tap dots to browse examples</span>
+        <span className="hidden md:inline">Use arrows or tap dots to browse examples</span>
         <span className="md:hidden">Swipe or tap dots to browse examples</span>
       </p>
     </div>

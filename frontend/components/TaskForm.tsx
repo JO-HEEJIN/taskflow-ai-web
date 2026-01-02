@@ -112,6 +112,8 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
       } catch (error) {
         console.error('Failed to create task:', error);
         toast.error('Failed to create task. Please try again.');
+        // Close modal even on error to prevent stuck "Creating..." state
+        if (onClose) onClose();
       }
     }
   };

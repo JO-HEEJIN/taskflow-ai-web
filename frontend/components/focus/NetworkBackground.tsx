@@ -8,6 +8,7 @@ interface Node {
   vx: number;
   vy: number;
   brightness: number;
+  color: string; // Different shades of yellow/gold
 }
 
 export function NetworkBackground() {
@@ -36,25 +37,45 @@ export function NetworkBackground() {
     const numNodes = 150; // Number of nodes
     const nodes: Node[] = [];
 
-    for (let i = 0; i < numNodes; i++) {
-      // Create nodes in concentric circles
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * Math.min(canvas.width, canvas.height) * 0.6;
+    // Various yellow/gold colors
+    const colors = [
+      'rgb(255, 215, 0)',   // Gold
+      'rgb(255, 193, 7)',   // Amber
+      'rgb(255, 235, 59)',  // Yellow
+      'rgb(255, 160, 0)',   // Dark Orange
+      'rgb(255, 179, 0)',   // Orange Gold
+    ];
 
-      const x = centerX + Math.cos(angle) * radius;
-      const y = centerY + Math.sin(angle) * radius;
+    // Timer exclusion zone (circular area in center)
+    const timerRadius = Math.min(canvas.width, canvas.height) * 0.15; // 15% of viewport
+
+    for (let i = 0; i < numNodes; i++) {
+      let x, y, distFromCenter;
+
+      // Keep generating positions until we find one outside the timer area
+      do {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = Math.random() * Math.min(canvas.width, canvas.height) * 0.6;
+
+        x = centerX + Math.cos(angle) * radius;
+        y = centerY + Math.sin(angle) * radius;
+        distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+      } while (distFromCenter < timerRadius); // Reject if inside timer area
 
       // Brightness based on distance from center (closer = brighter)
-      const distFromCenter = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
       const maxDist = Math.min(canvas.width, canvas.height) * 0.6;
       const brightness = 1 - (distFromCenter / maxDist) * 0.7; // 0.3 to 1.0
+
+      // Random color from palette
+      const color = colors[Math.floor(Math.random() * colors.length)];
 
       nodes.push({
         x,
         y,
         vx: (Math.random() - 0.5) * 0.2, // Slow drift
         vy: (Math.random() - 0.5) * 0.2,
-        brightness
+        brightness,
+        color
       });
     }
 
@@ -106,16 +127,21 @@ export function NetworkBackground() {
         }
       }
 
-      // Draw nodes (golden dots with glow)
+      // Draw nodes (colorful dots with reduced glow)
       nodes.forEach(node => {
-        const size = 2 + node.brightness * 2;
-        const glowSize = 8 + node.brightness * 12;
+        const size = 1 + node.brightness * 1; // Smaller: 1-2px
+        const glowSize = 3 + node.brightness * 4; // Smaller glow: 3-7px
 
-        // Glow
+        // Extract RGB values from node.color
+        const rgbMatch = node.color.match(/\d+/g);
+        if (!rgbMatch) return;
+        const [r, g, b] = rgbMatch.map(Number);
+
+        // Glow (much more subtle)
         const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, glowSize);
-        gradient.addColorStop(0, `rgba(255, 215, 0, ${node.brightness * 0.6})`);
-        gradient.addColorStop(0.5, `rgba(255, 215, 0, ${node.brightness * 0.3})`);
-        gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${node.brightness * 0.4})`);
+        gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${node.brightness * 0.2})`);
+        gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
 
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -123,7 +149,7 @@ export function NetworkBackground() {
         ctx.fill();
 
         // Core dot
-        ctx.fillStyle = `rgba(255, 215, 0, ${node.brightness})`;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${node.brightness})`;
         ctx.beginPath();
         ctx.arc(node.x, node.y, size, 0, Math.PI * 2);
         ctx.fill();
