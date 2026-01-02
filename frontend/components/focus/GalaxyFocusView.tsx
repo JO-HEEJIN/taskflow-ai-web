@@ -188,15 +188,19 @@ export function GalaxyFocusView({
 
   // Auto-open PiP on focus mode entry (desktop only)
   useEffect(() => {
-    if (isPiPSupported && !isPiPOpen && isTimerRunning) {
-      // Small delay to ensure the main view is rendered first
+    console.log('🔍 PiP Auto-open check:', { isPiPSupported, isPiPOpen, isTimerRunning });
+
+    if (isPiPSupported && !isPiPOpen) {
+      // Open PiP after a short delay regardless of timer state
+      // User entered focus mode, so show them the PiP feature
       const timer = setTimeout(() => {
+        console.log('🎬 Auto-opening PiP window...');
         handleOpenPiP();
-      }, 300);
+      }, 500); // Increased delay to ensure everything is ready
 
       return () => clearTimeout(timer);
     }
-  }, [isPiPSupported, isPiPOpen, isTimerRunning, handleOpenPiP]);
+  }, [isPiPSupported, isPiPOpen, handleOpenPiP]);
 
   const handleComplete = async () => {
     // Supernova confetti effect!
@@ -348,6 +352,40 @@ export function GalaxyFocusView({
       transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
       className="fixed inset-0 z-[9999] overflow-y-auto flex flex-col items-center justify-start px-4 py-20 bg-[#2E1044] relative"
     >
+      {/* Aurora Gradient Background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Blue aurora blob */}
+        <div
+          className="absolute w-[800px] h-[800px] rounded-full opacity-20"
+          style={{
+            top: '10%',
+            left: '20%',
+            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.6) 0%, transparent 70%)',
+            filter: 'blur(80px)',
+          }}
+        />
+        {/* Purple aurora blob */}
+        <div
+          className="absolute w-[900px] h-[900px] rounded-full opacity-25"
+          style={{
+            top: '40%',
+            right: '10%',
+            background: 'radial-gradient(circle, rgba(168, 85, 247, 0.7) 0%, transparent 70%)',
+            filter: 'blur(90px)',
+          }}
+        />
+        {/* Indigo aurora blob */}
+        <div
+          className="absolute w-[700px] h-[700px] rounded-full opacity-15"
+          style={{
+            bottom: '15%',
+            left: '30%',
+            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.5) 0%, transparent 70%)',
+            filter: 'blur(70px)',
+          }}
+        />
+      </div>
+
       {/* Network Background - Canvas-based golden network pattern */}
       <NetworkBackground />
 
