@@ -72,8 +72,8 @@ export function NetworkBackground() {
       nodes.push({
         x,
         y,
-        vx: (Math.random() - 0.5) * 0.2, // Slow drift
-        vy: (Math.random() - 0.5) * 0.2,
+        vx: (Math.random() - 0.5) * 0.8, // Visible drift movement
+        vy: (Math.random() - 0.5) * 0.8,
         brightness,
         color
       });

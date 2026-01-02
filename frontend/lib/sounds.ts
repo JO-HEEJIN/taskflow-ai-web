@@ -49,12 +49,16 @@ class SoundManager {
    * MUST be called on Focus Mode Start button click
    */
   async unlock(): Promise<void> {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+      console.log('⚠️ unlock() called in non-browser environment');
+      return;
+    }
     if (this.audioUnlocked) {
       console.log('🔓 Audio already unlocked');
       return;
     }
 
+    console.log('🔑 Starting audio unlock process...');
     this.initAudioContext();
 
     // Play a silent audio to unlock (mobile requirement)
@@ -66,13 +70,16 @@ class SoundManager {
       await silentAudio.play();
       silentAudio.pause();
       silentAudio.remove();
+      console.log('✅ Silent audio unlocked');
 
       // Also unlock timer completion audio
       if (!this.timerCompletionAudio) {
+        console.log('📂 Creating new timer completion audio instance');
         this.timerCompletionAudio = new Audio('/sounds/timer-complete.mp3');
       }
       this.timerCompletionAudio.volume = 0;
       this.timerCompletionAudio.muted = true;
+      console.log('▶️  Playing muted timer audio for unlock...');
       await this.timerCompletionAudio.play();
       this.timerCompletionAudio.pause();
       this.timerCompletionAudio.currentTime = 0;
@@ -80,9 +87,9 @@ class SoundManager {
       this.timerCompletionAudio.volume = 0.7;
 
       this.audioUnlocked = true;
-      console.log('✅ Audio unlocked for mobile (including timer-complete.mp3)');
+      console.log('✅ Audio fully unlocked (including timer-complete.mp3)');
     } catch (error) {
-      console.warn('Failed to unlock audio:', error);
+      console.error('❌ Failed to unlock audio:', error);
     }
   }
 
@@ -155,12 +162,24 @@ class SoundManager {
    * Uses pre-loaded audio instance for guaranteed playback
    */
   async playTimerComplete(): Promise<void> {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+      console.log('⚠️ playTimerComplete() called in non-browser environment');
+      return;
+    }
+
+    console.log('🔊 playTimerComplete() CALLED');
+    console.log('📊 Audio state:', {
+      audioUnlocked: this.audioUnlocked,
+      timerCompletionAudioExists: !!this.timerCompletionAudio,
+      audioContextState: this.audioContext?.state,
+    });
 
     try {
       // Resume AudioContext if suspended (helps with background tab playback)
       if (this.audioContext && this.audioContext.state === 'suspended') {
+        console.log('🔄 Resuming suspended AudioContext...');
         await this.audioContext.resume();
+        console.log('✅ AudioContext resumed, state:', this.audioContext.state);
       }
 
       // Use pre-loaded instance (unlocked during focus mode start)
@@ -170,19 +189,31 @@ class SoundManager {
         this.timerCompletionAudio.volume = 0.7;
       }
 
+      // Log audio element state
+      console.log('🎵 Audio element state:', {
+        src: this.timerCompletionAudio.src,
+        readyState: this.timerCompletionAudio.readyState,
+        paused: this.timerCompletionAudio.paused,
+        muted: this.timerCompletionAudio.muted,
+        volume: this.timerCompletionAudio.volume,
+      });
+
       // Ensure unmuted and correct volume
       this.timerCompletionAudio.muted = false;
       this.timerCompletionAudio.volume = 0.7;
 
       // Reset to beginning and play
       this.timerCompletionAudio.currentTime = 0;
+      console.log('▶️  Attempting to play timer completion sound...');
       await this.timerCompletionAudio.play();
-      console.log('🔊 Timer completion sound played (Singleton)');
+      console.log('✅ Timer completion sound played successfully!');
     } catch (error) {
-      console.warn('❌ Audio file failed, using Web Audio API beep:', error);
+      console.error('❌ Audio file playback failed:', error);
       // Fallback to beep
       try {
+        console.log('🔔 Falling back to Web Audio API beep...');
         await this.playCompletionChime();
+        console.log('✅ Beep fallback played');
       } catch (beepError) {
         console.error('❌ Failed to play any completion sound:', beepError);
       }
@@ -313,12 +344,14 @@ export function unlockTimerCompletionAudio(): void {
  * SOUND-FIRST, STATE-SECOND architecture
  */
 export function playTimerCompletionSound(): void {
+  console.log('🎯 playTimerCompletionSound() wrapper called');
   const manager = SoundManager.getInstance();
 
   // Fire and forget - don't wait for Promise
   manager.playTimerComplete().catch(error => {
-    console.error('❌ Timer completion sound failed:', error);
+    console.error('❌ Timer completion sound failed in wrapper:', error);
   });
+  console.log('🚀 playTimerComplete() promise fired');
 }
 
 /**

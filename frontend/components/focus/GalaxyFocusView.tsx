@@ -272,15 +272,8 @@ export function GalaxyFocusView({
     console.log('🛑 Timer stopped, isTimerRunning set to false, endTime cleared');
 
     // PHASE 5: Completion Actions
-
-    // 1. Play completion sound
-    try {
-      console.log('🔊 Attempting to play completion sound...');
-      await playTimerCompletionSound();
-      console.log('✅ Completion sound played successfully');
-    } catch (error) {
-      console.error('❌ Failed to play completion sound:', error);
-    }
+    // NOTE: Sound is already played by OrbitTimer (Sound-First architecture)
+    // We don't play it again here to avoid duplicate playback
 
     // 2. Force window focus
     if (typeof window !== 'undefined') {
