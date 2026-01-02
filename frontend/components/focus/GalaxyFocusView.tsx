@@ -16,7 +16,7 @@ import { useEffect, useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { X, ChevronRight, SkipForward, MessageCircle, Maximize } from 'lucide-react';
 import { api } from '@/lib/api';
-import { playTimerCompletionSound, unlockTimerCompletionAudio } from '@/lib/sounds';
+import { playTimerCompletionSound, soundManager } from '@/lib/sounds';
 import { showTimerCompletedNotification } from '@/lib/notifications';
 
 interface GalaxyFocusViewProps {
@@ -45,10 +45,15 @@ export function GalaxyFocusView({
 
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
 
-  // Unlock timer completion audio on mount (requires user gesture - focus mode entry)
+  // Unlock audio on mount (Focus Mode is entered via user click - this is the "Golden Key")
   useEffect(() => {
-    unlockTimerCompletionAudio();
-    console.log('🔓 Timer completion audio unlocked on focus mode entry');
+    // CRITICAL: This unlock happens because user clicked to enter focus mode
+    // This is our guaranteed user gesture for iOS/Chrome Autoplay policy
+    soundManager.unlock().then(() => {
+      console.log('🔓 Audio unlocked on focus mode entry (Singleton)');
+    }).catch(err => {
+      console.error('Failed to unlock audio:', err);
+    });
   }, []);
 
   // Initialize timer when subtask changes
@@ -98,9 +103,10 @@ export function GalaxyFocusView({
   }, [stopTimerWS, broadcastTimerEvent]);
 
   const handleToggleTimer = () => {
-    // Unlock audio on user interaction (iOS requirement)
-    unlockTimerCompletionAudio();
-    console.log('🔓 Audio unlocked on timer toggle (user gesture)');
+    // Unlock audio on user interaction (additional guarantee for iOS)
+    soundManager.unlock().catch(err => {
+      console.warn('Audio unlock failed on toggle:', err);
+    });
 
     if (isTimerRunning) {
       // Pause via WebSocket

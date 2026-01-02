@@ -26,6 +26,9 @@ export function useTimerSync() {
   // BroadcastChannel for cross-tab communication - use ref to persist across renders
   const channelRef = useRef<BroadcastChannel | null>(null);
 
+  // Track recent completion to prevent PiP from overwriting state
+  const recentCompletionRef = useRef<number>(0);
+
   // Load timer state from localStorage on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -128,6 +131,9 @@ export function useTimerSync() {
           break;
 
         case 'TIMER_STOP':
+          // Mark completion timestamp to prevent stale TIMER_TICK from overwriting
+          recentCompletionRef.current = Date.now();
+
           useCoachStore.setState({
             isTimerRunning: false,
             currentTimeLeft: 0,
@@ -136,6 +142,14 @@ export function useTimerSync() {
           break;
 
         case 'TIMER_TICK':
+          // CRITICAL: Ignore TIMER_TICK if we just completed (within 2 seconds)
+          // This prevents PiP's stale "1 second left" from reverting the completion
+          const timeSinceCompletion = Date.now() - recentCompletionRef.current;
+          if (timeSinceCompletion < 2000) {
+            console.log('⏭️  Ignoring stale TIMER_TICK (just completed)');
+            break;
+          }
+
           if (payload.timeLeft !== undefined) {
             useCoachStore.setState({
               currentTimeLeft: payload.timeLeft,

@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { useEffect, useRef } from 'react';
 import { useCoachStore } from '@/store/useCoachStore';
+import { playTimerCompletionSound } from '@/lib/sounds';
 
 interface OrbitTimerProps {
   duration: number; // minutes
@@ -37,11 +38,20 @@ export function OrbitTimer({
     }
   }, [timeLeft]);
 
-  // Trigger onComplete when timer reaches 0 (only once)
+  // SOUND-FIRST, STATE-SECOND: Play sound BEFORE calling onComplete
   useEffect(() => {
     if (isPlaying && timeLeft === 0 && !hasCompletedRef.current) {
       hasCompletedRef.current = true;
-      onComplete();
+
+      console.log('🎯 Timer reached 0! Playing sound FIRST...');
+
+      // 1. Play sound IMMEDIATELY (Fire and forget - don't await)
+      playTimerCompletionSound();
+
+      // 2. THEN trigger state update (small delay to ensure sound fires)
+      setTimeout(() => {
+        onComplete();
+      }, 50); // 50ms delay to guarantee sound starts before state change
     }
   }, [isPlaying, timeLeft, onComplete]);
 
