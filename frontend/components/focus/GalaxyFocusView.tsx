@@ -311,33 +311,29 @@ export function GalaxyFocusView({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 1.1 }}
       transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
-      className="fixed inset-0 z-[9999] overflow-y-auto flex flex-col items-center justify-start px-4 py-20"
-      style={{
-        background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 1) 0%, rgba(10, 5, 20, 1) 100%)',
-      }}
+      className="fixed inset-0 z-[9999] overflow-y-auto flex flex-col items-center justify-start px-4 py-20 bg-[#2E1044] relative"
     >
-      {/* Starry background overlay */}
-      <div className="absolute inset-0 opacity-50 mix-blend-screen pointer-events-none">
-        {/* Simple twinkling stars */}
-        {[...Array(100)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute w-1 h-1 bg-white rounded-full"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-            }}
-            animate={{
-              opacity: [0.2, 1, 0.2],
-              scale: [0.8, 1.2, 0.8],
-            }}
-            transition={{
-              duration: 2 + Math.random() * 3,
-              repeat: Infinity,
-              delay: Math.random() * 2,
-            }}
-          />
-        ))}
+      {/* CSS Fractal Pattern Background */}
+      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
+        {/* Golden fractal pattern with dots and lines */}
+        <div
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vmax] h-[150vmax] md:w-[100vmax] md:h-[100vmax] opacity-30 bg-no-repeat bg-center"
+          style={{
+            backgroundImage: `
+              radial-gradient(circle at center, rgba(255, 215, 0, 0.1) 0%, transparent 60%),
+              repeating-conic-gradient(from 0deg at center, rgba(255, 215, 0, 0.05) 0deg, transparent 5deg, rgba(255, 215, 0, 0.05) 10deg),
+              radial-gradient(circle at 20% 30%, rgba(255, 215, 0, 0.2) 1px, transparent 2px),
+              radial-gradient(circle at 80% 70%, rgba(255, 215, 0, 0.2) 1px, transparent 2px),
+              radial-gradient(circle at 30% 80%, rgba(255, 215, 0, 0.2) 1px, transparent 2px),
+              radial-gradient(circle at 70% 20%, rgba(255, 215, 0, 0.2) 1px, transparent 2px),
+              radial-gradient(circle at 50% 10%, rgba(255, 215, 0, 0.15) 1px, transparent 2px),
+              radial-gradient(circle at 10% 50%, rgba(255, 215, 0, 0.15) 1px, transparent 2px),
+              radial-gradient(circle at 90% 50%, rgba(255, 215, 0, 0.15) 1px, transparent 2px),
+              radial-gradient(circle at 50% 90%, rgba(255, 215, 0, 0.15) 1px, transparent 2px)
+            `,
+            backgroundSize: '100% 100%, 100% 100%, 50px 50px, 50px 50px, 50px 50px, 50px 50px, 50px 50px, 50px 50px, 50px 50px, 50px 50px'
+          }}
+        ></div>
       </div>
 
       {/* Close button (top-right) */}
