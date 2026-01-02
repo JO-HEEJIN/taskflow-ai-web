@@ -186,21 +186,20 @@ export function GalaxyFocusView({
     setIsPiPActive(isPiPOpen);
   }, [isPiPOpen, setIsPiPActive]);
 
-  // Auto-open PiP on focus mode entry (desktop only)
+  // Auto-open PiP when timer starts (desktop only)
   useEffect(() => {
     console.log('🔍 PiP Auto-open check:', { isPiPSupported, isPiPOpen, isTimerRunning });
 
-    if (isPiPSupported && !isPiPOpen) {
-      // Open PiP after a short delay regardless of timer state
-      // User entered focus mode, so show them the PiP feature
+    if (isPiPSupported && !isPiPOpen && isTimerRunning) {
+      // Open PiP after a short delay when timer is running
       const timer = setTimeout(() => {
         console.log('🎬 Auto-opening PiP window...');
         handleOpenPiP();
-      }, 500); // Increased delay to ensure everything is ready
+      }, 1000); // Wait 1 second after timer starts
 
       return () => clearTimeout(timer);
     }
-  }, [isPiPSupported, isPiPOpen, handleOpenPiP]);
+  }, [isPiPSupported, isPiPOpen, isTimerRunning, handleOpenPiP]);
 
   const handleComplete = async () => {
     // Supernova confetti effect!
