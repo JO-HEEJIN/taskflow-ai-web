@@ -132,10 +132,6 @@ export function MobileTaskView({ onSettingsClick, onTaskSelect }: MobileTaskView
       setNewTaskTitle('');
       setShowTaskInput(false);
 
-      // Hide icon hint and mark as seen
-      setShowIconHint(false);
-      localStorage.setItem('iconHintSeen', 'true');
-
       // Find the newly created task and navigate to it
       setTimeout(() => {
         const newTask = useTaskStore.getState().tasks[useTaskStore.getState().tasks.length - 1];
