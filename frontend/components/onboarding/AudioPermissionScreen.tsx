@@ -11,20 +11,16 @@ interface AudioPermissionScreenProps {
 export function AudioPermissionScreen({ onAllow }: AudioPermissionScreenProps) {
 
   // 클릭/터치 핸들러 통합
-  const handleInteraction = async (e?: React.MouseEvent | React.TouchEvent) => {
-    // 아이폰의 경우 preventDefault()가 클릭 이벤트를 막아버려
-    // 오디오 언락에 방해가 될 수 있으므로, 꼭 필요한 경우가 아니면 제거하거나 주의해야 합니다.
-    // 여기서는 안전하게 오디오 언락을 먼저 실행합니다.
-
+  const handleInteraction = (e?: React.MouseEvent | React.TouchEvent) => {
     console.log('Audio permission interaction');
 
-    // [핵심 수정] 효과음 오디오 시스템 잠금 해제
-    try {
-        await soundManager.unlockAudio();
-    } catch (err) {
+    // [핵심 수정] 효과음 오디오 시스템 잠금 해제 (non-blocking)
+    // UI 전환을 막지 않도록 await 제거
+    soundManager.unlockAudio().catch(err => {
         console.error("Audio unlock failed", err);
-    }
+    });
 
+    // 즉시 UI 전환 (audio unlock을 기다리지 않음)
     onAllow();
   };
 

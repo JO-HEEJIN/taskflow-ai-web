@@ -171,7 +171,7 @@ export function GalaxyFocusView({
 
   // Auto-open PiP on focus mode entry (desktop only)
   useEffect(() => {
-    if (isPiPSupported && !isPiPOpen && currentTimeLeft > 0) {
+    if (isPiPSupported && !isPiPOpen && isTimerRunning) {
       // Small delay to ensure the main view is rendered first
       const timer = setTimeout(() => {
         handleOpenPiP();
@@ -179,7 +179,7 @@ export function GalaxyFocusView({
 
       return () => clearTimeout(timer);
     }
-  }, [isPiPSupported, isPiPOpen, currentTimeLeft, handleOpenPiP]);
+  }, [isPiPSupported, isPiPOpen, isTimerRunning, handleOpenPiP]);
 
   const handleComplete = async () => {
     // Supernova confetti effect!

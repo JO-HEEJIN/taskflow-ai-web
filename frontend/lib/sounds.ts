@@ -241,6 +241,8 @@ export async function playTimerCompletionSound(): Promise<void> {
   try {
     // Use the global unlocked audio instance for iOS compatibility
     if (!timerCompletionAudio) {
+      console.warn('⚠️ Timer completion audio not unlocked! Creating new instance (may not work on iOS)');
+      // Create instance as fallback, but this might not work on iOS if not unlocked during user gesture
       timerCompletionAudio = new Audio('/sounds/timer-complete.mp3');
       timerCompletionAudio.volume = 0.7;
     }
@@ -250,19 +252,22 @@ export async function playTimerCompletionSound(): Promise<void> {
       await soundManager['audioContext'].resume();
     }
 
+    // Ensure volume is set correctly (might have been muted during unlock)
+    timerCompletionAudio.muted = false;
+    timerCompletionAudio.volume = 0.7;
+
     // Reset to beginning and play
     timerCompletionAudio.currentTime = 0;
-    timerCompletionAudio.volume = 0.7;
     await timerCompletionAudio.play();
-    console.log('Timer completion sound played');
+    console.log('🔊 Timer completion sound played');
   } catch (error) {
-    console.warn('Audio file failed, using Web Audio API beep:', error);
+    console.warn('❌ Audio file failed, using Web Audio API beep:', error);
     // Fallback to Web Audio API beep
     try {
       await soundManager.unlockAudio();
       await soundManager.playCompletionChime();
     } catch (beepError) {
-      console.error('Failed to play any completion sound:', beepError);
+      console.error('❌ Failed to play any completion sound:', beepError);
     }
   }
 }
