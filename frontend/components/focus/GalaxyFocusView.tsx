@@ -6,6 +6,7 @@ import { OrbitTimer } from './OrbitTimer';
 import { CoachView } from './CoachView';
 import { PiPTimer } from './PiPTimer';
 import { BreakScreen } from './BreakScreen';
+import { NetworkBackground } from './NetworkBackground';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { useTimerSync } from '@/hooks/useTimerSync';
@@ -97,6 +98,10 @@ export function GalaxyFocusView({
   }, [stopTimerWS, broadcastTimerEvent]);
 
   const handleToggleTimer = () => {
+    // Unlock audio on user interaction (iOS requirement)
+    unlockTimerCompletionAudio();
+    console.log('🔓 Audio unlocked on timer toggle (user gesture)');
+
     if (isTimerRunning) {
       // Pause via WebSocket
       pauseTimerWS();
@@ -237,19 +242,32 @@ export function GalaxyFocusView({
   };
 
   const handleTimerComplete = async () => {
-    console.log('⏰ Timer completed!');
+    console.log('⏰ Timer completed! Current state:', {
+      isTimerRunning,
+      currentTimeLeft,
+      endTime: endTime ? new Date(endTime).toISOString() : 'null'
+    });
 
     // CRITICAL: Stop the timer immediately to prevent re-triggering
+    // Set endTime to null first to stop the interval immediately
+    useCoachStore.setState({
+      isTimerRunning: false,
+      endTime: null,
+      currentTimeLeft: 0
+    });
+
     stopTimerWS();
     broadcastTimerEvent('TIMER_STOP', {});
-    useCoachStore.setState({ isTimerRunning: false });
+
+    console.log('🛑 Timer stopped, isTimerRunning set to false, endTime cleared');
 
     // PHASE 5: Completion Actions
 
     // 1. Play completion sound
     try {
+      console.log('🔊 Attempting to play completion sound...');
       await playTimerCompletionSound();
-      console.log('🔊 Completion sound played');
+      console.log('✅ Completion sound played successfully');
     } catch (error) {
       console.error('❌ Failed to play completion sound:', error);
     }
@@ -324,28 +342,8 @@ export function GalaxyFocusView({
       transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
       className="fixed inset-0 z-[9999] overflow-y-auto flex flex-col items-center justify-start px-4 py-20 bg-[#2E1044] relative"
     >
-      {/* CSS Fractal Pattern Background */}
-      <div className="absolute inset-0 w-full h-full pointer-events-none overflow-hidden">
-        {/* Golden fractal pattern with dots and lines */}
-        <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150vmax] h-[150vmax] md:w-[100vmax] md:h-[100vmax] opacity-30 bg-no-repeat bg-center"
-          style={{
-            backgroundImage: `
-              radial-gradient(circle at center, rgba(255, 215, 0, 0.1) 0%, transparent 60%),
-              repeating-conic-gradient(from 0deg at center, rgba(255, 215, 0, 0.05) 0deg, transparent 5deg, rgba(255, 215, 0, 0.05) 10deg),
-              radial-gradient(circle at 20% 30%, rgba(255, 215, 0, 0.2) 1px, transparent 2px),
-              radial-gradient(circle at 80% 70%, rgba(255, 215, 0, 0.2) 1px, transparent 2px),
-              radial-gradient(circle at 30% 80%, rgba(255, 215, 0, 0.2) 1px, transparent 2px),
-              radial-gradient(circle at 70% 20%, rgba(255, 215, 0, 0.2) 1px, transparent 2px),
-              radial-gradient(circle at 50% 10%, rgba(255, 215, 0, 0.15) 1px, transparent 2px),
-              radial-gradient(circle at 10% 50%, rgba(255, 215, 0, 0.15) 1px, transparent 2px),
-              radial-gradient(circle at 90% 50%, rgba(255, 215, 0, 0.15) 1px, transparent 2px),
-              radial-gradient(circle at 50% 90%, rgba(255, 215, 0, 0.15) 1px, transparent 2px)
-            `,
-            backgroundSize: '100% 100%, 100% 100%, 50px 50px, 50px 50px, 50px 50px, 50px 50px, 50px 50px, 50px 50px, 50px 50px, 50px 50px'
-          }}
-        ></div>
-      </div>
+      {/* Network Background - Canvas-based golden network pattern */}
+      <NetworkBackground />
 
       {/* Close button (top-right) */}
       <motion.button
