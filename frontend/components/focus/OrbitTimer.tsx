@@ -75,12 +75,11 @@ export function OrbitTimer({
   const timeDisplay = `${minutes}:${String(seconds).padStart(2, '0')}`;
 
   return (
-    <div className="relative flex items-center justify-center w-[300px] h-[300px]">
+    <div className="relative flex items-center justify-center w-full max-w-[300px] aspect-square">
       {/* SVG Timer */}
       <svg
-        height={radius * 2}
-        width={radius * 2}
-        className="rotate-[-90deg]"
+        viewBox={`0 0 ${radius * 2} ${radius * 2}`}
+        className="w-full h-full rotate-[-90deg]"
         style={{
           filter: `drop-shadow(0 0 15px ${timerColor}80)`,
         }}

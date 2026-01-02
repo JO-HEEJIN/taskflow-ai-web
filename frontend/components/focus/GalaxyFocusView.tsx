@@ -58,28 +58,16 @@ export function GalaxyFocusView({
 
   // Initialize timer when subtask changes
   useEffect(() => {
-    // Calculate end time
-    const newEndTime = Date.now() + (estimatedMinutes * 60 * 1000);
-
-    // Set timer state immediately (don't wait for WebSocket)
+    // Set timer state to paused by default (user must click to start)
     useCoachStore.setState({
-      isTimerRunning: true,
-      endTime: newEndTime,
+      isTimerRunning: false,
+      endTime: undefined,
       currentTimeLeft: estimatedMinutes * 60,
       activeTaskId: task.id,
     });
 
-    // Try to start timer via WebSocket (server-managed) - non-blocking
-    startTimerWS(task.id, currentSubtask.id, estimatedMinutes);
-
-    // Also broadcast to Phase 1 BroadcastChannel for backward compatibility
-    broadcastTimerEvent('TIMER_START', {
-      endTime: newEndTime,
-      timeLeft: estimatedMinutes * 60,
-      taskId: task.id,
-      subtaskId: currentSubtask.id,
-    });
-  }, [currentSubtask.id, estimatedMinutes, startTimerWS, broadcastTimerEvent, task.id]);
+    // DO NOT start timer automatically - wait for user to click
+  }, [currentSubtask.id, estimatedMinutes, task.id]);
 
   // Client-side timer sync based on endTime (works even in background tabs)
   useEffect(() => {
@@ -119,14 +107,27 @@ export function GalaxyFocusView({
     });
 
     if (isTimerRunning) {
-      // Pause via WebSocket
+      // Pause timer
+      useCoachStore.setState({
+        isTimerRunning: false,
+      });
       pauseTimerWS();
       broadcastTimerEvent('TIMER_PAUSE', { isPaused: true });
     } else {
+      // Start or Resume timer
+      const newEndTime = currentTimeLeft === 0
+        ? Date.now() + (estimatedMinutes * 60 * 1000)
+        : Date.now() + (currentTimeLeft * 1000);
+
+      useCoachStore.setState({
+        isTimerRunning: true,
+        endTime: newEndTime,
+        currentTimeLeft: currentTimeLeft === 0 ? estimatedMinutes * 60 : currentTimeLeft,
+      });
+
       if (currentTimeLeft === 0) {
-        // Restart via WebSocket
+        // Start fresh timer
         startTimerWS(task.id, currentSubtask.id, estimatedMinutes);
-        const newEndTime = Date.now() + (estimatedMinutes * 60 * 1000);
         broadcastTimerEvent('TIMER_START', {
           endTime: newEndTime,
           timeLeft: estimatedMinutes * 60,
@@ -134,12 +135,17 @@ export function GalaxyFocusView({
           subtaskId: currentSubtask.id,
         });
       } else {
-        // Resume via WebSocket
+        // Resume paused timer
         resumeTimerWS();
         broadcastTimerEvent('TIMER_RESUME', {
-          endTime,
+          endTime: newEndTime,
           timeLeft: currentTimeLeft,
         });
+      }
+
+      // PiP Auto-Open on Start (Desktop only, valid user gesture)
+      if (isPiPSupported && !isPiPOpen) {
+        handleOpenPiP();
       }
     }
   };
@@ -195,21 +201,6 @@ export function GalaxyFocusView({
   useEffect(() => {
     setIsPiPActive(isPiPOpen);
   }, [isPiPOpen, setIsPiPActive]);
-
-  // Auto-open PiP when timer starts (desktop only)
-  useEffect(() => {
-    console.log('🔍 PiP Auto-open check:', { isPiPSupported, isPiPOpen, isTimerRunning });
-
-    if (isPiPSupported && !isPiPOpen && isTimerRunning) {
-      // Open PiP after a short delay when timer is running
-      const timer = setTimeout(() => {
-        console.log('🎬 Auto-opening PiP window...');
-        handleOpenPiP();
-      }, 1000); // Wait 1 second after timer starts
-
-      return () => clearTimeout(timer);
-    }
-  }, [isPiPSupported, isPiPOpen, isTimerRunning, handleOpenPiP]);
 
   const handleComplete = async () => {
     // Supernova confetti effect!
@@ -352,7 +343,7 @@ export function GalaxyFocusView({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 1.1 }}
       transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
-      className="fixed inset-0 z-[9999] overflow-y-auto flex flex-col items-center justify-start px-4 py-20 bg-[#2E1044] relative"
+      className="fixed inset-0 z-[9999] overflow-y-auto flex flex-col items-center justify-start px-4 py-12 md:py-20 bg-[#2E1044] relative"
     >
       {/* Aurora Gradient Background */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
