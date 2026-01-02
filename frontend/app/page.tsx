@@ -284,17 +284,21 @@ export default function Home() {
         </div>
       )}
 
-      {/* Conditional rendering: Mobile vs Desktop */}
-      {isMobile ? (
-        <MobileTaskView
-          onSettingsClick={() => setShowProfile(true)}
-          onTaskSelect={(taskId) => {/* TODO: Handle task selection */}}
-        />
-      ) : (
-        <TaskList
-          onBackgroundClick={() => setShowTaskForm(true)}
-          onEditTask={(taskId) => setEditingTaskId(taskId)}
-        />
+      {/* Conditional rendering: Mobile vs Desktop (hidden when in focus mode) */}
+      {!isFocusMode && (
+        <>
+          {isMobile ? (
+            <MobileTaskView
+              onSettingsClick={() => setShowProfile(true)}
+              onTaskSelect={(taskId) => {/* TODO: Handle task selection */}}
+            />
+          ) : (
+            <TaskList
+              onBackgroundClick={() => setShowTaskForm(true)}
+              onEditTask={(taskId) => setEditingTaskId(taskId)}
+            />
+          )}
+        </>
       )}
 
       {/* Level Up Modal */}

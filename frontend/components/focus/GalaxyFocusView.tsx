@@ -58,11 +58,21 @@ export function GalaxyFocusView({
 
   // Initialize timer when subtask changes
   useEffect(() => {
-    // Start timer via WebSocket (server-managed)
+    // Calculate end time
+    const newEndTime = Date.now() + (estimatedMinutes * 60 * 1000);
+
+    // Set timer state immediately (don't wait for WebSocket)
+    useCoachStore.setState({
+      isTimerRunning: true,
+      endTime: newEndTime,
+      currentTimeLeft: estimatedMinutes * 60,
+      activeTaskId: task.id,
+    });
+
+    // Try to start timer via WebSocket (server-managed) - non-blocking
     startTimerWS(task.id, currentSubtask.id, estimatedMinutes);
 
     // Also broadcast to Phase 1 BroadcastChannel for backward compatibility
-    const newEndTime = Date.now() + (estimatedMinutes * 60 * 1000);
     broadcastTimerEvent('TIMER_START', {
       endTime: newEndTime,
       timeLeft: estimatedMinutes * 60,
