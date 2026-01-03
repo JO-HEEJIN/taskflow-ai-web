@@ -65,11 +65,16 @@ export function useReliableTimer({ durationMinutes, subtaskId, taskId, onComplet
   }, [isRunning, targetTime]);
 
   // 3. 완료 처리 핸들러
-  const handleCompletion = useCallback(() => {
+  const handleCompletion = useCallback(async () => {
     console.log("🎉 Timer Completed!");
 
-    // 오디오 재생 (SoundManager 사용)
-    soundManager.play('timer-complete');
+    // [iOS FIX] 오디오 재생 - 반드시 await해서 AudioContext.resume() 완료 대기
+    try {
+      await soundManager.play('timer-complete');
+      console.log('✅ Timer completion sound played successfully');
+    } catch (error) {
+      console.error('❌ Failed to play timer completion sound:', error);
+    }
 
     // 진동 (모바일 지원 시)
     if (typeof navigator !== 'undefined' && navigator.vibrate) {

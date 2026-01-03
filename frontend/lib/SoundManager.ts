@@ -159,20 +159,28 @@ class SoundManager {
   }
 
   /**
-   * 사운드 재생 메서드
+   * 사운드 재생 메서드 (iOS 호환)
    * @param key 사운드 키 ('timer-complete' | 'theme')
    * @param loop 반복 재생 여부
    * @param volume 볼륨 (0.0 ~ 1.0)
    */
-  public play(key: string, loop: boolean = false, volume: number = 1.0) {
+  public async play(key: string, loop: boolean = false, volume: number = 1.0): Promise<AudioBufferSourceNode | undefined> {
     if (!this.context || !this.masterGain) {
       console.warn('AudioContext not initialized. Call init() first.');
       return;
     }
 
-    // 안전장치: 혹시라도 Context가 다시 중단되었다면 재시도
+    // [iOS FIX] 타이머 완료 시점에 AudioContext가 suspended 상태일 수 있음
+    // 반드시 resume을 AWAIT 해야 iOS에서 재생됨
     if (this.context.state === 'suspended') {
-      this.context.resume().catch(() => {});
+      console.log('⚠️ AudioContext suspended, resuming...');
+      try {
+        await this.context.resume();
+        console.log('✅ AudioContext resumed, state:', this.context.state);
+      } catch (e) {
+        console.error('❌ Failed to resume AudioContext:', e);
+        return;
+      }
     }
 
     const buffer = this.buffers.get(key);
