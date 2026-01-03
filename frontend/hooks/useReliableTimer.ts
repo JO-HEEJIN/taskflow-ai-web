@@ -33,6 +33,11 @@ export function useReliableTimer({ durationMinutes, subtaskId, taskId, onComplet
     setIsRunning(false); // 기본값은 일시정지 (사용자가 명시적으로 시작해야 함)
 
     console.log(`⏰ Timer Initialized for ${subtaskId}: Target ${new Date(newTarget).toLocaleTimeString()}, Duration: ${durationMinutes}min`);
+
+    // Cleanup: 서브타스크 변경 시 이전 heartbeat 정리
+    return () => {
+      soundManager.stopHeartbeat();
+    };
   }, [subtaskId, durationMinutes]); // 서브타스크 ID가 바뀌면 무조건 실행
 
   // 2. 틱(Tick) 루프: requestAnimationFrame과 유사한 보정 로직
@@ -68,6 +73,9 @@ export function useReliableTimer({ durationMinutes, subtaskId, taskId, onComplet
   const handleCompletion = useCallback(async () => {
     console.log("🎉 Timer Completed!");
 
+    // Heartbeat 중지 (타이머 종료)
+    soundManager.stopHeartbeat();
+
     // [iOS FIX] 오디오 재생 - 반드시 await해서 AudioContext.resume() 완료 대기
     try {
       await soundManager.play('timer-complete');
@@ -97,12 +105,19 @@ export function useReliableTimer({ durationMinutes, subtaskId, taskId, onComplet
       console.log(`▶️  Timer Started: Target ${new Date(newTarget).toLocaleTimeString()}`);
     }
 
+    // [iOS FIX] Heartbeat 시작 - 절전 모드 방지
+    soundManager.startHeartbeat();
+
     setIsRunning(true);
   }, [isRunning, timeLeft, targetTime]);
 
   // 타이머 일시정지 함수
   const pauseTimer = useCallback(() => {
     setIsRunning(false);
+
+    // Heartbeat 중지 (절전해도 OK)
+    soundManager.stopHeartbeat();
+
     console.log('⏸️  Timer Paused');
   }, []);
 

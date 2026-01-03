@@ -8,6 +8,7 @@ class SoundManager {
   private masterGain: GainNode | null = null;
   private buffers: Map<string, AudioBuffer> = new Map();
   private isUnlocked: boolean = false;
+  private heartbeatInterval: number | null = null; // iOS 절전 방지 heartbeat
 
   // 사용자가 제공한 정확한 파일 경로 매핑
   private soundManifest = {
@@ -213,6 +214,56 @@ class SoundManager {
     // AudioContext를 일시 중단하여 모든 재생 중지
     if (this.context && this.context.state === 'running') {
       this.context.suspend();
+    }
+  }
+
+  /**
+   * [iOS FIX] Heartbeat 시작 - 타이머 실행 중 절전 모드 방지
+   * 10초마다 짧은 무음 신호를 발생시켜 AudioContext가 active 상태를 유지하게 함
+   */
+  public startHeartbeat() {
+    if (typeof window === 'undefined') return;
+    if (!this.context) {
+      console.warn('AudioContext not initialized, cannot start heartbeat');
+      return;
+    }
+
+    // 이미 heartbeat이 실행 중이면 중복 방지
+    if (this.heartbeatInterval !== null) {
+      console.log('⚠️ Heartbeat already running');
+      return;
+    }
+
+    console.log('💓 Starting audio heartbeat (iOS sleep prevention)');
+
+    // 10초마다 무음 버퍼 재생
+    this.heartbeatInterval = window.setInterval(() => {
+      if (!this.context || this.context.state !== 'running') {
+        console.log('⚠️ AudioContext not running, attempting resume in heartbeat...');
+        this.context?.resume().catch(() => {});
+      }
+
+      // 0.001초 무음 버퍼 재생 (브라우저에게 "사용 중" 신호)
+      const silentBuffer = this.context!.createBuffer(1, 1, 22050);
+      const source = this.context!.createBufferSource();
+      source.buffer = silentBuffer;
+      source.connect(this.context!.destination);
+      source.start(0);
+
+      console.log('💓 Heartbeat tick (keeping AudioContext alive)');
+    }, 10000); // 10초마다
+
+    console.log('✅ Heartbeat started (interval every 10s)');
+  }
+
+  /**
+   * Heartbeat 중지
+   */
+  public stopHeartbeat() {
+    if (this.heartbeatInterval !== null) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+      console.log('💔 Heartbeat stopped');
     }
   }
 
