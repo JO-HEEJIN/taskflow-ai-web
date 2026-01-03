@@ -1,8 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-// [추가] soundManager import
-import { soundManager } from '@/lib/sounds';
+// [핵심] 새로운 SoundManager 사용 (Web Audio API 기반)
+import { soundManager } from '@/lib/SoundManager';
 
 interface AudioPermissionScreenProps {
   onAllow: () => void;
@@ -11,16 +11,22 @@ interface AudioPermissionScreenProps {
 export function AudioPermissionScreen({ onAllow }: AudioPermissionScreenProps) {
 
   // 클릭/터치 핸들러 통합
-  const handleInteraction = (e?: React.MouseEvent | React.TouchEvent) => {
-    console.log('Audio permission interaction');
+  const handleInteraction = async (e?: React.MouseEvent | React.TouchEvent) => {
+    console.log('🔊 Audio permission interaction - UNLOCKING NOW');
 
-    // [핵심 수정] 효과음 오디오 시스템 잠금 해제 (non-blocking)
-    // UI 전환을 막지 않도록 await 제거
-    soundManager.unlockAudio().catch(err => {
-        console.error("Audio unlock failed", err);
-    });
+    try {
+      // [CRITICAL] 동기적으로 오디오 시스템 초기화 및 언락
+      // 이 코드는 반드시 클릭 이벤트 핸들러 내에서 즉시 실행되어야 함
+      // iOS/Android 브라우저가 "사용자 제스처"로 인식하는 타이밍 내에 완료
+      soundManager.init(); // 컨텍스트 초기화
+      await soundManager.unlockAudio(); // 무음 버퍼 재생으로 오디오 채널 활성화
 
-    // 즉시 UI 전환 (audio unlock을 기다리지 않음)
+      console.log('✅ Audio unlocked successfully in click handler');
+    } catch (err) {
+      console.error("❌ Audio unlock failed:", err);
+    }
+
+    // 오디오 언락 완료 후 UI 전환
     onAllow();
   };
 

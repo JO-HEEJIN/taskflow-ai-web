@@ -9,14 +9,13 @@ import { BreakScreen } from './BreakScreen';
 import { NetworkBackground } from './NetworkBackground';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
-import { useTimerSync } from '@/hooks/useTimerSync';
-import { useTimerWebSocket } from '@/hooks/useTimerWebSocket';
+import { useReliableTimer } from '@/hooks/useReliableTimer';
 import { usePictureInPicture } from '@/hooks/usePictureInPicture';
 import { useEffect, useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { X, ChevronRight, SkipForward, MessageCircle, Maximize } from 'lucide-react';
 import { api } from '@/lib/api';
-import { playTimerCompletionSound, soundManager } from '@/lib/sounds';
+import { soundManager } from '@/lib/SoundManager';
 import { showTimerCompletedNotification } from '@/lib/notifications';
 
 interface GalaxyFocusViewProps {
@@ -34,10 +33,8 @@ export function GalaxyFocusView({
   onSkip,
   onClose,
 }: GalaxyFocusViewProps) {
-  const { isTimerRunning, startTimer, pauseTimer, currentTimeLeft, endTime, activeSubtaskIndex, setIsPiPActive, showBreakScreen, setShowBreakScreen } = useCoachStore();
+  const { setIsPiPActive, showBreakScreen, setShowBreakScreen } = useCoachStore();
   const { addXp } = useGamificationStore();
-  const { broadcastTimerEvent } = useTimerSync();
-  const { startTimerWS, pauseTimerWS, resumeTimerWS, stopTimerWS } = useTimerWebSocket();
   const { isSupported: isPiPSupported, isPiPOpen, openPiP, updatePiP, closePiP } = usePictureInPicture();
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
   const [showEncouragement, setShowEncouragement] = useState(false);
@@ -45,110 +42,47 @@ export function GalaxyFocusView({
 
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
 
-  // Unlock audio on mount (Focus Mode is entered via user click - this is the "Golden Key")
-  useEffect(() => {
-    // CRITICAL: This unlock happens because user clicked to enter focus mode
-    // This is our guaranteed user gesture for iOS/Chrome Autoplay policy
-    soundManager.unlock().then(() => {
-      console.log('🔓 Audio unlocked on focus mode entry (Singleton)');
-    }).catch(err => {
-      console.error('Failed to unlock audio:', err);
-    });
-  }, []);
+  // Callback for timer completion - defined before hook usage
+  const handleTimerComplete = useCallback(() => {
+    console.log('⏰ Timer completed!');
 
-  // Initialize timer when subtask changes
-  useEffect(() => {
-    // Set timer state to paused by default (user must click to start)
-    useCoachStore.setState({
-      isTimerRunning: false,
-      endTime: undefined,
-      currentTimeLeft: estimatedMinutes * 60,
-      activeTaskId: task.id,
-    });
-
-    // DO NOT start timer automatically - wait for user to click
-  }, [currentSubtask.id, estimatedMinutes, task.id]);
-
-  // Client-side timer sync based on endTime (works even in background tabs)
-  useEffect(() => {
-    if (!isTimerRunning || !endTime) return;
-
-    // Update currentTimeLeft based on endTime every 100ms
-    // This ensures accurate countdown even when tab is in background
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const remainingMs = Math.max(0, endTime - now);
-      const remainingSec = Math.floor(remainingMs / 1000);
-
-      // Update store with calculated time
-      useCoachStore.setState({ currentTimeLeft: remainingSec });
-
-      // Log for debugging
-      if (remainingSec % 10 === 0) {
-        console.log(`⏱️  Timer: ${remainingSec}s remaining (based on endTime: ${new Date(endTime).toISOString()})`);
-      }
-    }, 100); // Update every 100ms for smooth countdown
-
-    return () => clearInterval(interval);
-  }, [isTimerRunning, endTime]);
-
-  // Cleanup: stop timer when component unmounts
-  useEffect(() => {
-    return () => {
-      stopTimerWS();
-      broadcastTimerEvent('TIMER_STOP', {});
-    };
-  }, [stopTimerWS, broadcastTimerEvent]);
-
-  const handleToggleTimer = () => {
-    // Unlock audio on user interaction (additional guarantee for iOS)
-    soundManager.unlock().catch(err => {
-      console.warn('Audio unlock failed on toggle:', err);
-    });
-
-    if (isTimerRunning) {
-      // Pause timer
-      useCoachStore.setState({
-        isTimerRunning: false,
-      });
-      pauseTimerWS();
-      broadcastTimerEvent('TIMER_PAUSE', { isPaused: true });
-    } else {
-      // Start or Resume timer
-      const newEndTime = currentTimeLeft === 0
-        ? Date.now() + (estimatedMinutes * 60 * 1000)
-        : Date.now() + (currentTimeLeft * 1000);
-
-      useCoachStore.setState({
-        isTimerRunning: true,
-        endTime: newEndTime,
-        currentTimeLeft: currentTimeLeft === 0 ? estimatedMinutes * 60 : currentTimeLeft,
-      });
-
-      if (currentTimeLeft === 0) {
-        // Start fresh timer
-        startTimerWS(task.id, currentSubtask.id, estimatedMinutes);
-        broadcastTimerEvent('TIMER_START', {
-          endTime: newEndTime,
-          timeLeft: estimatedMinutes * 60,
-          taskId: task.id,
-          subtaskId: currentSubtask.id,
-        });
-      } else {
-        // Resume paused timer
-        resumeTimerWS();
-        broadcastTimerEvent('TIMER_RESUME', {
-          endTime: newEndTime,
-          timeLeft: currentTimeLeft,
-        });
-      }
-
-      // PiP Auto-Open on Start (Desktop only, valid user gesture)
-      if (isPiPSupported && !isPiPOpen) {
-        handleOpenPiP();
+    // 1. Force window focus
+    if (typeof window !== 'undefined') {
+      try {
+        window.focus();
+        console.log('🎯 Window focused');
+      } catch (error) {
+        console.error('❌ Failed to focus window:', error);
       }
     }
-  };
+
+    // 2. Show full-screen break screen
+    setShowBreakScreen(true);
+    console.log('🎉 Break screen shown');
+
+    // 3. Show notification
+    showTimerCompletedNotification();
+
+    // NOTE: Sound and vibration are already handled by useReliableTimer hook
+  }, [setShowBreakScreen]);
+
+  // 신뢰할 수 있는 타이머 훅 사용 (타임스탬프 기반)
+  const { timeLeft, isRunning, startTimer, pauseTimer, toggleTimer } = useReliableTimer({
+    durationMinutes: estimatedMinutes,
+    subtaskId: currentSubtask.id,
+    taskId: task.id,
+    onComplete: handleTimerComplete
+  });
+
+  // Handle timer toggle with PiP auto-open
+  const handleToggleTimer = useCallback(() => {
+    toggleTimer(); // Use the hook's toggle function
+
+    // PiP Auto-Open when starting timer (Desktop only, valid user gesture)
+    if (!isRunning && isPiPSupported && !isPiPOpen) {
+      handleOpenPiP();
+    }
+  }, [toggleTimer, isRunning, isPiPSupported, isPiPOpen]);
 
   // Handle closing Picture-in-Picture (defined before use)
   const handleClosePiP = useCallback(() => {
@@ -167,8 +101,8 @@ export function GalaxyFocusView({
       <PiPTimer
         taskTitle={task.title}
         subtaskTitle={currentSubtask.title}
-        currentTimeLeft={currentTimeLeft}
-        isTimerRunning={isTimerRunning}
+        currentTimeLeft={timeLeft}
+        isTimerRunning={isRunning}
         initialDuration={estimatedMinutes * 60}
         onClose={handleClosePiP}
         onToggleTimer={handleToggleTimer}
@@ -177,7 +111,7 @@ export function GalaxyFocusView({
     );
 
     setIsPiPActive(true);
-  }, [isPiPSupported, openPiP, task.title, currentSubtask.title, currentTimeLeft, isTimerRunning, estimatedMinutes, handleClosePiP, handleToggleTimer]);
+  }, [isPiPSupported, openPiP, task.title, currentSubtask.title, timeLeft, isRunning, estimatedMinutes, handleClosePiP, handleToggleTimer]);
 
   // Update PiP when timer state changes
   useEffect(() => {
@@ -188,14 +122,14 @@ export function GalaxyFocusView({
       <PiPTimer
         taskTitle={task.title}
         subtaskTitle={currentSubtask.title}
-        currentTimeLeft={currentTimeLeft}
-        isTimerRunning={isTimerRunning}
+        currentTimeLeft={timeLeft}
+        isTimerRunning={isRunning}
         initialDuration={estimatedMinutes * 60}
         onClose={handleClosePiP}
         onToggleTimer={handleToggleTimer}
       />
     );
-  }, [currentTimeLeft, isTimerRunning, isPiPOpen, task.title, currentSubtask.title, estimatedMinutes, handleClosePiP, handleToggleTimer, updatePiP]);
+  }, [timeLeft, isRunning, isPiPOpen, task.title, currentSubtask.title, estimatedMinutes, handleClosePiP, handleToggleTimer, updatePiP]);
 
   // Sync PiP state with store
   useEffect(() => {
@@ -217,6 +151,8 @@ export function GalaxyFocusView({
 
     // Get AI encouragement
     try {
+      // Calculate current subtask index
+      const activeSubtaskIndex = task.subtasks.findIndex(st => st.id === currentSubtask.id);
       const completedSubtasks = activeSubtaskIndex + 1;
       const totalSubtasks = task.subtasks.length;
       const nextSubtaskIndex = activeSubtaskIndex + 1;
@@ -251,68 +187,13 @@ export function GalaxyFocusView({
     onSkip();
   };
 
-  const handleTimerComplete = async () => {
-    console.log('⏰ Timer completed! Current state:', {
-      isTimerRunning,
-      currentTimeLeft,
-      endTime: endTime ? new Date(endTime).toISOString() : 'null'
-    });
-
-    // CRITICAL: Stop the timer immediately to prevent re-triggering
-    // Set endTime to undefined first to stop the interval immediately
-    useCoachStore.setState({
-      isTimerRunning: false,
-      endTime: undefined,
-      currentTimeLeft: 0
-    });
-
-    stopTimerWS();
-    broadcastTimerEvent('TIMER_STOP', {});
-
-    console.log('🛑 Timer stopped, isTimerRunning set to false, endTime cleared');
-
-    // PHASE 5: Completion Actions
-    // NOTE: Sound is already played by OrbitTimer (Sound-First architecture)
-    // We don't play it again here to avoid duplicate playback
-
-    // 2. Force window focus
-    if (typeof window !== 'undefined') {
-      try {
-        window.focus();
-        console.log('🎯 Window focused');
-      } catch (error) {
-        console.error('❌ Failed to focus window:', error);
-      }
-    }
-
-    // 3. Vibrate on mobile
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      try {
-        navigator.vibrate([200, 100, 200, 100, 200]);
-        console.log('📳 Vibration triggered');
-      } catch (error) {
-        console.error('❌ Failed to vibrate:', error);
-      }
-    }
-
-    // 4. Show full-screen break screen
-    useCoachStore.setState({ showBreakScreen: true });
-    console.log('🎉 Break screen shown');
-
-    // 5. Show notification
-    showTimerCompletedNotification();
-  };
-
   // Break screen handlers
   const handleTakeBreak = () => {
     console.log('☕ Taking a 5-minute break');
     setShowBreakScreen(false);
-    // Start 5-minute break timer
-    startTimerWS(task.id, currentSubtask.id, 5);
-    broadcastTimerEvent('TIMER_START', {
-      endTime: Date.now() + (5 * 60 * 1000),
-      timeLeft: 5 * 60,
-    });
+    // Timer management is handled by the useReliableTimer hook
+    // For now, just close the break screen
+    // TODO: Implement break timer if needed
   };
 
   const handleContinueWorking = () => {
@@ -495,7 +376,8 @@ export function GalaxyFocusView({
         >
           <OrbitTimer
             duration={estimatedMinutes}
-            isPlaying={isTimerRunning}
+            timeLeft={timeLeft}
+            isPlaying={isRunning}
             onComplete={handleTimerComplete}
             onToggle={handleToggleTimer}
           />
@@ -537,7 +419,7 @@ export function GalaxyFocusView({
               <div className="flex-1">
                 <p className="text-blue-100 text-sm md:text-base leading-relaxed" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
                   <strong className="text-white">Mission Control:</strong> Focus on this one task.
-                  {isTimerRunning
+                  {isRunning
                     ? " You're doing great! Keep going."
                     : " Click the timer to begin your mission."}
                   {` Estimated time: ${estimatedMinutes} minutes.`}

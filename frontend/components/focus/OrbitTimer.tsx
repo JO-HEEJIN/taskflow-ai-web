@@ -1,12 +1,10 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useEffect, useRef } from 'react';
-import { useCoachStore } from '@/store/useCoachStore';
-import { playTimerCompletionSound } from '@/lib/sounds';
 
 interface OrbitTimerProps {
   duration: number; // minutes
+  timeLeft: number; // seconds - from useReliableTimer hook
   isPlaying: boolean;
   onComplete: () => void;
   onToggle: () => void;
@@ -15,45 +13,22 @@ interface OrbitTimerProps {
 
 export function OrbitTimer({
   duration,
+  timeLeft: timeLeftProp,
   isPlaying,
   onComplete,
   onToggle,
   color = '#c084fc',
 }: OrbitTimerProps) {
-  const { currentTimeLeft } = useCoachStore();
   const radius = 120;
   const stroke = 8;
   const normalizedRadius = radius - stroke * 2;
   const circumference = normalizedRadius * 2 * Math.PI;
-  const hasCompletedRef = useRef(false);
 
-  // Use currentTimeLeft directly from store (no local state needed)
-  // GalaxyFocusView updates this based on endTime every 100ms
-  const timeLeft = currentTimeLeft || duration * 60;
+  // Use timeLeft from props (passed from useReliableTimer hook)
+  const timeLeft = timeLeftProp;
 
-  // Reset completion flag when timer restarts
-  useEffect(() => {
-    if (timeLeft > 0) {
-      hasCompletedRef.current = false;
-    }
-  }, [timeLeft]);
-
-  // SOUND-FIRST, STATE-SECOND: Play sound BEFORE calling onComplete
-  useEffect(() => {
-    if (isPlaying && timeLeft === 0 && !hasCompletedRef.current) {
-      hasCompletedRef.current = true;
-
-      console.log('🎯 Timer reached 0! Playing sound FIRST...');
-
-      // 1. Play sound IMMEDIATELY (Fire and forget - don't await)
-      playTimerCompletionSound();
-
-      // 2. THEN trigger state update (small delay to ensure sound fires)
-      setTimeout(() => {
-        onComplete();
-      }, 50); // 50ms delay to guarantee sound starts before state change
-    }
-  }, [isPlaying, timeLeft, onComplete]);
+  // NOTE: Timer completion, sound, and vibration are now handled by useReliableTimer hook
+  // OrbitTimer is now a pure presentation component that displays the timer visually
 
   const totalSeconds = duration * 60;
   const percentage = (timeLeft / totalSeconds) * 100;
