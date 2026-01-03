@@ -53,12 +53,14 @@ class SoundManager {
   }
 
   /**
-   * [핵심] 오디오 언락 메서드
+   * [핵심] 오디오 언락 메서드 - iOS Asset Warm-up Pattern
    * 반드시 "CLICK ME" 버튼의 onClick 핸들러에서 동기적으로 호출되어야 함
    */
   public async unlockAudio() {
     if (!this.context) this.init();
     if (!this.context) return;
+
+    console.log('🔑 Starting iOS-compatible audio unlock with Asset Warm-up...');
 
     // 1. Suspended 상태라면 Resume 시도
     if (this.context.state === 'suspended') {
@@ -70,16 +72,68 @@ class SoundManager {
       }
     }
 
-    // 2. 무음 버퍼 재생 (가장 중요한 단계)
-    // 짧은 무음을 재생하여 오디오 채널을 강제로 엽니다.
-    const buffer = this.context.createBuffer(1, 1, 22050);
-    const source = this.context.createBufferSource();
-    source.buffer = buffer;
-    source.connect(this.context.destination);
-    source.start(0);
+    // 2. 무음 버퍼 재생 (컨텍스트 언락)
+    const silentBuffer = this.context.createBuffer(1, 1, 22050);
+    const silentSource = this.context.createBufferSource();
+    silentSource.buffer = silentBuffer;
+    silentSource.connect(this.context.destination);
+    silentSource.start(0);
+    console.log('✅ Silent buffer played (context unlocked)');
+
+    // 3. [iOS FIX] Asset Warm-up: timer-complete.mp3를 볼륨 0으로 짧게 재생
+    // iOS는 "이 파일도 user interaction 때 재생했니?"를 검사함
+    try {
+      const timerBuffer = this.buffers.get('timer-complete');
+
+      if (timerBuffer) {
+        // 버퍼가 이미 로드됨 - 즉시 warm-up
+        console.log('🔥 Warming up timer-complete asset for iOS...');
+        const warmupSource = this.context.createBufferSource();
+        warmupSource.buffer = timerBuffer;
+
+        // 볼륨 0으로 설정 (유저는 못 들음)
+        const warmupGain = this.context.createGain();
+        warmupGain.gain.value = 0;
+
+        warmupSource.connect(warmupGain);
+        warmupGain.connect(this.context.destination);
+
+        // 0.001초만 재생 (iOS whitelisting 목적)
+        warmupSource.start(0);
+        warmupSource.stop(0.001);
+
+        console.log('✅ timer-complete.mp3 warmed up successfully');
+      } else {
+        // 버퍼가 아직 로드 안 됨 - 긴급 로드 후 warm-up
+        console.warn('⚠️ timer-complete not preloaded yet, loading now...');
+        const url = this.soundManifest['timer-complete'];
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await this.context.decodeAudioData(arrayBuffer);
+        this.buffers.set('timer-complete', audioBuffer);
+
+        // 로드 완료 후 warm-up
+        console.log('🔥 Emergency loading + warming up timer-complete...');
+        const warmupSource = this.context.createBufferSource();
+        warmupSource.buffer = audioBuffer;
+
+        const warmupGain = this.context.createGain();
+        warmupGain.gain.value = 0;
+
+        warmupSource.connect(warmupGain);
+        warmupGain.connect(this.context.destination);
+
+        warmupSource.start(0);
+        warmupSource.stop(0.001);
+
+        console.log('✅ Emergency timer-complete loaded and warmed up');
+      }
+    } catch (warmupError) {
+      console.error('❌ Asset warm-up failed (iOS playback may not work):', warmupError);
+    }
 
     this.isUnlocked = true;
-    console.log("🔊 Audio Engine Unlocked: Ready to play on mobile.");
+    console.log("🔊 Audio Engine Fully Unlocked (iOS Asset Warm-up Complete)");
   }
 
   /**
