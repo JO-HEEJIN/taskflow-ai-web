@@ -10,8 +10,10 @@ import { NetworkBackground } from './NetworkBackground';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { useReliableTimer } from '@/hooks/useReliableTimer';
+import { useTimerWebSocket } from '@/hooks/useTimerWebSocket';
 import { usePictureInPicture } from '@/hooks/usePictureInPicture';
 import { useEffect, useState, useCallback } from 'react';
+import { useSession } from 'next-auth/react';
 import confetti from 'canvas-confetti';
 import { X, ChevronRight, SkipForward, MessageCircle, Maximize } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -33,7 +35,7 @@ export function GalaxyFocusView({
   onSkip,
   onClose,
 }: GalaxyFocusViewProps) {
-  const { setIsPiPActive, showBreakScreen, setShowBreakScreen } = useCoachStore();
+  const { setIsPiPActive, showBreakScreen, setShowBreakScreen, isTimerRunning, currentTimeLeft } = useCoachStore();
   const { addXp } = useGamificationStore();
   const { isSupported: isPiPSupported, isPiPOpen, openPiP, updatePiP, closePiP } = usePictureInPicture();
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
@@ -41,6 +43,19 @@ export function GalaxyFocusView({
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
+
+  // Check if user is authenticated
+  const { data: session } = useSession();
+  const userId = session?.user?.email || session?.user?.id;
+
+  // WebSocket timer for authenticated users (cross-device sync)
+  const {
+    startTimerWS,
+    pauseTimerWS,
+    resumeTimerWS,
+    stopTimerWS,
+    isConnected: isWSConnected,
+  } = useTimerWebSocket();
 
   // Callback for timer completion - defined before hook usage
   const handleTimerComplete = useCallback(() => {
@@ -66,13 +81,51 @@ export function GalaxyFocusView({
     // NOTE: Sound and vibration are already handled by useReliableTimer hook
   }, [setShowBreakScreen]);
 
-  // 신뢰할 수 있는 타이머 훅 사용 (타임스탬프 기반)
-  const { timeLeft, isRunning, startTimer, pauseTimer, toggleTimer } = useReliableTimer({
+  // Local timer for guest users (타임스탬프 기반 + iOS heartbeat)
+  const localTimer = useReliableTimer({
     durationMinutes: estimatedMinutes,
     subtaskId: currentSubtask.id,
     taskId: task.id,
     onComplete: handleTimerComplete
   });
+
+  // Determine timer mode: WebSocket (authenticated) vs Local (guest)
+  const isUsingWebSocket = Boolean(userId && isWSConnected);
+
+  // Log timer mode for debugging
+  useEffect(() => {
+    console.log(`🔧 Timer Mode: ${isUsingWebSocket ? 'WebSocket (Cross-Device Sync)' : 'Local (Guest Mode)'}`);
+    console.log(`🔌 WebSocket Connected: ${isWSConnected}, UserId: ${userId ? 'Present' : 'None'}`);
+  }, [isUsingWebSocket, isWSConnected, userId]);
+
+  // Timer state: Use WebSocket state if connected, otherwise local timer
+  const timeLeft = isUsingWebSocket ? currentTimeLeft : localTimer.timeLeft;
+  const isRunning = isUsingWebSocket ? isTimerRunning : localTimer.isRunning;
+
+  // Timer actions: Route to WebSocket or local based on auth status
+  const startTimer = useCallback(() => {
+    if (isUsingWebSocket) {
+      startTimerWS(task.id, currentSubtask.id, estimatedMinutes);
+    } else {
+      localTimer.startTimer();
+    }
+  }, [isUsingWebSocket, startTimerWS, localTimer.startTimer, task.id, currentSubtask.id, estimatedMinutes]);
+
+  const pauseTimer = useCallback(() => {
+    if (isUsingWebSocket) {
+      pauseTimerWS();
+    } else {
+      localTimer.pauseTimer();
+    }
+  }, [isUsingWebSocket, pauseTimerWS, localTimer.pauseTimer]);
+
+  const toggleTimer = useCallback(() => {
+    if (isRunning) {
+      pauseTimer();
+    } else {
+      startTimer();
+    }
+  }, [isRunning, pauseTimer, startTimer]);
 
   // Handle timer toggle with PiP auto-open
   const handleToggleTimer = useCallback(() => {
