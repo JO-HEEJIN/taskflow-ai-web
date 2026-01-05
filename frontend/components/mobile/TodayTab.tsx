@@ -4,6 +4,8 @@ import { Task } from '@/types';
 import { CheckCircle2, Circle, Clock } from 'lucide-react';
 import { useTaskStore } from '@/store/taskStore';
 import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { api } from '@/lib/api';
 
 interface TodayTabProps {
   task: Task;
@@ -12,6 +14,7 @@ interface TodayTabProps {
 
 export function TodayTab({ task, onBreakdownAndFocus }: TodayTabProps) {
   const { toggleSubtask } = useTaskStore();
+  const [breakingDownSubtaskId, setBreakingDownSubtaskId] = useState<string | null>(null);
 
   // Get AI breakdown subtasks
   const subtasks = task.subtasks
@@ -113,12 +116,22 @@ export function TodayTab({ task, onBreakdownAndFocus }: TodayTabProps) {
             {/* Break Down Further button for composite tasks */}
             {(subtask as any).isComposite && !(subtask as any).children?.length && (
               <button
-                onClick={() => {
-                  alert(`Break Down Further: ${subtask.title}\n\nThis will recursively break down this ${subtask.estimatedMinutes}-minute task into smaller steps.\n\n(Deep Dive API integration needed)`);
+                onClick={async () => {
+                  setBreakingDownSubtaskId(subtask.id);
+                  try {
+                    await api.deepDiveBreakdown(task.id, subtask.id);
+                    // Task will be refetched automatically by taskStore
+                  } catch (error) {
+                    console.error('Deep dive error:', error);
+                    alert('Failed to break down task. This feature works in both guest and authenticated modes.');
+                  } finally {
+                    setBreakingDownSubtaskId(null);
+                  }
                 }}
-                className="mt-2 text-[11px] bg-purple-600/20 text-purple-300 px-2 py-1 rounded-md flex items-center gap-1"
+                disabled={breakingDownSubtaskId === subtask.id}
+                className="mt-2 text-[11px] bg-purple-600/20 text-purple-300 px-2 py-1 rounded-md flex items-center gap-1 disabled:opacity-50"
               >
-                🔍 Break Down Further
+                {breakingDownSubtaskId === subtask.id ? '⏳ Breaking down...' : '🔍 Break Down Further'}
               </button>
             )}
           </div>

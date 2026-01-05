@@ -26,30 +26,36 @@ const findAtomicChildren = (subtasks: Subtask[], parentSubtaskId: string): Subta
   );
 };
 
-// ✅ NEW: Helper to find first incomplete atomic task or regular subtask
+// ✅ NEW: Helper to find first incomplete subtask respecting order
+// CRITICAL: Process subtasks in order, only drill into atomic children when parent is composite
 const findFirstIncompleteAtomicOrSubtask = (subtasks: Subtask[]): number => {
-  // First, look for incomplete atomic tasks
-  for (let i = 0; i < subtasks.length; i++) {
-    const subtask = subtasks[i];
+  // Process subtasks in order (by order field)
+  const sortedSubtasks = [...subtasks].sort((a, b) => a.order - b.order);
+
+  for (const subtask of sortedSubtasks) {
     if (subtask.isCompleted) continue;
 
-    // If this is a composite subtask (has atomic children), find first incomplete atomic child
+    // Skip atomic tasks that are not yet reached (their parent hasn't been encountered)
+    if (subtask.parentSubtaskId) {
+      const parent = subtasks.find(st => st.id === subtask.parentSubtaskId);
+      if (parent && !parent.isComposite) continue; // Parent not yet processed as composite
+    }
+
+    // If this is a composite subtask with atomic children, start with first incomplete atomic child
     if (subtask.isComposite) {
       const atomicChildren = findAtomicChildren(subtasks, subtask.id);
-      const incompleteAtomic = atomicChildren.find(child => !child.isCompleted);
+      const incompleteAtomic = atomicChildren
+        .sort((a, b) => a.order - b.order)
+        .find(child => !child.isCompleted);
+
       if (incompleteAtomic) {
         return subtasks.indexOf(incompleteAtomic);
       }
     }
 
-    // If this is an atomic task, return it
-    if (subtask.title.startsWith('Atomic: ')) {
-      return i;
-    }
-
-    // If this is a regular subtask (not composite, not atomic), return it
-    if (!subtask.isComposite && !subtask.parentSubtaskId) {
-      return i;
+    // If this is a regular subtask (not an orphaned atomic task), return it
+    if (!subtask.parentSubtaskId) {
+      return subtasks.indexOf(subtask);
     }
   }
 
@@ -77,6 +83,38 @@ const findNextAfterCompletion = (subtasks: Subtask[], currentIndex: number): num
     const parentIndex = subtasks.findIndex(st => st.id === parentId);
     if (parentIndex !== -1 && !subtasks[parentIndex].isCompleted) {
       return parentIndex;
+    }
+  }
+
+  // If current is a parent subtask (just finished confirming atomic children), find next regular subtask
+  if (currentSubtask.isComposite) {
+    // Sort all subtasks by order and find next incomplete non-atomic subtask
+    const sorted = [...subtasks]
+      .filter(st => !st.parentSubtaskId) // Only top-level subtasks (not atomic children)
+      .sort((a, b) => a.order - b.order);
+
+    const currentOrderIndex = sorted.findIndex(st => st.id === currentSubtask.id);
+
+    // Find next incomplete subtask after current
+    for (let i = currentOrderIndex + 1; i < sorted.length; i++) {
+      if (!sorted[i].isCompleted) {
+        const nextSubtask = sorted[i];
+
+        // If next subtask is composite, start with its first atomic child
+        if (nextSubtask.isComposite) {
+          const atomicChildren = findAtomicChildren(subtasks, nextSubtask.id);
+          const firstIncomplete = atomicChildren
+            .sort((a, b) => a.order - b.order)
+            .find(child => !child.isCompleted);
+
+          if (firstIncomplete) {
+            return subtasks.indexOf(firstIncomplete);
+          }
+        }
+
+        // Otherwise return the regular subtask
+        return subtasks.indexOf(nextSubtask);
+      }
     }
   }
 

@@ -405,31 +405,39 @@ router.post('/:taskId/subtasks/:subtaskId/deep-dive', async (req: Request, res: 
       userId
     );
 
-    // Assign IDs and parent references to children
-    const childrenWithIds = children.map(child => ({
+    // Create atomic tasks with "Atomic: " prefix and flatten them into main subtasks array
+    const atomicTasks = children.map((child, index) => ({
       ...child,
       id: uuidv4(),
       parentTaskId: taskId,
       parentSubtaskId: subtaskId,
+      title: `Atomic: ${child.title}`, // Add "Atomic: " prefix for constellation view
+      order: task.subtasks.length + index, // Place at end of subtask list
+      status: 'draft',
+      isCompleted: false,
+      isArchived: false,
     }));
 
-    // Update subtask with children
+    // Mark parent subtask as composite and add children to its metadata
     const updatedSubtasks = task.subtasks.map(st =>
       st.id === subtaskId
-        ? { ...st, children: childrenWithIds }
+        ? { ...st, isComposite: true, children: atomicTasks }
         : st
     );
 
-    // Save updated task
+    // Flatten: Add atomic tasks to main subtasks array for constellation view
+    const flattenedSubtasks = [...updatedSubtasks, ...atomicTasks];
+
+    // Save updated task with flattened structure
     const updatedTask = await taskService.updateTask(taskId, userId, {
-      subtasks: updatedSubtasks
+      subtasks: flattenedSubtasks
     });
 
-    console.log(`✅ Deep Dive complete: Generated ${childrenWithIds.length} children for "${subtask.title}"`);
+    console.log(`✅ Deep Dive complete: Generated ${atomicTasks.length} atomic tasks for "${subtask.title}"`);
 
     res.json({
       task: updatedTask,
-      childrenCount: childrenWithIds.length
+      childrenCount: atomicTasks.length
     });
   } catch (error: any) {
     console.error('Error in deep-dive:', error);

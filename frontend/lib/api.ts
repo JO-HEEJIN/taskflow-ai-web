@@ -209,26 +209,30 @@ export const api = {
 
   async deepDiveBreakdown(taskId: string, subtaskId: string) {
     if (isGuestMode()) {
-      // Guest mode: Generate mock children
+      // Guest mode: Generate atomic tasks and flatten into main subtasks array
       const task = guestStorage.getTask(taskId);
       if (!task) throw new Error('Task not found');
 
       const subtask = task.subtasks.find(st => st.id === subtaskId);
       if (!subtask) throw new Error('Subtask not found');
 
-      // Create mock children
-      const mockChildren = [
-        { id: crypto.randomUUID(), title: `${subtask.title} - Part 1`, estimatedMinutes: 3, isCompleted: false, isArchived: false, order: 0, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
-        { id: crypto.randomUUID(), title: `${subtask.title} - Part 2`, estimatedMinutes: 4, isCompleted: false, isArchived: false, order: 1, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
-        { id: crypto.randomUUID(), title: `${subtask.title} - Part 3`, estimatedMinutes: 3, isCompleted: false, isArchived: false, order: 2, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
+      // Create atomic tasks with "Atomic: " prefix
+      const atomicTasks = [
+        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 1`, estimatedMinutes: 3, isCompleted: false, isArchived: false, order: task.subtasks.length, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
+        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 2`, estimatedMinutes: 4, isCompleted: false, isArchived: false, order: task.subtasks.length + 1, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
+        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 3`, estimatedMinutes: 3, isCompleted: false, isArchived: false, order: task.subtasks.length + 2, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
       ];
 
-      const updatedSubtasks = task.subtasks.map(st =>
-        st.id === subtaskId ? { ...st, children: mockChildren } : st
-      );
+      // Mark parent as composite and add atomic tasks to main subtasks array
+      const updatedSubtasks = [
+        ...task.subtasks.map(st =>
+          st.id === subtaskId ? { ...st, isComposite: true, children: atomicTasks } : st
+        ),
+        ...atomicTasks // Flatten atomic tasks into main array
+      ];
 
       const updatedTask = guestStorage.updateTask(taskId, { subtasks: updatedSubtasks });
-      return { task: updatedTask, childrenCount: mockChildren.length };
+      return { task: updatedTask, childrenCount: atomicTasks.length };
     }
 
     const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/${subtaskId}/deep-dive`, {

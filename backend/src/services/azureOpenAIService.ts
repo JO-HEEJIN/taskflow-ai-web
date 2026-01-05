@@ -546,7 +546,18 @@ class AzureOpenAIService {
     userId?: string
   ): AsyncGenerator<string, void, unknown> {
     if (!this.client) {
-      console.warn('⚠️  OpenAI not configured, streaming not available');
+      console.warn('⚠️  OpenAI not configured, using mock streaming breakdown');
+      // Yield mock data as JSON string for guest mode
+      const mockData = this.getMockBreakdown(taskTitle);
+      const jsonString = JSON.stringify(mockData.subtasks);
+
+      // Simulate streaming by yielding the JSON in chunks
+      const chunkSize = 20;
+      for (let i = 0; i < jsonString.length; i += chunkSize) {
+        yield jsonString.slice(i, i + chunkSize);
+        // Small delay to simulate streaming
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
       return;
     }
 

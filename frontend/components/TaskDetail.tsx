@@ -181,7 +181,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
       clearTimeout(hoverTimerRef.current);
     }
     setHoveredSubtaskId(null);
-    // Keep prompt visible if already shown (user can click)
+    setShowPrompt(null); // Hide immediately when mouse leaves
   };
 
   const handleSubtaskTouchStart = (subtaskId: string) => {

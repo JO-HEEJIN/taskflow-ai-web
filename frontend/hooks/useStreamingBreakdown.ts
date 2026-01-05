@@ -41,8 +41,9 @@ export function useStreamingBreakdown(): UseStreamingBreakdownResult {
       params.append('taskDescription', taskDescription);
     }
 
-    // Create EventSource connection
-    const url = `/api/ai/breakdown-stream?${params.toString()}`;
+    // Use backend URL for EventSource (cannot be proxied by Next.js)
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const url = `${API_BASE_URL}/api/ai/breakdown-stream?${params.toString()}`;
     console.log('🔄 [Streaming] Starting SSE connection to:', url);
     const es = new EventSource(url);
 
