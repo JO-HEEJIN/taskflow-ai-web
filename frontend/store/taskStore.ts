@@ -18,6 +18,7 @@ interface TaskStore {
   addSubtasks: (taskId: string, subtasks: (string | AISubtaskSuggestion)[]) => Promise<void>;
   addChildrenToSubtask: (taskId: string, subtaskId: string, children: any[]) => Promise<void>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  toggleChildSubtask: (taskId: string, childId: string) => void; // Client-only toggle for focus mode children
   deleteSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   reorderSubtasks: (taskId: string, subtaskOrders: { id: string; order: number }[]) => Promise<void>;
   archiveSubtask: (taskId: string, subtaskId: string, archived: boolean) => Promise<void>;
@@ -185,6 +186,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         id: `${subtaskId}-child-${index}-${timestamp}`,
         title: child.title,
         isCompleted: false,
+        isArchived: false,
+        parentTaskId: taskId,
         estimatedMinutes: child.estimatedMinutes || 5,
         stepType: child.stepType || 'mental',
         order: baseOrder + 0.01 * (index + 1), // Insert right after parent
@@ -229,6 +232,55 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     } catch (error: any) {
       set({ error: error.message });
     }
+  },
+
+  // Client-only toggle for focus mode children (not persisted to server)
+  toggleChildSubtask: (taskId: string, childId: string) => {
+    set((state) => {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task) return state;
+
+      // Find and toggle the child subtask
+      const updatedSubtasks = task.subtasks.map(st => {
+        if (st.id === childId) {
+          return { ...st, isCompleted: !st.isCompleted };
+        }
+        return st;
+      });
+
+      // Find the parent subtask (child ID format: parentId-child-index-timestamp)
+      const childSubtask = updatedSubtasks.find(st => st.id === childId);
+      if (childSubtask?.parentSubtaskId) {
+        const parentId = childSubtask.parentSubtaskId;
+
+        // Check if all children of this parent are now completed
+        const allChildren = updatedSubtasks.filter(st => st.parentSubtaskId === parentId);
+        const allChildrenCompleted = allChildren.every(child => child.isCompleted);
+
+        console.log(`📊 [toggleChildSubtask] Parent: ${parentId}, Children completed: ${allChildren.filter(c => c.isCompleted).length}/${allChildren.length}`);
+
+        // If all children completed, mark parent as completed too
+        if (allChildrenCompleted && allChildren.length > 0) {
+          console.log(`✅ [toggleChildSubtask] All children done! Marking parent as completed`);
+          const finalSubtasks = updatedSubtasks.map(st => {
+            if (st.id === parentId) {
+              return { ...st, isCompleted: true };
+            }
+            return st;
+          });
+
+          return {
+            ...state,
+            tasks: state.tasks.map(t => t.id === taskId ? { ...t, subtasks: finalSubtasks } : t),
+          };
+        }
+      }
+
+      return {
+        ...state,
+        tasks: state.tasks.map(t => t.id === taskId ? { ...t, subtasks: updatedSubtasks } : t),
+      };
+    });
   },
 
   deleteSubtask: async (taskId: string, subtaskId: string) => {

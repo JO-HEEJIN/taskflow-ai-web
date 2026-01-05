@@ -223,32 +223,47 @@ export function GalaxyFocusView({
       console.log('📥 API Response:', result);
 
       if (result.children && result.children.length > 0) {
-        const timestamp = Date.now();
-        // Format children with proper structure for focus mode
-        // NOTE: Don't set parentSubtaskId here - these children are used as independent focus queue
-        const formattedChildren: Subtask[] = result.children.map((child: any, index: number) => ({
-          id: `${currentSubtask.id}-child-${index}-${timestamp}`,
-          title: child.title,
-          isCompleted: false,
-          isArchived: false,
-          parentTaskId: task.id,
-          estimatedMinutes: child.estimatedMinutes || 5,
-          stepType: child.stepType || 'mental',
-          order: index,
-          // parentSubtaskId NOT set - this array is the new focus queue
-        }));
-
-        console.log('📝 Formatted children for focus queue:', formattedChildren);
-
-        // Add children to the subtask in store (also adds to task.subtasks for hierarchy)
+        // Add children to the subtask in store FIRST (this creates the canonical IDs)
         await addChildrenToSubtask(task.id, currentSubtask.id, result.children);
 
-        // Enter focus mode with the formatted children directly
-        const { enterFocusMode } = useCoachStore.getState();
-        console.log('🎯 Entering focus mode with', formattedChildren.length, 'children');
-        enterFocusMode(task.id, formattedChildren);
+        // Get the updated task from store to get children with correct IDs
+        const { tasks } = useTaskStore.getState();
+        const updatedTask = tasks.find(t => t.id === task.id);
 
-        console.log(`✅ Added ${result.children.length} atomic children, now focusing on first one`);
+        if (updatedTask) {
+          // Find the parent subtask (now marked as composite)
+          const parentSubtask = updatedTask.subtasks.find(st => st.id === currentSubtask.id);
+
+          // Find the children that were just added (they have parentSubtaskId = currentSubtask.id)
+          const storeChildren = updatedTask.subtasks.filter(
+            st => st.parentSubtaskId === currentSubtask.id
+          );
+
+          console.log('📝 Children from store:', storeChildren);
+          console.log('📝 Parent subtask:', parentSubtask);
+
+          // Build focus queue: children first, then parent (for confirmation screen)
+          const focusQueueItems: Subtask[] = [
+            // Children without parentSubtaskId for navigation
+            ...storeChildren.map(child => ({
+              ...child,
+              parentSubtaskId: undefined, // Remove for focus queue navigation
+            })),
+            // Parent at the end (for confirmation screen after all children done)
+            ...(parentSubtask ? [{
+              ...parentSubtask,
+              isComposite: true,
+              children: storeChildren, // Include children reference for parent view
+            }] : []),
+          ];
+
+          // Enter focus mode with children + parent
+          const { enterFocusMode } = useCoachStore.getState();
+          console.log('🎯 Entering focus mode with', storeChildren.length, 'children + parent');
+          enterFocusMode(task.id, focusQueueItems);
+
+          console.log(`✅ Added ${result.children.length} atomic children, now focusing on first one`);
+        }
       } else {
         console.log('⚠️ API returned no children');
       }
@@ -519,7 +534,7 @@ export function GalaxyFocusView({
                     <>
                       🎉 All atomic tasks completed! Ready to move to the next subtask?
                       <br />
-                      <span className="text-xs text-purple-300 mt-1">Click "Next Subtask" to continue your journey.</span>
+                      <span className="text-xs text-purple-300 mt-1">Click &quot;Next Subtask&quot; to continue your journey.</span>
                     </>
                   ) : currentSubtask.title.startsWith('Atomic: ') ? (
                     <>

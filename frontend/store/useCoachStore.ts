@@ -275,7 +275,15 @@ export const useCoachStore = create<CoachState>((set, get) => ({
 
   completeCurrentSubtask: (subtasks: Subtask[], focusedMinutes: number = 0) => {
     const { activeSubtaskIndex, accumulatedFocusTime, focusQueue } = get();
-    const currentSubtask = subtasks[activeSubtaskIndex];
+
+    // ✅ Use focusQueue from zustand (always latest) if available, otherwise use passed subtasks
+    const actualSubtasks = focusQueue.length > 0 ? focusQueue : subtasks;
+    const currentSubtask = actualSubtasks[activeSubtaskIndex];
+
+    if (!currentSubtask) {
+      console.error('❌ No current subtask found at index', activeSubtaskIndex);
+      return;
+    }
 
     // ✅ Track accumulated focus time
     const newAccumulatedTime = accumulatedFocusTime + focusedMinutes;
@@ -285,15 +293,13 @@ export const useCoachStore = create<CoachState>((set, get) => ({
     get().addFocusTime(focusedMinutes);
 
     // ✅ CRITICAL: Mark current subtask as completed in the local array
-    // This is needed because focusQueue is a copy that doesn't auto-update
-    const updatedSubtasks = subtasks.map((st, idx) =>
+    // Use actualSubtasks (from zustand) to preserve previous completion states
+    const updatedSubtasks = actualSubtasks.map((st, idx) =>
       idx === activeSubtaskIndex ? { ...st, isCompleted: true } : st
     );
 
-    // ✅ Also update focusQueue if it's being used
-    const updatedFocusQueue = focusQueue.length > 0
-      ? focusQueue.map((st, idx) => idx === activeSubtaskIndex ? { ...st, isCompleted: true } : st)
-      : [];
+    // ✅ updatedFocusQueue is the same as updatedSubtasks when using focusQueue
+    const updatedFocusQueue = focusQueue.length > 0 ? updatedSubtasks : [];
 
     // ✅ Find next subtask using updated array
     const nextIndex = findNextAfterCompletion(updatedSubtasks, activeSubtaskIndex);
@@ -307,10 +313,20 @@ export const useCoachStore = create<CoachState>((set, get) => ({
     const nextSubtask = updatedSubtasks[nextIndex];
 
     // ✅ Check if next subtask is a parent (after completing all atomic children)
-    const isParent = nextSubtask.isComposite &&
-      findAtomicChildren(updatedSubtasks, nextSubtask.id).every(child => child.isCompleted);
+    // For "Break Down Further" focus queue, parent has children array directly
+    // For regular flow, check via parentSubtaskId
+    const childrenFromParent = nextSubtask.children || [];
+    const childrenFromSubtasks = findAtomicChildren(updatedSubtasks, nextSubtask.id);
+    const allChildren = childrenFromParent.length > 0 ? childrenFromParent : childrenFromSubtasks;
 
-    console.log(`➡️  [Next] ${nextSubtask.title} (${isParent ? 'PARENT - Show confirmation' : 'Continue'})`);
+    const isParent = nextSubtask.isComposite && allChildren.length > 0 &&
+      allChildren.every(child => {
+        // Check if child is completed in updatedSubtasks (by ID match)
+        const subtaskInQueue = updatedSubtasks.find(s => s.id === child.id);
+        return subtaskInQueue?.isCompleted || child.isCompleted;
+      });
+
+    console.log(`➡️  [Next] ${nextSubtask.title} (${isParent ? 'PARENT - Show confirmation' : 'Continue'}, children: ${allChildren.length})`);
 
     set({
       activeSubtaskIndex: nextIndex,

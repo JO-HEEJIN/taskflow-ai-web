@@ -24,7 +24,7 @@ import { unlockAudioForMobile } from '@/lib/sounds';
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { tasks, toggleSubtask } = useTaskStore();
+  const { tasks, toggleSubtask, toggleChildSubtask } = useTaskStore();
   const { isFocusMode, activeTaskId, activeSubtaskIndex, focusQueue, completeCurrentSubtask, skipCurrentSubtask, exitFocusMode } = useCoachStore();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -96,10 +96,16 @@ export default function Home() {
     const focusedMinutes = currentSubtask.estimatedMinutes || 5;
     console.log(`✅ [Page] Completing subtask: ${currentSubtask.title} (${focusedMinutes}min focused)`);
 
-    // Mark subtask as completed (need to handle children differently)
-    // Children might not be persisted yet, so only toggle if it's a real subtask
-    if (currentSubtask.id && !currentSubtask.id.includes('-child-')) {
-      await toggleSubtask(activeTask.id, currentSubtask.id);
+    // Mark subtask as completed
+    if (currentSubtask.id) {
+      if (currentSubtask.id.includes('-child-')) {
+        // Child subtask from "Break Down Further" - toggle in client store only
+        toggleChildSubtask(activeTask.id, currentSubtask.id);
+        console.log(`🔄 [Page] Toggled child subtask in store: ${currentSubtask.id}`);
+      } else {
+        // Regular subtask - toggle via server API
+        await toggleSubtask(activeTask.id, currentSubtask.id);
+      }
     }
 
     // Use focusQueue for navigation
