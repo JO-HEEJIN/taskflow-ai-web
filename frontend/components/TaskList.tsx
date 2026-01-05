@@ -100,13 +100,8 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
         // Unlock timer-complete.mp3 for iOS
         unlockTimerCompletionAudio();
 
-        // Small delay to ensure store is updated
-        setTimeout(() => {
-          const task = useTaskStore.getState().tasks.find(t => t.id === taskId);
-          if (task && task.subtasks.length > 0) {
-            enterFocusMode(taskId, task.subtasks);
-          }
-        }, 100);
+        // Note: Auto focus mode entry removed for better UX
+        // User can manually click the task to enter focus mode
       }
     } catch (error) {
       console.error('Failed to create sample task:', error);

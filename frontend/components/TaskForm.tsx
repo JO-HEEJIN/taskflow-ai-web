@@ -100,15 +100,8 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
         setDescription('');
         if (onClose) onClose();
 
-        // Enter focus mode if task was created with subtasks
-        if (taskId) {
-          setTimeout(() => {
-            const createdTask = useTaskStore.getState().tasks.find(t => t.id === taskId);
-            if (createdTask && createdTask.subtasks.length > 0) {
-              enterFocusMode(taskId, createdTask.subtasks);
-            }
-          }, 100);
-        }
+        // Note: Auto focus mode entry removed for better UX
+        // User can manually enter focus mode by clicking the task
       } catch (error) {
         console.error('Failed to create task:', error);
         toast.error('Failed to create task. Please try again.');

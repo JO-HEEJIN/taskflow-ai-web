@@ -89,6 +89,10 @@ export default function Home() {
   const handleCompleteSubtask = async () => {
     if (!activeTask || !currentSubtask) return;
 
+    // ✅ Calculate focused minutes (estimated time for this subtask)
+    const focusedMinutes = currentSubtask.estimatedMinutes || 5;
+    console.log(`✅ [Page] Completing subtask: ${currentSubtask.title} (${focusedMinutes}min focused)`);
+
     // Mark subtask as completed
     await toggleSubtask(activeTask.id, currentSubtask.id);
 
@@ -96,8 +100,8 @@ export default function Home() {
     const updatedTask = tasks.find(t => t.id === activeTask.id);
     if (!updatedTask) return;
 
-    // Move to next incomplete subtask (or exit if all done)
-    completeCurrentSubtask(updatedTask.subtasks);
+    // ✅ Move to next incomplete subtask with focused time tracking
+    completeCurrentSubtask(updatedTask.subtasks, focusedMinutes);
   };
 
   const handleSkipSubtask = () => {

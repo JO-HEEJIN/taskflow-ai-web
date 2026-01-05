@@ -185,22 +185,81 @@ export const api = {
     return res.json();
   },
 
+  async approveBreakdown(taskId: string) {
+    if (isGuestMode()) {
+      // For guest mode, manually transition subtasks from draft to active
+      const task = guestStorage.getTask(taskId);
+      if (!task) throw new Error('Task not found');
+
+      const updatedTask = guestStorage.updateTask(taskId, {
+        subtasks: task.subtasks.map(st => ({
+          ...st,
+          status: st.status === 'draft' ? 'active' : st.status
+        }))
+      });
+      return { task: updatedTask };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/approve-breakdown`, {
+      method: 'POST',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to approve breakdown');
+    return res.json();
+  },
+
+  async deepDiveBreakdown(taskId: string, subtaskId: string) {
+    if (isGuestMode()) {
+      // Guest mode: Generate mock children
+      const task = guestStorage.getTask(taskId);
+      if (!task) throw new Error('Task not found');
+
+      const subtask = task.subtasks.find(st => st.id === subtaskId);
+      if (!subtask) throw new Error('Subtask not found');
+
+      // Create mock children
+      const mockChildren = [
+        { id: crypto.randomUUID(), title: `${subtask.title} - Part 1`, estimatedMinutes: 3, isCompleted: false, isArchived: false, order: 0, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
+        { id: crypto.randomUUID(), title: `${subtask.title} - Part 2`, estimatedMinutes: 4, isCompleted: false, isArchived: false, order: 1, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
+        { id: crypto.randomUUID(), title: `${subtask.title} - Part 3`, estimatedMinutes: 3, isCompleted: false, isArchived: false, order: 2, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
+      ];
+
+      const updatedSubtasks = task.subtasks.map(st =>
+        st.id === subtaskId ? { ...st, children: mockChildren } : st
+      );
+
+      const updatedTask = guestStorage.updateTask(taskId, { subtasks: updatedSubtasks });
+      return { task: updatedTask, childrenCount: mockChildren.length };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/${subtaskId}/deep-dive`, {
+      method: 'POST',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to perform deep dive');
+    return res.json();
+  },
+
   // AI
-  async breakdownTask(taskId: string, title?: string, description?: string) {
+  async breakdownTask(
+    taskId: string,
+    title?: string,
+    description?: string,
+    existingSubtasks?: Array<{ title: string; estimatedMinutes?: number }>
+  ) {
     const headers = await getHeaders();
 
-    // Guest mode: send task data in body
+    // Guest mode: send task data in body (including existing subtasks to avoid duplicates)
     if (isGuestMode() && title) {
       const res = await fetch(`${API_BASE_URL}/api/ai/breakdown/${taskId}`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ title, description }),
+        body: JSON.stringify({ title, description, existingSubtasks }),
       });
       if (!res.ok) throw new Error('Failed to generate AI breakdown');
       return res.json();
     }
 
-    // Authenticated mode: backend fetches task from DB
+    // Authenticated mode: backend fetches task from DB (already handles existingSubtasks)
     const res = await fetch(`${API_BASE_URL}/api/ai/breakdown/${taskId}`, {
       method: 'POST',
       headers,

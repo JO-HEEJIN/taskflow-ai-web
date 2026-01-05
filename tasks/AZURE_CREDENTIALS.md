@@ -190,10 +190,18 @@ OUTPUT FORMAT (strict JSON array):
 
 ## Security Notes
 
-⚠️ **API Key is committed to .env file**
-- This is acceptable for development/private repo
-- For production, use Azure Key Vault or environment variables from hosting platform
-- Never commit `.env` to public repositories (already in `.gitignore`)
+✅ **API Key Storage (Secure)**
+- **Location:** `backend/.env` and `backend/.env.backup` (local only, NOT in git)
+- **Git Protection:** Both files are in `.gitignore` and will never be committed
+- **Actual API Key:** Stored locally in these files for Azure deployment
+- **For Production:** Use Azure Key Vault or environment variables from hosting platform
+- **This Documentation:** Contains redacted placeholders only (YOUR_API_KEY_HERE)
+
+⚠️ **CRITICAL: Never commit `.env` files to git**
+- The actual API key is stored in `backend/.env` and `backend/.env.backup`
+- Both files are protected by `.gitignore`
+- Git push protection will block if accidentally staged
+- For deployment: Copy the key from local `.env` file to Azure App Service environment variables
 
 ---
 

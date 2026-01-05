@@ -101,7 +101,25 @@ export function TodayTab({ task, onBreakdownAndFocus }: TodayTabProps) {
                 <span className="text-[12px] text-white/30">
                   {subtask.estimatedMinutes} min
                 </span>
+                {/* 🔥 isComposite indicator for >10 min tasks */}
+                {(subtask as any).isComposite && (
+                  <span className="text-[10px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded-full ml-1">
+                    🔥 COMPOSITE
+                  </span>
+                )}
               </div>
+            )}
+
+            {/* Break Down Further button for composite tasks */}
+            {(subtask as any).isComposite && !(subtask as any).children?.length && (
+              <button
+                onClick={() => {
+                  alert(`Break Down Further: ${subtask.title}\n\nThis will recursively break down this ${subtask.estimatedMinutes}-minute task into smaller steps.\n\n(Deep Dive API integration needed)`);
+                }}
+                className="mt-2 text-[11px] bg-purple-600/20 text-purple-300 px-2 py-1 rounded-md flex items-center gap-1"
+              >
+                🔍 Break Down Further
+              </button>
             )}
           </div>
         </div>

@@ -10,12 +10,19 @@ router.post('/breakdown/:taskId', async (req: Request, res: Response) => {
   try {
     const { taskId } = req.params;
     const userId = req.headers['x-user-id'] as string;
-    const { title, description } = req.body; // For guest users who send task data in body
+    const { title, description, existingSubtasks } = req.body; // For guest users who send task data in body
 
     // Guest mode: task data provided in request body
     if (!userId && title) {
       console.log('🔓 Guest user requesting AI breakdown');
-      const breakdown = await azureOpenAIService.breakdownTask(title, description);
+      console.log(`📋 Existing subtasks count: ${existingSubtasks?.length || 0}`);
+
+      const breakdown = await azureOpenAIService.breakdownTask(
+        title,
+        description,
+        undefined, // userId
+        existingSubtasks
+      );
 
       return res.json({
         taskId,
@@ -37,9 +44,16 @@ router.post('/breakdown/:taskId', async (req: Request, res: Response) => {
     }
 
     // Generate AI breakdown
+    // If task already has subtasks, pass them to avoid duplicates
+    const taskExistingSubtasks = task.subtasks && task.subtasks.length > 0
+      ? task.subtasks.map(st => ({ title: st.title, estimatedMinutes: st.estimatedMinutes }))
+      : undefined;
+
     const breakdown = await azureOpenAIService.breakdownTask(
       task.title,
-      task.description
+      task.description,
+      userId,
+      taskExistingSubtasks
     );
 
     // Send notification: AI Breakdown Complete
@@ -57,6 +71,84 @@ router.post('/breakdown/:taskId', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error generating AI breakdown:', error);
     res.status(500).json({ error: 'Failed to generate task breakdown' });
+  }
+});
+
+// Streaming AI breakdown endpoint (SSE)
+router.get('/breakdown-stream', async (req: Request, res: Response) => {
+  try {
+    const { taskTitle, taskDescription } = req.query;
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!taskTitle || typeof taskTitle !== 'string') {
+      return res.status(400).json({ error: 'taskTitle is required' });
+    }
+
+    console.log(`🔄 [SSE] Starting streaming breakdown for: "${taskTitle}"`);
+
+    // Set SSE headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+
+    // Get streaming generator
+    const stream = azureOpenAIService.breakdownTaskStreaming(
+      taskTitle,
+      taskDescription as string | undefined,
+      userId
+    );
+
+    let buffer = '';
+    let subtaskCount = 0;
+
+    try {
+      for await (const chunk of stream) {
+        buffer += chunk;
+
+        // Try to parse and extract complete subtasks
+        // o3-mini returns JSON array, try to detect complete objects
+        const subtaskMatch = buffer.match(/\{\s*"title"\s*:\s*"[^"]*"[^}]*\}/g);
+
+        if (subtaskMatch && subtaskMatch.length > subtaskCount) {
+          // New subtask completed
+          const newSubtask = subtaskMatch[subtaskCount];
+          try {
+            const parsed = JSON.parse(newSubtask);
+            // Send individual subtask event
+            res.write(`data: ${JSON.stringify({ type: 'subtask', subtask: parsed })}\n\n`);
+            subtaskCount++;
+          } catch (e) {
+            // Not yet valid JSON, continue buffering
+          }
+        }
+
+        // Also send raw chunk for debugging
+        res.write(`data: ${JSON.stringify({ type: 'chunk', chunk })}\n\n`);
+      }
+
+      // Parse final complete JSON
+      try {
+        const cleanedBuffer = buffer.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsed = JSON.parse(cleanedBuffer);
+        const subtasks = Array.isArray(parsed) ? parsed : parsed.subtasks || [];
+
+        // Send completion event with all subtasks
+        res.write(`data: ${JSON.stringify({ type: 'complete', subtasks })}\n\n`);
+      } catch (e) {
+        console.error('Failed to parse final JSON:', e);
+        res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to parse JSON' })}\n\n`);
+      }
+
+      res.end();
+    } catch (streamError) {
+      console.error('Stream error:', streamError);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Streaming failed' })}\n\n`);
+      res.end();
+    }
+  } catch (error: any) {
+    console.error('Error in streaming breakdown:', error);
+    res.status(500).json({ error: error.message || 'Failed to stream breakdown' });
   }
 });
 

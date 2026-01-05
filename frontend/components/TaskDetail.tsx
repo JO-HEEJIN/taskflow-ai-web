@@ -5,11 +5,13 @@ import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useToast } from '@/contexts/ToastContext';
 import { unlockTimerCompletionAudio } from '@/lib/sounds';
+import { createPlaceholderChildren } from '@/hooks/useOptimisticTasks';
+import { ChildSubtaskSkeleton } from './SubtaskSkeleton';
 import { ProgressBar } from './ProgressBar';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { NoSubtasksEmptyState } from './onboarding/NoSubtasksEmptyState';
 import { X, GripVertical, Link2, Unlink, Archive, Map, List as ListIcon, Sparkles, ChevronDown, ChevronRight, ChevronUp, Loader2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize from 'rehype-sanitize';
@@ -26,7 +28,7 @@ interface TaskDetailProps {
 }
 
 export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
-  const { tasks, toggleSubtask, addSubtasks, deleteSubtask, reorderSubtasks, archiveSubtask, createLinkedTask } = useTaskStore();
+  const { tasks, toggleSubtask, addSubtasks, deleteSubtask, reorderSubtasks, archiveSubtask, createLinkedTask, approveBreakdown, deepDiveBreakdown } = useTaskStore();
   const toast = useToast();
   const [showAIModal, setShowAIModal] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -37,6 +39,10 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   const [showPrompt, setShowPrompt] = useState<string | null>(null);
   const [showMindMap, setShowMindMap] = useState(false);
   const [creatingLinkedTask, setCreatingLinkedTask] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [breakingDownSubtaskId, setBreakingDownSubtaskId] = useState<string | null>(null);
+  const [showOptimisticChildren, setShowOptimisticChildren] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isGuest = typeof window !== 'undefined' && !localStorage.getItem('userId');
@@ -268,8 +274,43 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
     onClose();
   };
 
+  const handleApproveBreakdown = async () => {
+    setIsApproving(true);
+    try {
+      await approveBreakdown(task.id);
+      toast.success('AI breakdown approved! Subtasks are now active.');
+    } catch (error) {
+      console.error('Failed to approve breakdown:', error);
+      toast.error('Failed to approve breakdown. Please try again.');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleDeepDive = async (subtaskId: string) => {
+    // Show optimistic skeleton children immediately (<1s perceived latency)
+    setShowOptimisticChildren(subtaskId);
+    setBreakingDownSubtaskId(subtaskId);
+
+    startTransition(async () => {
+      try {
+        await deepDiveBreakdown(task.id, subtaskId);
+        toast.success('Subtask broken down into smaller steps!');
+      } catch (error) {
+        console.error('Failed to break down subtask:', error);
+        toast.error('Failed to break down subtask. Please try again.');
+      } finally {
+        setBreakingDownSubtaskId(null);
+        setShowOptimisticChildren(null);
+      }
+    });
+  };
+
   // Check if task has incomplete subtasks for Focus Mode
   const hasIncompleteSubtasks = activeSubtasks.some(st => !st.isCompleted);
+
+  // Check if task has draft subtasks that need approval
+  const hasDraftSubtasks = activeSubtasks.some(st => st.status === 'draft');
 
   return (
     <>
@@ -328,6 +369,25 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                 <div className="flex gap-2">
                   {activeSubtasks.length > 0 && (
                     <>
+                      {hasDraftSubtasks && (
+                        <button
+                          onClick={handleApproveBreakdown}
+                          disabled={isApproving}
+                          className="text-sm px-4 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all flex items-center gap-2 font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isApproving ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Approving...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>✅</span>
+                              <span>Approve AI Plan</span>
+                            </>
+                          )}
+                        </button>
+                      )}
                       <button
                         onClick={() => setShowMindMap(!showMindMap)}
                         className="text-sm px-3 py-1 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50 transition-colors flex items-center gap-1"
@@ -344,7 +404,7 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                           </>
                         )}
                       </button>
-                      {hasIncompleteSubtasks && (
+                      {hasIncompleteSubtasks && !hasDraftSubtasks && (
                         <button
                           onClick={handleEnterFocusMode}
                           className="text-sm px-4 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all flex items-center gap-2 font-medium shadow-md"
@@ -386,8 +446,12 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                         onMouseLeave={handleSubtaskMouseLeave}
                         onTouchStart={() => handleSubtaskTouchStart(subtask.id)}
                         onTouchEnd={handleSubtaskTouchEnd}
-                        className={`relative flex items-start gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors group ${
+                        className={`relative flex items-start gap-2 p-3 rounded-lg hover:bg-gray-100 transition-colors group ${
                           draggedSubtaskId === subtask.id ? 'opacity-50' : ''
+                        } ${
+                          subtask.title.startsWith('Atomic: ')
+                            ? 'ml-6 bg-purple-50 border-l-4 border-purple-400'
+                            : 'bg-gray-50'
                         }`}
                       >
                         {/* Desktop: Drag handle */}
@@ -426,7 +490,39 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                               : 'text-gray-700'
                           }`}
                         >
-                          <span>{subtask.title}</span>
+                          {/* ✅ CONSTELLATION: Atomic tasks show atom icon */}
+                          {subtask.title.startsWith('Atomic: ') && (
+                            <span className="text-purple-500" title="Atomic constellation node">⚛️</span>
+                          )}
+                          <span className={subtask.title.startsWith('Atomic: ') ? 'text-purple-700' : ''}>
+                            {subtask.title}
+                          </span>
+                          {/* Show parent relationship for atomic tasks */}
+                          {subtask.parentSubtaskId && (() => {
+                            const parentSubtask = activeSubtasks.find(s => s.id === subtask.parentSubtaskId);
+                            if (parentSubtask) {
+                              return (
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium" title={`Child of: ${parentSubtask.title}`}>
+                                  ↳ {parentSubtask.title.substring(0, 20)}{parentSubtask.title.length > 20 ? '...' : ''}
+                                </span>
+                              );
+                            }
+                          })()}
+                          {subtask.status === 'draft' && (
+                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-medium">
+                              Draft
+                            </span>
+                          )}
+                          {/* ✅ ALWAYS show estimated time */}
+                          {subtask.estimatedMinutes && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                              subtask.isComposite && !subtask.children?.length
+                                ? 'bg-orange-100 text-orange-800'  // Composite: orange (needs breakdown)
+                                : 'bg-gray-100 text-gray-600'      // Atomic: gray (ready to do)
+                            }`}>
+                              {subtask.estimatedMinutes}min
+                            </span>
+                          )}
                           {subtask.linkedTaskId && (() => {
                             const linkedTask = tasks.find(t => t.id === subtask.linkedTaskId);
                             if (linkedTask) {
@@ -489,8 +585,43 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
                             )}
                           </div>
                         )}
-                      </div>
-                    ))}
+
+                      {/* Break Down Further Button */}
+                      {subtask.isComposite && !subtask.children?.length && (
+                        <div className="ml-14 mt-2">
+                          <button
+                            onClick={() => handleDeepDive(subtask.id)}
+                            disabled={breakingDownSubtaskId === subtask.id}
+                            className="text-xs px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-wait"
+                          >
+                            {breakingDownSubtaskId === subtask.id ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>Breaking down...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>🔍</span>
+                                <span>Break Down Further</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Optimistic Skeleton for Deep Dive */}
+                      {showOptimisticChildren === subtask.id && (
+                        <div className="ml-14 mt-2 space-y-2">
+                          <ChildSubtaskSkeleton />
+                          <ChildSubtaskSkeleton />
+                          <ChildSubtaskSkeleton />
+                        </div>
+                      )}
+
+                      {/* ✅ CONSTELLATION: Children are flattened into main subtasks array with "Atomic: " prefix */}
+                      {/* No nested rendering - atomic tasks appear as constellation nodes */}
+                    </div>
+                  ))}
                 </div>
               )}
 

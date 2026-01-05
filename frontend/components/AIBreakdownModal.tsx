@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useToast } from '@/contexts/ToastContext';
+import { createPlaceholderSubtasks } from '@/hooks/useOptimisticTasks';
+import { BreakdownSkeleton, SubtaskSkeleton } from './SubtaskSkeleton';
 import { Sparkles } from 'lucide-react';
 import { AISubtaskSuggestion } from '@/types';
+import { useStreamingBreakdown } from '@/hooks/useStreamingBreakdown';
 
 interface AIBreakdownModalProps {
   taskId: string;
@@ -18,18 +21,75 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
   const [suggestions, setSuggestions] = useState<AISubtaskSuggestion[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAccepting, setIsAccepting] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [showOptimisticSkeleton, setShowOptimisticSkeleton] = useState(false);
+  const [useStreaming, setUseStreaming] = useState(true); // ✅ ENABLED: Backend streaming now stable with CoT + CoV
 
-  // Auto-generate on mount
+  // Streaming hook for progressive rendering
+  const {
+    subtasks: streamedSubtasks,
+    isStreaming,
+    error: streamError,
+    startBreakdown,
+    stopBreakdown,
+  } = useStreamingBreakdown();
+
+  // Sync streamed subtasks to suggestions
+  useEffect(() => {
+    if (streamedSubtasks.length > 0) {
+      console.log(`📥 [AIBreakdownModal] Syncing ${streamedSubtasks.length} streamed subtasks to suggestions`);
+      setSuggestions(streamedSubtasks);
+    }
+  }, [streamedSubtasks]);
+
+  // Handle streaming completion
+  useEffect(() => {
+    if (!isStreaming && useStreaming && streamedSubtasks.length > 0) {
+      // Streaming completed successfully
+      setIsGenerating(false);
+      setShowOptimisticSkeleton(false);
+    }
+  }, [isStreaming, useStreaming, streamedSubtasks.length]);
+
+  // Handle streaming errors
+  useEffect(() => {
+    if (streamError) {
+      console.error('❌ [Streaming Error]:', streamError);
+      // Automatically fallback to non-streaming mode on error
+      setUseStreaming(false);
+    }
+  }, [streamError]);
+
+  // Auto-generate on mount with optimistic UI + streaming
   useEffect(() => {
     const autoGenerate = async () => {
+      setShowOptimisticSkeleton(true);
       setIsGenerating(true);
-      try {
-        const result = await generateAIBreakdown(taskId);
-        setSuggestions(result.suggestions || []);
-      } catch (error) {
-        console.error('AI breakdown error:', error);
-      } finally {
-        setIsGenerating(false);
+
+      if (useStreaming) {
+        // STREAMING MODE: Progressive rendering (first subtask in ~1-2s)
+        console.log('🎬 [AIBreakdownModal] Starting STREAMING mode');
+        const task = tasks.find((t) => t.id === taskId);
+        if (task) {
+          console.log('📋 [AIBreakdownModal] Task:', task.title);
+          startBreakdown(task.title, task.description);
+          // Hide skeleton after 500ms (streaming will show results progressively)
+          setTimeout(() => setShowOptimisticSkeleton(false), 500);
+        }
+      } else {
+        console.log('🎬 [AIBreakdownModal] Starting FALLBACK mode (non-streaming)');
+        // FALLBACK MODE: Traditional all-at-once (4s wait)
+        startTransition(async () => {
+          try {
+            const result = await generateAIBreakdown(taskId);
+            setSuggestions(result.suggestions || []);
+          } catch (error) {
+            console.error('AI breakdown error:', error);
+          } finally {
+            setIsGenerating(false);
+            setShowOptimisticSkeleton(false);
+          }
+        });
       }
     };
     autoGenerate();
@@ -37,30 +97,88 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
   }, []);
 
   const handleGenerate = async () => {
+    // Show skeleton immediately for optimistic UI (<1s perceived latency)
+    setShowOptimisticSkeleton(true);
     setIsGenerating(true);
-    try {
-      const result = await generateAIBreakdown(taskId);
-      // Completely replace suggestions (prevent duplicates)
-      setSuggestions(result.suggestions || []);
-    } catch (error) {
-      console.error('AI breakdown error:', error);
-      toast.error('AI got distracted by a supernova! Mind trying again?', {
-        action: {
-          label: 'Retry',
-          onClick: handleGenerate,
-        },
+    setSuggestions([]); // Clear previous
+
+    if (useStreaming) {
+      // STREAMING MODE: Progressive rendering
+      const task = tasks.find((t) => t.id === taskId);
+      if (task) {
+        startBreakdown(task.title, task.description);
+        setTimeout(() => setShowOptimisticSkeleton(false), 500);
+      }
+    } else {
+      // FALLBACK MODE: Traditional
+      startTransition(async () => {
+        try {
+          const result = await generateAIBreakdown(taskId);
+          setSuggestions(result.suggestions || []);
+        } catch (error) {
+          console.error('AI breakdown error:', error);
+          toast.error('AI got distracted by a supernova! Mind trying again?', {
+            action: {
+              label: 'Retry',
+              onClick: handleGenerate,
+            },
+          });
+          setSuggestions([]);
+        } finally {
+          setIsGenerating(false);
+          setShowOptimisticSkeleton(false);
+        }
       });
-      setSuggestions([]); // Clear on error
-    } finally {
-      setIsGenerating(false);
     }
+  };
+
+  /**
+   * Flatten children into atomic constellation nodes
+   * Children become top-level subtasks with "Atomic: " prefix
+   */
+  const flattenChildrenToAtomicTasks = (suggestions: AISubtaskSuggestion[]): AISubtaskSuggestion[] => {
+    const flattened: AISubtaskSuggestion[] = [];
+
+    suggestions.forEach((suggestion, parentIndex) => {
+      // Add parent subtask (without "Atomic:" prefix)
+      flattened.push({
+        ...suggestion,
+        order: parentIndex,
+        // Remove children from parent (they'll be added separately)
+        children: undefined,
+      });
+
+      // Add children as atomic constellation nodes
+      if (suggestion.children && suggestion.children.length > 0) {
+        suggestion.children.forEach((child: any, childIndex: number) => {
+          flattened.push({
+            title: `Atomic: ${child.title}`,  // ✅ "Atomic:" prefix
+            estimatedMinutes: child.estimatedMinutes || 5,
+            stepType: child.stepType || 'mental',
+            order: flattened.length,
+            // Link back to parent via parentSubtaskId
+            // (This will be set properly when creating subtask with IDs)
+            parentSubtaskId: suggestion.title, // Temporary - will be replaced with actual ID
+            isAtomic: true, // Flag for styling
+            depth: (child.depth || 1),
+          });
+        });
+      }
+    });
+
+    return flattened;
   };
 
   const handleAccept = async () => {
     setIsAccepting(true);
     try {
+      // ✅ Flatten children into atomic constellation nodes
+      const flattenedSubtasks = flattenChildrenToAtomicTasks(suggestions);
+
+      console.log(`📊 [AIBreakdownModal] Flattened ${suggestions.length} suggestions into ${flattenedSubtasks.length} total subtasks (including atomic)`);
+
       // Pass full suggestion objects (with estimatedMinutes and stepType)
-      await addSubtasks(taskId, suggestions);
+      await addSubtasks(taskId, flattenedSubtasks);
 
       // Get updated task with new subtasks
       const updatedTask = tasks.find(t => t.id === taskId);
@@ -101,13 +219,43 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
             </button>
           </div>
 
-          {isGenerating && suggestions.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-primary-600 border-r-transparent"></div>
-                <p className="text-lg text-gray-700 font-medium">Generating AI subtasks...</p>
+          {showOptimisticSkeleton || (isStreaming && suggestions.length === 0) ? (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 animate-pulse">
+                {useStreaming ? '✨ AI is analyzing your task...' : 'Generating AI subtasks...'}
+              </p>
+              <BreakdownSkeleton />
+            </div>
+          ) : isStreaming && suggestions.length > 0 ? (
+            // PROGRESSIVE RENDERING: Show subtasks as they arrive
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                <span className="inline-flex items-center gap-2">
+                  <div className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-solid border-purple-600 border-r-transparent"></div>
+                  Generating more subtasks...
+                </span>
+              </p>
+              <div className="space-y-2">
+                {suggestions.map((suggestion, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-2 bg-gradient-to-r from-purple-50 to-transparent p-3 rounded-lg animate-in fade-in slide-in-from-left-2 duration-300"
+                  >
+                    <span className="text-purple-400 mt-1">{index + 1}.</span>
+                    <div className="flex-1">
+                      <p className="text-gray-900">{suggestion.title}</p>
+                      {suggestion.estimatedMinutes && (
+                        <p className="text-xs text-gray-500 mt-1">{suggestion.estimatedMinutes} min</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {/* Show skeleton for remaining expected subtasks */}
+                {suggestions.length < 3 &&
+                  Array.from({ length: 3 - suggestions.length }).map((_, i) => (
+                    <SubtaskSkeleton key={`skeleton-${i}`} />
+                  ))}
               </div>
-              <p className="text-sm text-gray-500">This may take a few seconds</p>
             </div>
           ) : suggestions.length === 0 ? (
             <div className="text-center py-12">

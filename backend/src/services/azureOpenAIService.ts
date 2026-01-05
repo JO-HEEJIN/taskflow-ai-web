@@ -1,6 +1,6 @@
 import { OpenAIClient, AzureKeyCredential } from '@azure/openai';
 import dotenv from 'dotenv';
-import { AIBreakdownResponse } from '../types';
+import { AIBreakdownResponse, Subtask } from '../types';
 
 dotenv.config();
 
@@ -23,10 +23,60 @@ interface EnhancedBreakdownResponse extends AIBreakdownResponse {
   metadata?: BreakdownMetadata;
 }
 
+/**
+ * Verb Dictionary for Hybrid Complexity Scoring
+ * Based on ReCAP-ADHD algorithm (Recursive Complexity-Aware Partitioning)
+ */
+const VERB_COMPLEXITY_MATRIX = {
+  // HIGH COMPLEXITY (Cognitive / Creative) - Hours to Days
+  high: {
+    korean: ['브레인스토밍', '설계', '개발', '분석', '작성', '연구', '아키텍처', '전략', '구현', '디자인', '계획'],
+    english: ['brainstorm', 'design', 'develop', 'analyze', 'write', 'research', 'architect', 'strategy', 'implement', 'plan', 'draft', 'thesis', 'report', 'code', 'build', 'create'],
+    weight: 5
+  },
+  // MEDIUM COMPLEXITY (Procedural / Routine) - 30min to 2 Hours
+  medium: {
+    korean: ['정리', '검토', '업데이트', '일정잡기', '계산', '준비', '확인', '테스트', '문서화'],
+    english: ['organize', 'review', 'update', 'schedule', 'calculate', 'prepare', 'check', 'test', 'document', 'fix', 'debug', 'refactor'],
+    weight: 3
+  },
+  // LOW COMPLEXITY (Atomic / Transactional) - <15 Minutes
+  low: {
+    korean: ['이메일', '전화', '전송', '삭제', '구매', '인쇄', '읽기', '보내기', '제출'],
+    english: ['email', 'call', 'send', 'delete', 'buy', 'print', 'read', 'submit', 'click', 'open', 'close', 'save'],
+    weight: 1
+  }
+};
+
+/**
+ * Contextual Modifiers that escalate complexity
+ */
+const COMPLEXITY_ESCALATORS = {
+  korean: ['프로젝트', '시스템', '전체', '완전한', '종합', '통합'],
+  english: ['project', 'system', 'complete', 'full', 'comprehensive', 'integrated', 'entire', 'campaign']
+};
+
+/**
+ * ADHD-specific constants from research
+ */
+const ADHD_MULTIPLIER = 1.5; // Accounts for transition costs and time blindness
+const ATOMIC_THRESHOLD_MINUTES = 10; // JIT recursive breakdown threshold
+const PRIMITIVE_THRESHOLD_MINUTES = 5; // Below this, task is primitive (cannot be further broken down)
+
 class AzureOpenAIService {
   private client: OpenAIClient | null = null;
   private models: ModelConfig;
   private apiVersion: string;
+
+  /**
+   * Detect language from input text
+   * Returns 'korean' if Korean characters found, otherwise 'english'
+   */
+  private detectLanguage(text: string): 'korean' | 'english' {
+    // Check for Korean characters (Hangul Unicode range: 0xAC00-0xD7A3)
+    const koreanRegex = /[\uAC00-\uD7A3]/;
+    return koreanRegex.test(text) ? 'korean' : 'english';
+  }
 
   constructor() {
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT || '';
@@ -67,13 +117,293 @@ class AzureOpenAIService {
   }
 
   /**
+   * [RULE-BASED] Calculate complexity score using verb dictionary
+   * Part of Hybrid Complexity Scoring (ReCAP-ADHD Algorithm)
+   */
+  private calculateRuleBasedComplexity(taskTitle: string, taskDescription?: string): {
+    level: 'High' | 'Medium' | 'Low';
+    score: number;
+    matchedKeywords: string[];
+  } {
+    const text = `${taskTitle} ${taskDescription || ''}`.toLowerCase();
+    const language = this.detectLanguage(taskTitle);
+
+    let score = 0;
+    const matchedKeywords: string[] = [];
+
+    // Check HIGH complexity verbs
+    const highVerbs = language === 'korean'
+      ? VERB_COMPLEXITY_MATRIX.high.korean
+      : VERB_COMPLEXITY_MATRIX.high.english;
+
+    for (const verb of highVerbs) {
+      if (text.includes(verb.toLowerCase())) {
+        score += VERB_COMPLEXITY_MATRIX.high.weight;
+        matchedKeywords.push(verb);
+      }
+    }
+
+    // Check MEDIUM complexity verbs
+    const mediumVerbs = language === 'korean'
+      ? VERB_COMPLEXITY_MATRIX.medium.korean
+      : VERB_COMPLEXITY_MATRIX.medium.english;
+
+    for (const verb of mediumVerbs) {
+      if (text.includes(verb.toLowerCase())) {
+        score += VERB_COMPLEXITY_MATRIX.medium.weight;
+        matchedKeywords.push(verb);
+      }
+    }
+
+    // Check LOW complexity verbs
+    const lowVerbs = language === 'korean'
+      ? VERB_COMPLEXITY_MATRIX.low.korean
+      : VERB_COMPLEXITY_MATRIX.low.english;
+
+    for (const verb of lowVerbs) {
+      if (text.includes(verb.toLowerCase())) {
+        score += VERB_COMPLEXITY_MATRIX.low.weight;
+        matchedKeywords.push(verb);
+      }
+    }
+
+    // Check for complexity escalators (e.g., "프로젝트", "시스템")
+    const escalators = language === 'korean'
+      ? COMPLEXITY_ESCALATORS.korean
+      : COMPLEXITY_ESCALATORS.english;
+
+    for (const escalator of escalators) {
+      if (text.includes(escalator.toLowerCase())) {
+        score += 2; // Escalate complexity
+        matchedKeywords.push(`+${escalator}`);
+      }
+    }
+
+    // Context length bonus (longer descriptions = more complex)
+    const wordCount = text.split(/\s+/).length;
+    if (wordCount > 20) {
+      score += 2;
+    }
+
+    // Determine level based on score
+    let level: 'High' | 'Medium' | 'Low';
+    if (score >= 5) {
+      level = 'High';
+    } else if (score >= 3) {
+      level = 'Medium';
+    } else {
+      level = 'Low';
+    }
+
+    return { level, score, matchedKeywords };
+  }
+
+  /**
+   * [FLASH ESTIMATE] Quick AI-based duration estimate (latency-optimized)
+   * Uses gpt-4o-mini with max_tokens=10 for speed
+   * Part of Hybrid Complexity Scoring
+   */
+  private async getFlashEstimate(taskTitle: string, taskDescription?: string): Promise<number> {
+    if (!this.client) {
+      return 60; // Default fallback
+    }
+
+    try {
+      const response = await this.client.getChatCompletions(
+        this.models.coach, // gpt-4o-mini for speed
+        [
+          {
+            role: 'user',
+            content: `You are a project manager. Estimate the time in minutes for: "${taskTitle}". ${taskDescription ? `Context: ${taskDescription}` : ''} Respond ONLY with an integer (number of minutes).`
+          }
+        ],
+        { maxTokens: 10, temperature: 0 }
+      );
+
+      const content = response.choices[0]?.message?.content || '60';
+      const estimate = parseInt(content.trim());
+
+      return isNaN(estimate) ? 60 : estimate;
+    } catch (error) {
+      console.error('[Flash Estimate] Error:', error);
+      return 60; // Fallback
+    }
+  }
+
+  /**
+   * [HYBRID COMPLEXITY ANALYSIS] Combines rule-based + AI flash estimate
+   * Based on ReCAP-ADHD Algorithm (Recursive Complexity-Aware Partitioning)
+   * Determines if task should be broken down in hours or minutes
+   */
+  private async analyzeComplexity(
+    taskTitle: string,
+    taskDescription?: string
+  ): Promise<{
+    complexity: 'simple' | 'moderate' | 'complex' | 'very_complex';
+    estimatedTotalHours: number;
+    timeScale: 'minutes' | 'hours';
+    reasoning: string;
+    ruleScore?: number;
+    flashEstimate?: number;
+    adhdAdjusted?: boolean;
+  }> {
+    console.log(`🧠 [Hybrid Complexity] Analyzing: "${taskTitle}"`);
+
+    // PHASE 1: Rule-Based Scoring
+    const ruleResult = this.calculateRuleBasedComplexity(taskTitle, taskDescription);
+    console.log(`📋 [Rule-Based] Level: ${ruleResult.level}, Score: ${ruleResult.score}, Keywords: [${ruleResult.matchedKeywords.join(', ')}]`);
+
+    // PHASE 2: Flash Estimate (AI Sanity Check)
+    const flashEstimate = await this.getFlashEstimate(taskTitle, taskDescription);
+    console.log(`⚡ [Flash Estimate] ${flashEstimate} minutes`);
+
+    // PHASE 3: Hybrid Decision Logic
+    // AI estimate overrides rule if significant divergence
+    let finalComplexity: 'simple' | 'moderate' | 'complex' | 'very_complex';
+    let rawEstimateMinutes = flashEstimate;
+
+    if (flashEstimate > 480) {
+      // 8+ hours = Very Complex (AI override)
+      finalComplexity = 'very_complex';
+      console.log(`🔀 [Hybrid] AI Override: Very Complex (${flashEstimate}min > 480min)`);
+    } else if (flashEstimate > 120) {
+      // 2+ hours = Complex (AI override)
+      finalComplexity = 'complex';
+      console.log(`🔀 [Hybrid] AI Override: Complex (${flashEstimate}min > 120min)`);
+    } else if (flashEstimate < 15) {
+      // <15 min = Simple (AI override)
+      finalComplexity = 'simple';
+      console.log(`🔀 [Hybrid] AI Override: Simple (${flashEstimate}min < 15min)`);
+    } else {
+      // Rule-based takes precedence for moderate range
+      if (ruleResult.level === 'High') {
+        finalComplexity = flashEstimate > 60 ? 'complex' : 'moderate';
+      } else if (ruleResult.level === 'Medium') {
+        finalComplexity = 'moderate';
+      } else {
+        finalComplexity = 'simple';
+      }
+      console.log(`📊 [Hybrid] Rule-Based: ${finalComplexity} (from ${ruleResult.level})`);
+    }
+
+    // PHASE 4: ADHD Multiplier (1.5x for transition costs and time blindness)
+    const adhdAdjustedMinutes = Math.round(rawEstimateMinutes * ADHD_MULTIPLIER);
+    const estimatedTotalHours = adhdAdjustedMinutes / 60;
+
+    console.log(`🧠 [ADHD Adjustment] ${rawEstimateMinutes}min × ${ADHD_MULTIPLIER} = ${adhdAdjustedMinutes}min (${estimatedTotalHours.toFixed(1)}h)`);
+
+    // PHASE 5: Time Scale Determination
+    const timeScale: 'minutes' | 'hours' =
+      (finalComplexity === 'complex' || finalComplexity === 'very_complex') ? 'hours' : 'minutes';
+
+    const reasoning = `Hybrid analysis: Rule-based scored ${ruleResult.score} (${ruleResult.level}), Flash estimate ${flashEstimate}min, Applied ${ADHD_MULTIPLIER}x ADHD multiplier → ${adhdAdjustedMinutes}min total`;
+
+    console.log(`✅ [Hybrid Result] ${finalComplexity.toUpperCase()} | ${estimatedTotalHours.toFixed(1)}h | ${timeScale} scale`);
+
+    return {
+      complexity: finalComplexity,
+      estimatedTotalHours,
+      timeScale,
+      reasoning,
+      ruleScore: ruleResult.score,
+      flashEstimate,
+      adhdAdjusted: true
+    };
+  }
+
+  /**
+   * [NORMALIZATION] Code-level time consistency enforcement
+   * Solves the "arithmetic hallucination" problem where AI generates subtasks
+   * that don't add up to the parent duration
+   *
+   * Implementation from research paper:
+   * "scale = task.estimatedMinutes / subtaskSum"
+   * "If the AI breaks a 60-minute task into three 10-minute tasks (Sum=30),
+   *  the scale becomes 2.0. We then multiply each subtask by 2."
+   */
+  private normalizeSubtaskDurations(
+    subtasks: any[],
+    parentDurationMinutes: number,
+    tolerance: number = 0.15
+  ): { normalized: any[]; wasNormalized: boolean; originalSum: number; finalSum: number } {
+    // Calculate original sum
+    const originalSum = subtasks.reduce((acc, st) => acc + (st.estimatedMinutes || 0), 0);
+
+    // Check if normalization is needed (outside tolerance range)
+    const deviation = Math.abs(originalSum - parentDurationMinutes);
+    const deviationPercent = deviation / parentDurationMinutes;
+
+    if (deviationPercent <= tolerance || originalSum === 0) {
+      // Within tolerance or invalid sum, no normalization needed
+      return {
+        normalized: subtasks,
+        wasNormalized: false,
+        originalSum,
+        finalSum: originalSum
+      };
+    }
+
+    // Calculate normalization scale
+    const scale = parentDurationMinutes / originalSum;
+
+    console.warn(`⚠️  [Normalization] Time mismatch detected!`);
+    console.log(`   Parent: ${parentDurationMinutes}min | AI Sum: ${originalSum}min | Deviation: ${(deviationPercent * 100).toFixed(1)}%`);
+    console.log(`   Applying scale factor: ${scale.toFixed(2)}x`);
+
+    // Apply normalization to each subtask
+    const normalized = subtasks.map(st => ({
+      ...st,
+      estimatedMinutes: Math.round((st.estimatedMinutes || 0) * scale)
+    }));
+
+    const finalSum = normalized.reduce((acc, st) => acc + st.estimatedMinutes, 0);
+
+    console.log(`✅ [Normalization] Adjusted: ${originalSum}min → ${finalSum}min (target: ${parentDurationMinutes}min)`);
+
+    return {
+      normalized,
+      wasNormalized: true,
+      originalSum,
+      finalSum
+    };
+  }
+
+  /**
+   * [PRIMITIVE CHECK] Detect if task is atomic (cannot be broken down further)
+   * Based on research: "If the task description matches a pattern of simple imperatives
+   * and the duration is < 5 minutes, force level = Low"
+   */
+  private isPrimitiveTask(taskTitle: string, estimatedMinutes: number): boolean {
+    // Below primitive threshold
+    if (estimatedMinutes < PRIMITIVE_THRESHOLD_MINUTES) {
+      return true;
+    }
+
+    // Check for simple imperative patterns
+    const primitivePatterns = [
+      /^(click|open|close|save|type|write|read|send|call|email|buy|print)/i,
+      /^(클릭|열기|닫기|저장|입력|작성|읽기|전송|전화|이메일|구매|인쇄)/
+    ];
+
+    for (const pattern of primitivePatterns) {
+      if (pattern.test(taskTitle.trim())) {
+        console.log(`🔒 [Primitive Check] Task "${taskTitle}" is primitive (matches imperative pattern + ${estimatedMinutes}min)`);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * [TIER 1] ARCHITECT: Initial task breakdown using o3-mini
    * Native CoT reasoning eliminates "책상 정리" automatically
    */
   async breakdownTask(
     taskTitle: string,
     taskDescription?: string,
-    userId?: string
+    userId?: string,
+    existingSubtasks?: Array<{ title: string; estimatedMinutes?: number }>
   ): Promise<EnhancedBreakdownResponse> {
     if (!this.client) {
       return this.getMockBreakdown(taskTitle);
@@ -83,8 +413,17 @@ class AzureOpenAIService {
     const modelUsed = this.models.architect;
 
     try {
-      const systemPrompt = this.getArchitectSystemPrompt();
-      const userPrompt = this.buildArchitectUserPrompt(taskTitle, taskDescription);
+      // Step 1: Analyze complexity (CoT reasoning)
+      const complexity = await this.analyzeComplexity(taskTitle, taskDescription);
+      console.log(`⚖️  [Complexity] ${complexity.complexity.toUpperCase()} task: ${complexity.estimatedTotalHours}h (${complexity.timeScale} scale)`);
+
+      // Step 2: Detect language from task title
+      const language = this.detectLanguage(taskTitle);
+      console.log(`🌐 [Language Detection] Detected: ${language} for task: "${taskTitle}"`);
+
+      // Step 3: Generate breakdown with complexity-aware prompts
+      const systemPrompt = this.getArchitectSystemPrompt(language, complexity);
+      const userPrompt = this.buildArchitectUserPrompt(taskTitle, taskDescription, language, existingSubtasks, complexity);
 
       console.log(`🏗️  [Architect] Breaking down task: "${taskTitle}" with model: ${modelUsed}`);
 
@@ -131,13 +470,57 @@ class AzureOpenAIService {
         subtasks,
       });
 
+      // Step 4A: Chain-of-Verification (CoV) - AI-based verification
+      const verification = await this.verifyBreakdown(taskTitle, taskDescription, subtasks, complexity);
+
+      // Use corrected subtasks if verification failed and corrections provided
+      let workingSubtasks = (!verification.isValid && verification.correctedSubtasks)
+        ? verification.correctedSubtasks
+        : subtasks;
+
+      if (!verification.isValid && verification.correctedSubtasks) {
+        console.log('🔧 [CoV] Using AI-corrected breakdown due to verification issues');
+      }
+
+      // Step 4B: Code-level Normalization (Mathematical guarantee)
+      // Ensure subtasks add up to parent duration (ADHD-adjusted)
+      const targetDurationMinutes = Math.round(complexity.estimatedTotalHours * 60);
+      const normResult = this.normalizeSubtaskDurations(workingSubtasks, targetDurationMinutes);
+
+      const finalSubtasks = normResult.normalized;
+
+      if (normResult.wasNormalized) {
+        console.log(`🔧 [Code Normalization] Applied ${normResult.originalSum}min → ${normResult.finalSum}min`);
+      }
+
+      // Step 5: AUTOMATIC RECURSIVE BREAKDOWN
+      // Any subtask >10 min is automatically broken down until atomic (<10min)
+      console.log('🔄 [Auto Recursive] Starting automatic breakdown for composite tasks...');
+
+      const recursivelyBrokenDown = await Promise.all(
+        finalSubtasks.map(async (st: any, index: number) => {
+          const estimatedMinutes = st.estimatedMinutes || 5;
+
+          return {
+            title: st.title || String(st),
+            order: st.order ?? index,
+            estimatedMinutes,
+            stepType: st.stepType || 'mental',
+            status: 'draft',
+            isComposite: estimatedMinutes > 10,
+            depth: 0,
+            // ✅ AUTOMATIC RECURSIVE BREAKDOWN
+            children: estimatedMinutes > 10
+              ? await this.recursiveBreakdownUntilAtomic(st.title, estimatedMinutes, taskTitle, 1)
+              : [],
+          };
+        })
+      );
+
+      console.log('✅ [Auto Recursive] All composite tasks broken down to atomic level');
+
       return {
-        subtasks: subtasks.map((st: any, index: number) => ({
-          title: st.title || String(st),
-          order: st.order ?? index,
-          estimatedMinutes: st.estimatedMinutes || 5,
-          stepType: st.stepType || 'mental',
-        })),
+        subtasks: recursivelyBrokenDown,
         metadata: {
           model: modelUsed,
           latencyMs,
@@ -150,6 +533,402 @@ class AzureOpenAIService {
       console.error('❌ [Architect] Error:', error);
       console.log(`🔄 Falling back to ${this.models.fallback}`);
       return this.fallbackBreakdown(taskTitle, taskDescription, userId);
+    }
+  }
+
+  /**
+   * [TIER 1] ARCHITECT (STREAMING): Stream task breakdown as it's generated
+   * Yields JSON chunks incrementally for progressive UI rendering
+   */
+  async *breakdownTaskStreaming(
+    taskTitle: string,
+    taskDescription?: string,
+    userId?: string
+  ): AsyncGenerator<string, void, unknown> {
+    if (!this.client) {
+      console.warn('⚠️  OpenAI not configured, streaming not available');
+      return;
+    }
+
+    const modelUsed = this.models.architect; // o3-mini
+    const startTime = Date.now();
+
+    try {
+      // Step 1: Analyze complexity (CoT reasoning)
+      const complexity = await this.analyzeComplexity(taskTitle, taskDescription);
+      console.log(`⚖️  [Streaming Complexity] ${complexity.complexity.toUpperCase()} task: ${complexity.estimatedTotalHours}h (${complexity.timeScale} scale)`);
+
+      // Step 2: Detect language from task title
+      const language = this.detectLanguage(taskTitle);
+      console.log(`🌐 [Streaming] Detected: ${language} for task: "${taskTitle}"`);
+      console.log(`🔄 [Architect Streaming] Breaking down: "${taskTitle}"`);
+
+      // Step 3: Generate breakdown with complexity-aware prompts
+      const systemPrompt = this.getArchitectSystemPrompt(language, complexity);
+      const userPrompt = this.buildArchitectUserPrompt(taskTitle, taskDescription, language, undefined, complexity);
+
+      // Stream chat completions
+      const stream = await this.client.streamChatCompletions(
+        modelUsed,
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        this.getModelOptions(modelUsed, 800)
+      );
+
+      let buffer = '';
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content || '';
+        if (delta) {
+          buffer += delta;
+          // Yield each chunk as it arrives
+          yield delta;
+        }
+      }
+
+      const latencyMs = Date.now() - startTime;
+      console.log(`✅ [Architect Streaming] Complete: ${latencyMs}ms, ${buffer.length} chars`);
+
+      // Log metadata (can't get token usage from streaming easily)
+      if (userId) {
+        this.logBreakdown({
+          userId,
+          taskTitle,
+          taskDescription: taskDescription || '',
+          model: modelUsed,
+          latencyMs,
+          tokensUsed: 0, // Not available in streaming
+          reasoningTokens: 0,
+          costUSD: 0,
+          subtasks: [], // Will be parsed on client
+        });
+      }
+    } catch (error) {
+      console.error('❌ [Architect Streaming] Error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Chain-of-Verification (CoV): Verify that breakdown time estimates are realistic
+   * Uses o3-mini reasoning to validate subtask estimates against complexity analysis
+   */
+  private async verifyBreakdown(
+    taskTitle: string,
+    taskDescription: string | undefined,
+    subtasks: any[],
+    complexity: {
+      complexity: 'simple' | 'moderate' | 'complex' | 'very_complex';
+      estimatedTotalHours: number;
+      timeScale: 'minutes' | 'hours';
+      reasoning: string;
+    }
+  ): Promise<{
+    isValid: boolean;
+    issues: string[];
+    correctedSubtasks?: any[];
+  }> {
+    if (!this.client) {
+      // If no OpenAI client, skip verification
+      return { isValid: true, issues: [] };
+    }
+
+    const modelUsed = this.models.architect; // o3-mini for reasoning
+
+    // Calculate actual total from subtasks
+    const actualTotalMinutes = subtasks.reduce((sum, st) => sum + (st.estimatedMinutes || 0), 0);
+    const actualTotalHours = actualTotalMinutes / 60;
+
+    // Count subtasks >10min
+    const compositeCount = subtasks.filter(st => (st.estimatedMinutes || 0) > 10).length;
+
+    const verificationPrompt = `You are verifying a task breakdown for realism and consistency.
+
+**Original Task:**
+Title: "${taskTitle}"
+Description: ${taskDescription || 'None'}
+
+**Complexity Analysis (CoT):**
+- Complexity Level: ${complexity.complexity}
+- Expected Total Time: ${complexity.estimatedTotalHours} hours (${Math.round(complexity.estimatedTotalHours * 60)} minutes)
+- Time Scale: ${complexity.timeScale}
+- Reasoning: ${complexity.reasoning}
+
+**Generated Breakdown:**
+${subtasks.map((st, i) => `${i + 1}. "${st.title}" - ${st.estimatedMinutes} min`).join('\n')}
+
+**Actual Total:** ${actualTotalMinutes} minutes (${actualTotalHours.toFixed(1)} hours)
+**Subtasks >10min:** ${compositeCount} out of ${subtasks.length}
+
+**VERIFICATION CHECKS:**
+
+1. **Time Consistency:** Does actual total (${actualTotalHours.toFixed(1)}h) match expected (${complexity.estimatedTotalHours}h)?
+   - Tolerance: ±30% is acceptable
+   - Issue if: actual < 50% or > 150% of expected
+
+2. **Time Scale Match:**
+   - If complexity is COMPLEX/VERY_COMPLEX (hours scale), at least 1-2 subtasks MUST be >10 minutes
+   - If complexity is SIMPLE/MODERATE (minutes scale), most subtasks should be <10 minutes
+
+3. **Realism Check:** Are individual time estimates realistic?
+   - "데이터 파이프라인 브레인스토밍" should be 1-2 hours minimum, not 5 minutes
+   - "이메일 보내기" should be 2-5 minutes, not 30 minutes
+   - Consider real-world execution time, not idealized time
+
+4. **Irreversibility Test:** Do all subtasks create actual progress?
+
+**OUTPUT FORMAT (strict JSON):**
+{
+  "isValid": true/false,
+  "issues": ["issue 1", "issue 2", ...],
+  "reasoning": "step-by-step verification reasoning",
+  "correctedSubtasks": [ // Only if isValid=false
+    { "title": "...", "estimatedMinutes": 120 }, // Corrected estimates
+    ...
+  ]
+}
+
+Respond with verification results:`;
+
+    try {
+      const startTime = Date.now();
+      const response = await this.client.getChatCompletions(
+        modelUsed,
+        [{ role: 'user', content: verificationPrompt }],
+        { ...this.getModelOptions(modelUsed, 800), responseFormat: { type: 'json_object' } }
+      );
+
+      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const latencyMs = Date.now() - startTime;
+
+      console.log(`🔍 [CoV] Verification: ${result.isValid ? '✅ PASS' : '❌ FAIL'} (${latencyMs}ms)`);
+      if (result.issues?.length > 0) {
+        console.log(`⚠️  [CoV] Issues found:`, result.issues);
+      }
+      if (result.reasoning) {
+        console.log(`💭 [CoV] Reasoning: ${result.reasoning}`);
+      }
+
+      return {
+        isValid: result.isValid,
+        issues: result.issues || [],
+        correctedSubtasks: result.correctedSubtasks,
+      };
+    } catch (error) {
+      console.error('❌ [CoV] Verification error:', error);
+      // If verification fails, assume valid to not block user
+      return { isValid: true, issues: [] };
+    }
+  }
+
+  /**
+   * [TIER 3] DEEP DIVE: Recursively break down >10min subtasks using o3-mini
+   */
+  async deepDiveBreakdown(
+    subtaskTitle: string,
+    originalEstimate: number,
+    parentTaskTitle: string,
+    parentDepth: number = 0,
+    userId?: string
+  ): Promise<Subtask[]> {
+    if (!this.client) {
+      console.warn('⚠️  Deep Dive not available (OpenAI not configured)');
+      return [];
+    }
+
+    const modelUsed = this.models.deepDive; // o3-mini
+    const startTime = Date.now();
+
+    try {
+      // Detect language from subtask title (or parent task title as fallback)
+      const language = this.detectLanguage(subtaskTitle || parentTaskTitle);
+      console.log(`🌐 [Deep Dive] Detected: ${language} for subtask: "${subtaskTitle}"`);
+      console.log(`🔍 [Deep Dive] Breaking down: "${subtaskTitle}" (${originalEstimate} min)`);
+
+      const languageInstruction = language === 'korean' ? '- Use Korean language' : '- Use English language';
+
+      const systemPrompt = `You are an ADHD Coach specialized in breaking down complex tasks into micro-actions.
+
+CRITICAL RULES (Irreversibility Test):
+1. NO preparation tasks (no "책상 정리", "자료 모으기", "노트북 켜기")
+2. EVERY subtask must create IRREVERSIBLE PROGRESS toward the goal
+3. First subtask must be <2 minutes and create immediate value
+4. Each subtask must pass this test: "If I only did this one thing, would the world change?"
+
+OUTPUT FORMAT (strict JSON array):
+[
+  {
+    "title": "First immediate action that creates value",
+    "estimatedMinutes": 2,
+    "stepType": "mental" | "physical" | "creative",
+    "order": 0
+  },
+  {
+    "title": "Second micro-action",
+    "estimatedMinutes": 5,
+    "stepType": "...",
+    "order": 1
+  },
+  {
+    "title": "Third micro-action",
+    "estimatedMinutes": 3,
+    "stepType": "...",
+    "order": 2
+  }
+]
+
+CONSTRAINTS:
+- EXACTLY 3 subtasks (Rule of Three)
+- Each subtask <10 minutes
+- Total time ≈ ${originalEstimate} minutes
+- NO preparation tasks
+${languageInstruction}`;
+
+      const userPrompt = `Parent task: "${parentTaskTitle}"
+Subtask to break down: "${subtaskTitle}"
+Original estimate: ${originalEstimate} minutes
+
+This subtask is too large (>10 min). Break it into 3 smaller micro-actions, each <10 minutes.
+Follow the Irreversibility Test - no preparation tasks allowed.
+
+Return ONLY the JSON array, no markdown, no explanation.`;
+
+      const response = await this.client.getChatCompletions(
+        modelUsed,
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        this.getModelOptions(modelUsed, 600)
+      );
+
+      const latencyMs = Date.now() - startTime;
+      const content = response.choices[0]?.message?.content?.trim() || '[]';
+
+      // Parse JSON response
+      const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const parsed = JSON.parse(cleanedContent);
+      const childSubtasks = Array.isArray(parsed) ? parsed : parsed.subtasks || [];
+
+      // Calculate usage and cost
+      const usage = response.usage;
+      const tokensUsed = usage?.totalTokens || 0;
+      const reasoningTokens = (usage as any)?.completionTokensDetails?.reasoningTokens || 0;
+      const costUSD = this.calculateCost(modelUsed, tokensUsed);
+
+      console.log(`✅ [Deep Dive] Generated ${childSubtasks.length} children: ${latencyMs}ms, ${tokensUsed} tokens ($${costUSD.toFixed(4)})`);
+
+      // ✅ CRITICAL: Normalize children to sum to parent duration
+      const normResult = this.normalizeSubtaskDurations(childSubtasks, originalEstimate, 0.15);
+
+      if (normResult.wasNormalized) {
+        console.log(`🔧 [Deep Dive Normalization] ${normResult.originalSum}min → ${normResult.finalSum}min (target: ${originalEstimate}min)`);
+      }
+
+      // Map to Subtask[] with increased depth
+      return normResult.normalized.map((child: any, index: number) => {
+        const estimatedMinutes = child.estimatedMinutes || 5;
+        const isComposite = estimatedMinutes > 10; // Recursively check threshold
+
+        return {
+          id: '', // Will be assigned by backend when saved
+          title: child.title || String(child),
+          order: child.order ?? index,
+          estimatedMinutes,
+          stepType: child.stepType || 'mental',
+          status: 'draft', // Children also start as draft
+          isComposite,
+          depth: parentDepth + 1, // Increase depth
+          children: [], // Initialize empty (can be further broken down)
+          isCompleted: false,
+          isArchived: false,
+          parentTaskId: '', // Will be set by caller
+          parentSubtaskId: '', // Will be set by caller
+        } as Subtask;
+      });
+    } catch (error) {
+      console.error('❌ [Deep Dive] Error:', error);
+      return []; // Return empty on error
+    }
+  }
+
+  /**
+   * [AUTOMATIC RECURSIVE BREAKDOWN] Recursively break down subtasks until all are atomic (<10min)
+   * Based on ReCAP-ADHD Algorithm - continues until no composite tasks remain
+   *
+   * @param subtaskTitle - Title of the subtask to break down
+   * @param estimatedMinutes - Current estimate for this subtask
+   * @param parentTaskTitle - Title of the parent task (for context)
+   * @param currentDepth - Current depth in the recursion tree
+   * @param maxDepth - Maximum recursion depth (default 3 to prevent infinite loops)
+   * @returns Array of atomic subtasks with all children recursively broken down
+   */
+  private async recursiveBreakdownUntilAtomic(
+    subtaskTitle: string,
+    estimatedMinutes: number,
+    parentTaskTitle: string,
+    currentDepth: number = 1,
+    maxDepth: number = 3
+  ): Promise<any[]> {
+    // SAFETY: Prevent infinite recursion
+    if (currentDepth > maxDepth) {
+      console.warn(`⚠️  [Recursive] Max depth ${maxDepth} reached for "${subtaskTitle}". Stopping recursion.`);
+      return [];
+    }
+
+    // BASE CASE: Already atomic (<= 10 minutes)
+    if (estimatedMinutes <= 10) {
+      console.log(`✅ [Recursive] "${subtaskTitle}" is atomic (${estimatedMinutes}min) - no breakdown needed`);
+      return [];
+    }
+
+    console.log(`🔄 [Recursive Depth ${currentDepth}] Breaking down "${subtaskTitle}" (${estimatedMinutes}min)...`);
+
+    try {
+      // Call Deep Dive to break down this subtask
+      const children = await this.deepDiveBreakdown(
+        subtaskTitle,
+        estimatedMinutes,
+        parentTaskTitle,
+        currentDepth
+      );
+
+      if (!children || children.length === 0) {
+        console.warn(`⚠️  [Recursive] Deep Dive returned no children for "${subtaskTitle}"`);
+        return [];
+      }
+
+      // RECURSIVE STEP: For each child, check if it needs further breakdown
+      const fullyBrokenDown = await Promise.all(
+        children.map(async (child: any) => {
+          const childEstimate = child.estimatedMinutes || 5;
+
+          return {
+            ...child,
+            isComposite: childEstimate > 10,
+            depth: currentDepth,
+            // ✅ RECURSIVELY BREAK DOWN if still composite
+            children: childEstimate > 10
+              ? await this.recursiveBreakdownUntilAtomic(
+                  child.title,
+                  childEstimate,
+                  parentTaskTitle,
+                  currentDepth + 1,
+                  maxDepth
+                )
+              : [],
+          };
+        })
+      );
+
+      console.log(`✅ [Recursive Depth ${currentDepth}] Generated ${fullyBrokenDown.length} atomic children for "${subtaskTitle}"`);
+      return fullyBrokenDown;
+
+    } catch (error) {
+      console.error(`❌ [Recursive] Error at depth ${currentDepth} for "${subtaskTitle}":`, error);
+      return []; // Return empty on error
     }
   }
 
@@ -393,9 +1172,16 @@ Important:
     const modelUsed = this.models.fallback;
 
     try {
+      // Analyze complexity (even in fallback)
+      const complexity = await this.analyzeComplexity(taskTitle, taskDescription);
+
+      // Detect language from task title
+      const language = this.detectLanguage(taskTitle);
+      console.log(`🌐 [Fallback] Detected: ${language} for task: "${taskTitle}"`);
+
       // Use Architect prompt even with fallback model
-      const systemPrompt = this.getArchitectSystemPrompt();
-      const userPrompt = this.buildArchitectUserPrompt(taskTitle, taskDescription);
+      const systemPrompt = this.getArchitectSystemPrompt(language, complexity);
+      const userPrompt = this.buildArchitectUserPrompt(taskTitle, taskDescription, language, undefined, complexity);
 
       const response = await this.client!.getChatCompletions(
         modelUsed,
@@ -417,13 +1203,44 @@ Important:
 
       console.log(`✅ [Fallback] Used ${modelUsed}: ${latencyMs}ms, ${tokensUsed} tokens`);
 
+      // Chain-of-Verification (CoV) - AI-based verification
+      const verification = await this.verifyBreakdown(taskTitle, taskDescription, subtasks, complexity);
+
+      // Use corrected subtasks if verification failed and corrections provided
+      let workingSubtasks = (!verification.isValid && verification.correctedSubtasks)
+        ? verification.correctedSubtasks
+        : subtasks;
+
+      if (!verification.isValid && verification.correctedSubtasks) {
+        console.log('🔧 [Fallback CoV] Using AI-corrected breakdown due to verification issues');
+      }
+
+      // Code-level Normalization (Mathematical guarantee)
+      const targetDurationMinutes = Math.round(complexity.estimatedTotalHours * 60);
+      const normResult = this.normalizeSubtaskDurations(workingSubtasks, targetDurationMinutes);
+
+      const finalSubtasks = normResult.normalized;
+
+      if (normResult.wasNormalized) {
+        console.log(`🔧 [Fallback Normalization] Applied ${normResult.originalSum}min → ${normResult.finalSum}min`);
+      }
+
       return {
-        subtasks: subtasks.map((st: any, index: number) => ({
-          title: st.title || String(st),
-          order: index,
-          estimatedMinutes: st.estimatedMinutes || 5,
-          stepType: st.stepType || 'mental',
-        })),
+        subtasks: finalSubtasks.map((st: any, index: number) => {
+          const estimatedMinutes = st.estimatedMinutes || 5;
+          const isComposite = estimatedMinutes > 10; // JIT threshold: >10 min needs breakdown
+
+          return {
+            title: st.title || String(st),
+            order: index,
+            estimatedMinutes,
+            stepType: st.stepType || 'mental',
+            status: 'draft', // All AI-generated subtasks start as DRAFT
+            isComposite, // Flag for "Break Down Further" button
+            depth: 0, // Top-level subtask
+            children: [], // Initialize empty children array
+          };
+        }),
         metadata: {
           model: modelUsed,
           latencyMs,
@@ -440,7 +1257,32 @@ Important:
   /**
    * Get Architect system prompt (eliminates "책상 정리" problem)
    */
-  private getArchitectSystemPrompt(): string {
+  private getArchitectSystemPrompt(
+    language: 'korean' | 'english' = 'english',
+    complexity?: { timeScale: 'minutes' | 'hours'; estimatedTotalHours: number }
+  ): string {
+    const languageInstruction = language === 'korean'
+      ? '\n\nIMPORTANT: Generate all subtasks in Korean language.'
+      : '\n\nIMPORTANT: Generate all subtasks in English language.';
+
+    // Time scale instructions based on complexity
+    const timeScaleInstructions = complexity?.timeScale === 'hours'
+      ? `
+**TIME SCALE: HOUR-SCALE BREAKDOWN (Complex Task)**
+- Total estimated time: ${complexity.estimatedTotalHours} hours
+- Generate 3 subtasks in HOUR-SCALE (30 minutes to 4 hours each)
+- At least 1-2 subtasks MUST be >10 minutes (these will be flagged for recursive breakdown)
+- Example: "요구사항 분석 및 문서화 (2시간)", "시스템 아키텍처 설계 (3시간)", "프로토타입 구현 (4시간)"
+- These are strategic chunks - user will break them down further into micro-tasks
+`
+      : `
+**TIME SCALE: MINUTE-SCALE BREAKDOWN (Simple/Moderate Task)**
+- Total estimated time: ${complexity ? Math.round(complexity.estimatedTotalHours * 60) : '15-25'} minutes
+- Generate 3 subtasks in MINUTE-SCALE (2-10 minutes each)
+- Keep subtasks actionable and immediately executable
+- Example: "핵심 메시지 1문장 작성 (2분)", "3가지 bullet point 작성 (5분)"
+`;
+
     return `You are an ADHD Task Architect using Cognitive Shuffling methodology.
 
 CORE PRINCIPLE: Create IMMEDIATE, IRREVERSIBLE value in first step.
@@ -449,12 +1291,14 @@ IRREVERSIBILITY TEST:
 - ❌ PREPARATION: Can be undone without output (책상 정리, 노트북 켜기, 자료 모으기, 템플릿 찾기)
 - ✅ VALUE-FIRST: Creates artifact (문장 작성, 선 그리기, 파일 생성, 코드 작성)
 
+${timeScaleInstructions}
+
 CRITICAL RULES:
 1. Output exactly 3 subtasks in JSON
-2. First task MUST create value in <2 minutes
-3. Total estimated time: 15-25 minutes
-4. Each task builds on previous output
-5. NEVER suggest: 준비, 세팅, 정리, 찾기, 모으기, 확인, 검색, 열기
+2. First task MUST create value (quick win)
+3. Each task builds on previous output
+4. NEVER suggest: 준비, 세팅, 정리, 찾기, 모으기, 확인, 검색, 열기
+5. Follow the TIME SCALE instructions above carefully
 
 EXAMPLES:
 
@@ -523,18 +1367,37 @@ OUTPUT FORMAT:
       "estimatedMinutes": number
     }
   ]
-}`;
+}${languageInstruction}`;
   }
 
   /**
    * Build user prompt for Architect
    */
-  private buildArchitectUserPrompt(title: string, description?: string): string {
+  private buildArchitectUserPrompt(
+    title: string,
+    description?: string,
+    language: 'korean' | 'english' = 'english',
+    existingSubtasks?: Array<{ title: string; estimatedMinutes?: number }>,
+    complexity?: { timeScale: 'minutes' | 'hours'; estimatedTotalHours: number }
+  ): string {
+    const languageReminder = language === 'korean'
+      ? '\n\nReminder: Respond in Korean language.'
+      : '\n\nReminder: Respond in English language.';
+
+    // If existing subtasks, show them and ask for ADDITIONAL ones (avoid duplicates)
+    const existingContext = existingSubtasks && existingSubtasks.length > 0
+      ? `\n\nEXISTING SUBTASKS (DO NOT DUPLICATE):\n${existingSubtasks.map((st, i) => `${i + 1}. ${st.title} (${st.estimatedMinutes || '?'} min)`).join('\n')}\n\nIMPORTANT: Generate 3 NEW subtasks that are DIFFERENT from the existing ones above. Focus on aspects not yet covered.`
+      : '';
+
+    // Time scale reminder
+    const timeScaleReminder = complexity?.timeScale === 'hours'
+      ? `\n\nThis is a COMPLEX task (~${complexity.estimatedTotalHours} hours). Generate 3 HOUR-SCALE subtasks (30min-4hr each). At least 1-2 MUST be >10 minutes.`
+      : `\n\nThis is a SIMPLE/MODERATE task. Generate 3 MINUTE-SCALE subtasks (2-10min each), immediately actionable.`;
+
     return `Task: "${title}"
 ${description ? `Context: ${description}` : ''}
-
-Create 3 micro-tasks. First step must be completable in <2 minutes and create tangible output.
-Output JSON only.`;
+${existingContext}${timeScaleReminder}
+Output JSON only.${languageReminder}`;
   }
 
   /**
@@ -621,18 +1484,30 @@ Output JSON only.`;
         order: 0,
         estimatedMinutes: 2,
         stepType: 'mental' as const,
+        status: 'draft' as const,
+        isComposite: false, // <10 min
+        depth: 0,
+        children: [],
       },
       {
         title: `첫 번째 구체적 행동 실행`,
         order: 1,
         estimatedMinutes: 7,
         stepType: 'creative' as const,
+        status: 'draft' as const,
+        isComposite: false, // <10 min
+        depth: 0,
+        children: [],
       },
       {
         title: `결과물 확인 및 다음 단계 메모`,
         order: 2,
         estimatedMinutes: 5,
         stepType: 'mental' as const,
+        status: 'draft' as const,
+        isComposite: false, // <10 min
+        depth: 0,
+        children: [],
       },
     ];
 

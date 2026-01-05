@@ -33,7 +33,7 @@ export function GalaxyFocusView({
   onSkip,
   onClose,
 }: GalaxyFocusViewProps) {
-  const { setIsPiPActive, showBreakScreen, setShowBreakScreen } = useCoachStore();
+  const { setIsPiPActive, showBreakScreen, setShowBreakScreen, isParentSubtaskView } = useCoachStore(); // ✅ Get isParentSubtaskView
   const { addXp } = useGamificationStore();
   const { isSupported: isPiPSupported, isPiPOpen, openPiP, updatePiP, closePiP } = usePictureInPicture();
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
@@ -418,11 +418,30 @@ export function GalaxyFocusView({
               <div className="flex-shrink-0 w-2 h-2 rounded-full bg-green-400 mt-1.5 animate-pulse" />
               <div className="flex-1">
                 <p className="text-blue-100 text-sm md:text-base leading-relaxed" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
-                  <strong className="text-white">Mission Control:</strong> Focus on this one task.
-                  {isRunning
-                    ? " You're doing great! Keep going."
-                    : " Click the timer to begin your mission."}
-                  {` Estimated time: ${estimatedMinutes} minutes.`}
+                  <strong className="text-white">Mission Control:</strong>{' '}
+                  {isParentSubtaskView ? (
+                    <>
+                      🎉 All atomic tasks completed! Ready to move to the next subtask?
+                      <br />
+                      <span className="text-xs text-purple-300 mt-1">Click "Next Subtask" to continue your journey.</span>
+                    </>
+                  ) : currentSubtask.title.startsWith('Atomic: ') ? (
+                    <>
+                      ⚛️ Atomic task - Focus on this one small step.
+                      {isRunning
+                        ? " You're crushing it! Keep that momentum."
+                        : " Click the timer to begin this micro-mission."}
+                      {` Estimated time: ${estimatedMinutes} minutes.`}
+                    </>
+                  ) : (
+                    <>
+                      Focus on this one task.
+                      {isRunning
+                        ? " You're doing great! Keep going."
+                        : " Click the timer to begin your mission."}
+                      {` Estimated time: ${estimatedMinutes} minutes.`}
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -436,18 +455,24 @@ export function GalaxyFocusView({
           transition={{ delay: 0.5 }}
           className="flex flex-col sm:flex-row gap-3 w-full max-w-md px-4"
         >
-          {/* Complete button */}
+          {/* Complete button - Changes based on isParentSubtaskView */}
           <button
             onClick={handleComplete}
             className="flex-1 py-3 md:py-4 px-6 text-base md:text-lg font-bold rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
             style={{
-              background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-              boxShadow: '0 0 30px rgba(34, 197, 94, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)',
+              background: isParentSubtaskView
+                ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'  // Purple for parent confirmation
+                : 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', // Green for atomic tasks
+              boxShadow: isParentSubtaskView
+                ? '0 0 30px rgba(139, 92, 246, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)'
+                : '0 0 30px rgba(34, 197, 94, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)',
               textShadow: '0 2px 4px rgba(0,0,0,0.5)',
             }}
           >
-            <span>✅</span>
-            <span className="text-white">I DID IT!</span>
+            <span>{isParentSubtaskView ? '➡️' : '✅'}</span>
+            <span className="text-white">
+              {isParentSubtaskView ? 'Next Subtask' : 'I DID IT!'}
+            </span>
           </button>
 
           {/* Skip button */}

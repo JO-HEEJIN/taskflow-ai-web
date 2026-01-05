@@ -20,6 +20,8 @@ interface TaskStore {
   deleteSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   reorderSubtasks: (taskId: string, subtaskOrders: { id: string; order: number }[]) => Promise<void>;
   archiveSubtask: (taskId: string, subtaskId: string, archived: boolean) => Promise<void>;
+  approveBreakdown: (taskId: string) => Promise<void>;
+  deepDiveBreakdown: (taskId: string, subtaskId: string) => Promise<void>;
   generateAIBreakdown: (taskId: string) => Promise<{ suggestions: any[] }>;
 }
 
@@ -198,12 +200,46 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
+  approveBreakdown: async (taskId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { task } = await api.approveBreakdown(taskId);
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === taskId ? task : t)),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  deepDiveBreakdown: async (taskId: string, subtaskId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { task } = await api.deepDiveBreakdown(taskId, subtaskId);
+      set((state) => ({
+        tasks: state.tasks.map((t) => (t.id === taskId ? task : t)),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
   generateAIBreakdown: async (taskId: string) => {
     set({ isLoading: true, error: null });
     try {
       // Find the task to get its title and description
       const task = get().tasks.find(t => t.id === taskId);
-      const result = await api.breakdownTask(taskId, task?.title, task?.description);
+
+      // Pass existing subtasks to avoid duplicates (for "Add More with AI")
+      const existingSubtasks = task?.subtasks && task.subtasks.length > 0
+        ? task.subtasks.map(st => ({ title: st.title, estimatedMinutes: st.estimatedMinutes }))
+        : undefined;
+
+      const result = await api.breakdownTask(taskId, task?.title, task?.description, existingSubtasks);
       set({ isLoading: false });
       return result;
     } catch (error: any) {

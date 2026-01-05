@@ -181,18 +181,66 @@ export const guestStorage = {
     const task = this.getTask(taskId);
     if (!task) return null;
 
-    const newSubtasks: Subtask[] = subtaskData.map((data, index) => {
+    const newSubtasks: Subtask[] = [];
+    const parentIdMap = new Map<string, string>(); // title -> ID mapping for linking atomic tasks
+
+    subtaskData.forEach((data, index) => {
       const isString = typeof data === 'string';
-      return {
-        id: uuidv4(),
-        title: isString ? data : data.title,
-        isCompleted: false,
-        isArchived: false,
-        parentTaskId: taskId,
-        order: task.subtasks.length + (isString ? index : (data.order ?? index)),
-        estimatedMinutes: isString ? 5 : (data.estimatedMinutes || 5),
-        stepType: isString ? 'mental' as const : (data.stepType || 'mental'),
-      };
+
+      if (isString) {
+        // Fallback for string input
+        newSubtasks.push({
+          id: uuidv4(),
+          title: data,
+          isCompleted: false,
+          isArchived: false,
+          parentTaskId: taskId,
+          order: task.subtasks.length + index,
+          estimatedMinutes: 5,
+          stepType: 'mental' as const,
+          isComposite: false,
+          status: 'active',
+          depth: 0,
+          children: [],
+        });
+      } else {
+        // ✅ PRESERVE ALL RECAP-ADHD FIELDS
+        const subtaskId = uuidv4();
+        const subtask: Subtask = {
+          id: subtaskId,
+          title: data.title,
+          isCompleted: false,
+          isArchived: false,
+          parentTaskId: taskId,
+          order: task.subtasks.length + (data.order ?? index),
+          estimatedMinutes: data.estimatedMinutes || 5,
+          stepType: data.stepType || 'mental',
+          isComposite: (data as any).isComposite || false,
+          status: (data as any).status || 'active',
+          depth: (data as any).depth || 0,
+          children: [],
+          // ✅ For atomic tasks: link to parent subtask
+          parentSubtaskId: (data as any).isAtomic && (data as any).parentSubtaskId
+            ? parentIdMap.get((data as any).parentSubtaskId) // Get actual parent ID from map
+            : undefined,
+        };
+
+        newSubtasks.push(subtask);
+
+        // Store mapping for linking atomic tasks
+        parentIdMap.set(data.title, subtaskId);
+      }
+    });
+
+    // ✅ Second pass: Fix parentSubtaskId references that use titles
+    newSubtasks.forEach(subtask => {
+      if (subtask.parentSubtaskId && !subtask.parentSubtaskId.includes('-')) {
+        // If parentSubtaskId is a title (not a UUID), replace with actual ID
+        const actualParentId = parentIdMap.get(subtask.parentSubtaskId);
+        if (actualParentId) {
+          subtask.parentSubtaskId = actualParentId;
+        }
+      }
     });
 
     const updatedTask = {

@@ -63,11 +63,11 @@ export function CoachView({ isOpen, onClose, currentTask, currentSubtask }: Coac
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ opacity: 0, x: 100 }}
+          initial={{ opacity: 0, x: -100 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 100 }}
+          exit={{ opacity: 0, x: -100 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="fixed right-0 top-0 h-full z-[9998] w-full md:w-96 flex flex-col"
+          className="fixed left-0 top-0 h-full z-[9998] w-full md:w-96 flex flex-col"
           style={{
             background: 'radial-gradient(circle at 50% 50%, rgba(30, 15, 50, 0.98) 0%, rgba(10, 5, 20, 0.98) 100%)',
             border: '1px solid rgba(167, 139, 250, 0.3)',

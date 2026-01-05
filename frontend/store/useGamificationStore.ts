@@ -13,9 +13,11 @@ interface GamificationState {
   streak: number;
   lastCompletionDate: string | null;
   activityHistory: DailyActivity[]; // Last 30 days of activity
+  accumulatedFocusTime: number; // ✅ NEW: Total focused minutes (resets after level up)
 
   // Actions
   addXp: (amount: number) => void;
+  addFocusTime: (minutes: number) => void; // ✅ NEW: Add focused time and check for level up
   checkStreak: () => void;
   resetProgress: () => void;
   getActivityForLast30Days: () => DailyActivity[];
@@ -34,6 +36,7 @@ export const useGamificationStore = create<GamificationState>()(
       streak: 0,
       lastCompletionDate: null,
       activityHistory: [],
+      accumulatedFocusTime: 0, // ✅ NEW
 
       addXp: (amount: number) => {
         const { xp, level, activityHistory } = get();
@@ -84,6 +87,39 @@ export const useGamificationStore = create<GamificationState>()(
         get().checkStreak();
       },
 
+      addFocusTime: (minutes: number) => {
+        // ✅ NEW: Time-based level up system
+        const { accumulatedFocusTime, level } = get();
+        const newAccumulatedTime = accumulatedFocusTime + minutes;
+
+        console.log(`⏱️  [Gamification] Focus time: +${minutes}min (Total: ${newAccumulatedTime}min)`);
+
+        // Level up every 60 minutes of focused work
+        if (newAccumulatedTime >= 60) {
+          const newLevel = level + 1;
+          const remainingTime = newAccumulatedTime - 60;
+
+          console.log(`🎉 [LEVEL UP] ${level} → ${newLevel}`);
+
+          set({
+            level: newLevel,
+            accumulatedFocusTime: remainingTime, // Carry over extra time
+          });
+
+          // Trigger level up celebration
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('levelup', {
+              detail: { newLevel, focusTimeMinutes: 60 }
+            }));
+          }
+
+          // Update streak
+          get().checkStreak();
+        } else {
+          set({ accumulatedFocusTime: newAccumulatedTime });
+        }
+      },
+
       checkStreak: () => {
         const today = new Date().toDateString();
         const { lastCompletionDate } = get();
@@ -114,7 +150,7 @@ export const useGamificationStore = create<GamificationState>()(
       },
 
       resetProgress: () => {
-        set({ xp: 0, level: 1, streak: 0, lastCompletionDate: null, activityHistory: [] });
+        set({ xp: 0, level: 1, streak: 0, lastCompletionDate: null, activityHistory: [], accumulatedFocusTime: 0 });
       },
 
       getActivityForLast30Days: () => {

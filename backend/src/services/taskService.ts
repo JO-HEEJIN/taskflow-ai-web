@@ -250,15 +250,40 @@ class TaskService {
 
     const newSubtasks: Subtask[] = subtaskData.map((data, index) => {
       const isString = typeof data === 'string';
+
+      // Preserve all fields from AI response (isComposite, status, depth, children)
+      if (!isString && typeof data === 'object') {
+        return {
+          id: uuidv4(),
+          title: data.title,
+          isCompleted: false,
+          isArchived: false,
+          parentTaskId: taskId,
+          order: task.subtasks.length + (data.order ?? index),
+          estimatedMinutes: data.estimatedMinutes || 5,
+          stepType: data.stepType || 'mental',
+          // ✅ Preserve ReCAP-ADHD fields
+          isComposite: (data as any).isComposite || false,
+          status: (data as any).status || 'active',
+          depth: (data as any).depth || 0,
+          children: (data as any).children || [],
+        };
+      }
+
+      // Fallback for string input
       return {
         id: uuidv4(),
-        title: isString ? data : data.title,
+        title: data as string,
         isCompleted: false,
         isArchived: false,
         parentTaskId: taskId,
-        order: task.subtasks.length + (isString ? index : (data.order ?? index)),
-        estimatedMinutes: isString ? 5 : (data.estimatedMinutes || 5),
-        stepType: isString ? 'mental' as const : (data.stepType || 'mental'),
+        order: task.subtasks.length + index,
+        estimatedMinutes: 5,
+        stepType: 'mental' as const,
+        isComposite: false,
+        status: 'active',
+        depth: 0,
+        children: [],
       };
     });
 

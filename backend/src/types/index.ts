@@ -13,9 +13,10 @@ export interface Task {
 }
 
 export enum TaskStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
+  DRAFT = 'draft',              // AI-generated, not user-approved
+  PENDING = 'pending',           // User-approved, not started
+  IN_PROGRESS = 'in_progress',   // Currently being worked on
+  COMPLETED = 'completed',       // Finished
 }
 
 export interface Subtask {
@@ -24,10 +25,15 @@ export interface Subtask {
   isCompleted: boolean;
   isArchived: boolean;
   parentTaskId: string;
+  parentSubtaskId?: string; // For nested subtasks (recursive)
   order: number;
   linkedTaskId?: string;
   estimatedMinutes?: number; // AI-estimated time for this subtask
   stepType?: 'physical' | 'mental' | 'creative'; // Type of action required
+  status?: 'draft' | 'active'; // Draft = AI-generated, Active = User-approved (default: 'draft')
+  isComposite?: boolean; // True if subtask has/needs children (>10 min)
+  depth?: number; // Nesting level: 0 = top-level, 1 = child, 2 = grandchild, etc.
+  children?: Subtask[]; // Nested subtasks (recursive)
 }
 
 // Sync Types
@@ -50,5 +56,8 @@ export interface AIBreakdownResponse {
     order: number;
     estimatedMinutes?: number;
     stepType?: 'physical' | 'mental' | 'creative';
+    status?: 'draft' | 'active';
+    isComposite?: boolean;
+    depth?: number;
   }[];
 }
