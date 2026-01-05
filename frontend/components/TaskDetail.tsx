@@ -108,7 +108,16 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
 
     setIsAddingSubtask(true);
     try {
-      await addSubtasks(task.id, [newSubtaskTitle.trim()]);
+      // If viewing a specific subtask, add as child of that subtask
+      if (initialContext?.type === 'subtask' && initialContext.subtaskId) {
+        const { addChildrenToSubtask } = useTaskStore.getState();
+        await addChildrenToSubtask(task.id, initialContext.subtaskId, [
+          { title: newSubtaskTitle.trim(), estimatedMinutes: 5 }
+        ]);
+      } else {
+        // Otherwise add to parent task
+        await addSubtasks(task.id, [newSubtaskTitle.trim()]);
+      }
       setNewSubtaskTitle('');
     } catch (error) {
       console.error('Failed to add subtask:', error);
@@ -449,15 +458,6 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
                       )}
                     </>
                   )}
-                  {activeSubtasks.length === 0 && (
-                    <button
-                      onClick={() => setShowAIModal(true)}
-                      className="text-sm bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700"
-                    >
-                      <Sparkles className="w-4 h-4 inline mr-1" />
-                      AI Breakdown
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -748,6 +748,7 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
       {showAIModal && (
         <AIBreakdownModal
           taskId={task.id}
+          parentSubtaskId={initialContext?.type === 'subtask' ? initialContext.subtaskId : undefined}
           onClose={() => {
             setShowAIModal(false);
             onClose(); // Also close TaskDetail modal when entering Focus Mode

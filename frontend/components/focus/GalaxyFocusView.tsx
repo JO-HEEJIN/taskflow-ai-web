@@ -13,10 +13,11 @@ import { useReliableTimer } from '@/hooks/useReliableTimer';
 import { usePictureInPicture } from '@/hooks/usePictureInPicture';
 import { useEffect, useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { X, ChevronRight, SkipForward, MessageCircle, Maximize } from 'lucide-react';
+import { X, ChevronRight, SkipForward, MessageCircle, Maximize, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 import { soundManager } from '@/lib/SoundManager';
 import { showTimerCompletedNotification } from '@/lib/notifications';
+import { useTaskStore } from '@/store/taskStore';
 
 interface GalaxyFocusViewProps {
   task: Task;
@@ -39,8 +40,11 @@ export function GalaxyFocusView({
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
   const [showEncouragement, setShowEncouragement] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isBreakingDown, setIsBreakingDown] = useState(false);
 
+  const { addChildrenToSubtask } = useTaskStore();
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
+  const canBreakDown = estimatedMinutes >= 10 && !currentSubtask.children?.length;
 
   // Callback for timer completion - defined before hook usage
   const handleTimerComplete = useCallback(() => {
@@ -185,6 +189,72 @@ export function GalaxyFocusView({
 
   const handleSkip = () => {
     onSkip();
+  };
+
+  // Break down current subtask into smaller atomic tasks
+  const handleBreakDownFurther = async () => {
+    console.log('🔘 Break Down Further button clicked!');
+    console.log(`  - isBreakingDown: ${isBreakingDown}`);
+    console.log(`  - canBreakDown: ${canBreakDown}`);
+    console.log(`  - currentSubtask.id: ${currentSubtask.id}`);
+    console.log(`  - estimatedMinutes: ${estimatedMinutes}`);
+
+    if (isBreakingDown) {
+      console.log('⏳ Already breaking down, ignoring click');
+      return;
+    }
+    if (!canBreakDown) {
+      console.log('❌ Cannot break down (condition not met)');
+      return;
+    }
+
+    setIsBreakingDown(true);
+    try {
+      console.log(`🔄 Breaking down subtask: "${currentSubtask.title}" (${estimatedMinutes}min)`);
+
+      // Call backend to get atomic breakdown for this subtask
+      const result = await api.breakdownSubtask(
+        task.id,
+        currentSubtask.id,
+        currentSubtask.title,
+        estimatedMinutes
+      );
+
+      console.log('📥 API Response:', result);
+
+      if (result.children && result.children.length > 0) {
+        const timestamp = Date.now();
+        // Format children with proper structure for focus mode
+        const formattedChildren = result.children.map((child: any, index: number) => ({
+          id: `${currentSubtask.id}-child-${index}-${timestamp}`,
+          title: child.title,
+          isCompleted: false,
+          estimatedMinutes: child.estimatedMinutes || 5,
+          stepType: child.stepType || 'mental',
+          order: index,
+          parentSubtaskId: currentSubtask.id,
+        }));
+
+        console.log('📝 Formatted children:', formattedChildren);
+
+        // Add children to the subtask in store (also adds to task.subtasks for hierarchy)
+        await addChildrenToSubtask(task.id, currentSubtask.id, result.children);
+
+        // Enter focus mode with the formatted children directly
+        const { enterFocusMode } = useCoachStore.getState();
+        enterFocusMode(task.id, formattedChildren);
+
+        console.log(`✅ Added ${result.children.length} atomic children, now focusing on first one`);
+      } else {
+        console.log('⚠️ API returned no children');
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to break down subtask:', error);
+      console.error('  Error message:', error?.message);
+      console.error('  Error stack:', error?.stack);
+    } finally {
+      setIsBreakingDown(false);
+    }
   };
 
   // Break screen handlers
@@ -377,30 +447,15 @@ export function GalaxyFocusView({
             className="flex flex-col items-center justify-center mb-8 w-full max-w-md"
           >
             {/* Celebration Icon */}
-            <div className="text-8xl mb-6 animate-bounce">🎉</div>
+            <div className="text-8xl mb-6">✅</div>
 
             {/* Parent Subtask Title */}
             <h2 className="text-3xl font-bold text-white mb-3 text-center" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>
               {currentSubtask.title}
             </h2>
-            <p className="text-lg text-blue-200 mb-8 text-center" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
-              All steps completed! 🌟
+            <p className="text-lg text-green-300 mb-8 text-center" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
+              All steps completed! Ready for next subtask.
             </p>
-
-            {/* Timer at 0:00 (no countdown) */}
-            <div className="text-7xl font-mono font-bold text-white mb-12" style={{ textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}>
-              0:00
-            </div>
-
-            {/* "You did well!" Button */}
-            <motion.button
-              onClick={onComplete}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="px-12 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xl font-bold rounded-2xl shadow-2xl hover:shadow-green-500/50 transition-all"
-            >
-              You did well! Continue →
-            </motion.button>
           </motion.div>
         ) : (
           /* Regular Timer View */
@@ -484,6 +539,41 @@ export function GalaxyFocusView({
             </div>
           </div>
         </motion.div>
+
+        {/* Break Down Further button - Only show if task >= 10min and has no children yet */}
+        {canBreakDown && !isParentSubtaskView && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45 }}
+            className="w-full max-w-md px-4 mb-4"
+          >
+            <button
+              onClick={handleBreakDownFurther}
+              disabled={isBreakingDown}
+              className="w-full py-3 px-6 text-sm font-medium rounded-xl transition-all transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(167, 139, 250, 0.3) 100%)',
+                border: '1px solid rgba(167, 139, 250, 0.5)',
+                boxShadow: '0 0 20px rgba(139, 92, 246, 0.2)',
+              }}
+            >
+              {isBreakingDown ? (
+                <>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-purple-400 border-r-transparent" />
+                  <span className="text-purple-200">Breaking down into smaller steps...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-purple-300" />
+                  <span className="text-purple-200">
+                    Too big? Break Down Further ({estimatedMinutes}min → smaller chunks)
+                  </span>
+                </>
+              )}
+            </button>
+          </motion.div>
+        )}
 
         {/* Action buttons */}
         <motion.div

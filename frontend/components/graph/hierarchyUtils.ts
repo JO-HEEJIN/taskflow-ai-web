@@ -2,14 +2,15 @@ import { Task, Subtask } from '@/types';
 
 /**
  * Node types in the 3-tier hierarchy:
- * - task: Main task (Sun)
- * - subtask: Top-level subtask (Planet)
- * - atomic: Child subtask (Moon)
+ * - task: Main task (Sun/Star - largest, golden)
+ * - subtask: Top-level subtask (Planet - medium, purple)
+ * - atomic: Child subtask (Moon - smallest, cyan)
  */
 export type NodeType = 'task' | 'subtask' | 'atomic';
 
 /**
  * Graph node with orbital positioning
+ * Designed for Obsidian-style graph: circles only, labels on hover
  */
 export interface GraphNode {
   id: string;
@@ -22,9 +23,11 @@ export interface GraphNode {
   y: number;
   size: number; // Diameter in pixels
   color: string;
+  glowColor: string; // For bloom effect
   parentId?: string;
   estimatedMinutes?: number;
   isCompleted?: boolean;
+  connectedNodeIds: string[]; // For hover highlighting
 }
 
 /**
@@ -42,17 +45,44 @@ export interface HierarchyGraph {
 }
 
 /**
- * Generate 3-tier hierarchical graph with orbital layout
+ * Elegant color palette for night sky constellation
+ * Inspired by real star colors - warm whites, soft blues
+ */
+const COLORS = {
+  task: {
+    // Bright warm white/yellow - like Sirius or Vega
+    pending: { fill: '#FFF8E7', glow: 'rgba(255, 248, 231, 0.8)' },
+    in_progress: { fill: '#FFE4B5', glow: 'rgba(255, 228, 181, 0.8)' },
+    completed: { fill: '#98D8AA', glow: 'rgba(152, 216, 170, 0.7)' },
+    draft: { fill: '#8B9DC3', glow: 'rgba(139, 157, 195, 0.5)' },
+  },
+  subtask: {
+    // Softer blue-white - like Rigel
+    pending: { fill: '#C4D4F2', glow: 'rgba(196, 212, 242, 0.5)' },
+    completed: { fill: '#A8D5BA', glow: 'rgba(168, 213, 186, 0.5)' },
+  },
+  atomic: {
+    // Very dim, almost invisible - like distant stars
+    pending: { fill: '#6B7B9E', glow: 'rgba(107, 123, 158, 0.2)' },
+    completed: { fill: '#7A9E7E', glow: 'rgba(122, 158, 126, 0.2)' },
+  },
+};
+
+/**
+ * Seeded random for consistent but varied positions
+ */
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed * 9999) * 10000;
+  return x - Math.floor(x);
+}
+
+/**
+ * Generate 3-tier hierarchical graph with organic layout
  *
- * Philosophy: "Orion's Belt Perspective"
- * - Tasks are Suns (center, largest)
- * - Subtasks are Planets (orbit tasks)
- * - Atomic tasks are Moons (orbit subtasks)
- *
- * @param tasks - Array of tasks to visualize
- * @param width - Canvas/viewport width
- * @param height - Canvas/viewport height
- * @returns Graph data with positioned nodes and links
+ * Philosophy: "Night Sky" for Desktop
+ * - Tasks are bright stars (scattered with slight randomness)
+ * - Subtasks are dimmer stars (orbit with varied distances)
+ * - Atomic tasks are distant stars (almost invisible, very dim)
  */
 export function generateHierarchyGraph(
   tasks: Task[],
@@ -62,19 +92,25 @@ export function generateHierarchyGraph(
   const nodes: GraphNode[] = [];
   const links: GraphLink[] = [];
 
-  // Layout constants
-  const TASK_SPACING = 400; // Grid spacing between tasks
-  const SUBTASK_ORBIT_RADIUS = 120; // Distance from task center
-  const ATOMIC_ORBIT_RADIUS = 50; // Distance from subtask center
+  // Base layout constants
+  const TASK_SPACING = 450;
+  const BASE_SUBTASK_ORBIT = 160;
+  const BASE_ATOMIC_ORBIT = 55;
 
-  // Size hierarchy (desktop defaults)
-  const TASK_SIZE = 60;
-  const SUBTASK_SIZE = 35;
-  const ATOMIC_SIZE = 15;
+  // Size hierarchy
+  const TASK_SIZE = 14;
+  const SUBTASK_SIZE = 8;
+  const ATOMIC_SIZE = 4;
+
+  // Filter tasks to render
+  const tasksToRender = tasks.filter(t => t.status !== 'draft' || t.subtasks.length > 0);
+
+  if (tasksToRender.length === 0) {
+    return { nodes, links };
+  }
 
   // Calculate grid layout for tasks
-  const tasksToRender = tasks.filter(t => t.status !== 'draft' || t.subtasks.length > 0);
-  const cols = Math.ceil(Math.sqrt(tasksToRender.length));
+  const cols = Math.max(1, Math.ceil(Math.sqrt(tasksToRender.length)));
   const rows = Math.ceil(tasksToRender.length / cols);
 
   // Center the grid
@@ -84,14 +120,19 @@ export function generateHierarchyGraph(
   const startY = (height - gridHeight) / 2;
 
   tasksToRender.forEach((task, index) => {
-    // 1. TASK NODE (Sun)
+    // 1. TASK NODE (Star)
     const col = index % cols;
     const row = Math.floor(index / cols);
-    const taskX = startX + (col * TASK_SPACING);
-    const taskY = startY + (row * TASK_SPACING);
+    const taskX = startX + col * TASK_SPACING;
+    const taskY = startY + row * TASK_SPACING;
 
-    const taskColor = getTaskColor(task.status);
+    const taskColorKey = task.status as keyof typeof COLORS.task;
+    const taskColors = COLORS.task[taskColorKey] || COLORS.task.pending;
 
+    // Track connected node IDs for hover highlighting
+    const taskConnectedIds: string[] = [];
+
+    // Add task node
     nodes.push({
       id: task.id,
       type: 'task',
@@ -102,24 +143,43 @@ export function generateHierarchyGraph(
       x: taskX,
       y: taskY,
       size: TASK_SIZE,
-      color: taskColor,
+      color: taskColors.fill,
+      glowColor: taskColors.glow,
+      connectedNodeIds: taskConnectedIds, // Will be populated later
     });
 
     // 2. SUBTASK NODES (Planets)
-    const activeSubtasks = task.subtasks.filter(st => !st.isArchived && !st.parentSubtaskId);
+    // Filter: only top-level subtasks (no parentSubtaskId), not archived
+    const activeSubtasks = task.subtasks.filter(
+      st => !st.isArchived && !st.parentSubtaskId
+    );
 
     if (activeSubtasks.length === 0) return;
 
     const subtaskAngleStep = (Math.PI * 2) / activeSubtasks.length;
+    // Add random offset per task so subtasks don't all align
+    const angleOffset = (index * Math.PI) / 3;
 
     activeSubtasks.forEach((subtask, stIndex) => {
-      // Calculate orbital position
-      const angle = stIndex * subtaskAngleStep;
-      const stX = taskX + Math.cos(angle) * SUBTASK_ORBIT_RADIUS;
-      const stY = taskY + Math.sin(angle) * SUBTASK_ORBIT_RADIUS;
+      // Calculate orbital position with organic randomness
+      const baseSeed = index * 1000 + stIndex;
+      const angleJitter = (seededRandom(baseSeed) - 0.5) * 0.4; // ±0.2 radians
+      const angle = angleOffset + stIndex * subtaskAngleStep + angleJitter;
 
-      const subtaskColor = subtask.isCompleted ? '#22c55e' : '#A78BFA'; // Green if complete, Purple otherwise
+      // Vary orbit radius for organic feel (±25%)
+      const orbitJitter = 0.75 + seededRandom(baseSeed + 1) * 0.5;
+      const subtaskOrbit = BASE_SUBTASK_ORBIT * orbitJitter;
 
+      const stX = taskX + Math.cos(angle) * subtaskOrbit;
+      const stY = taskY + Math.sin(angle) * subtaskOrbit;
+
+      const subtaskColors = subtask.isCompleted
+        ? COLORS.subtask.completed
+        : COLORS.subtask.pending;
+
+      const subtaskConnectedIds: string[] = [task.id]; // Connected to parent task
+
+      // Add subtask node
       nodes.push({
         id: subtask.id,
         type: 'subtask',
@@ -129,11 +189,16 @@ export function generateHierarchyGraph(
         x: stX,
         y: stY,
         size: SUBTASK_SIZE,
-        color: subtaskColor,
+        color: subtaskColors.fill,
+        glowColor: subtaskColors.glow,
         parentId: task.id,
         estimatedMinutes: subtask.estimatedMinutes,
         isCompleted: subtask.isCompleted,
+        connectedNodeIds: subtaskConnectedIds, // Will add atomics later
       });
+
+      // Track connection in task
+      taskConnectedIds.push(subtask.id);
 
       // Link task to subtask
       links.push({
@@ -150,13 +215,21 @@ export function generateHierarchyGraph(
       const atomicAngleStep = (Math.PI * 2) / atomicChildren.length;
 
       atomicChildren.forEach((atomic, atIndex) => {
-        // Calculate orbital position relative to subtask
-        // Add offset based on parent's angle to avoid overlap
-        const atomicAngle = angle + (atIndex * atomicAngleStep);
-        const atX = stX + Math.cos(atomicAngle) * ATOMIC_ORBIT_RADIUS;
-        const atY = stY + Math.sin(atomicAngle) * ATOMIC_ORBIT_RADIUS;
+        // Calculate orbital position with organic randomness
+        const atomicSeed = baseSeed * 100 + atIndex;
+        const atomicAngleJitter = (seededRandom(atomicSeed) - 0.5) * 0.6; // More jitter for variety
+        const atomicAngle = angle + Math.PI + atIndex * atomicAngleStep + atomicAngleJitter;
 
-        const atomicColor = atomic.isCompleted ? '#22c55e' : '#22D3EE'; // Green if complete, Cyan otherwise
+        // Vary orbit radius for organic feel (±30%)
+        const atomicOrbitJitter = 0.7 + seededRandom(atomicSeed + 1) * 0.6;
+        const atomicOrbit = BASE_ATOMIC_ORBIT * atomicOrbitJitter;
+
+        const atX = stX + Math.cos(atomicAngle) * atomicOrbit;
+        const atY = stY + Math.sin(atomicAngle) * atomicOrbit;
+
+        const atomicColors = atomic.isCompleted
+          ? COLORS.atomic.completed
+          : COLORS.atomic.pending;
 
         nodes.push({
           id: atomic.id,
@@ -167,11 +240,16 @@ export function generateHierarchyGraph(
           x: atX,
           y: atY,
           size: ATOMIC_SIZE,
-          color: atomicColor,
+          color: atomicColors.fill,
+          glowColor: atomicColors.glow,
           parentId: subtask.id,
           estimatedMinutes: atomic.estimatedMinutes,
           isCompleted: atomic.isCompleted,
+          connectedNodeIds: [subtask.id], // Connected to parent subtask
         });
+
+        // Track connection in subtask
+        subtaskConnectedIds.push(atomic.id);
 
         // Link subtask to atomic
         links.push({
@@ -189,20 +267,7 @@ export function generateHierarchyGraph(
     tasks: nodes.filter(n => n.type === 'task').length,
     subtasks: nodes.filter(n => n.type === 'subtask').length,
     atomics: nodes.filter(n => n.type === 'atomic').length,
-    taskSubtaskLinks: links.filter(l => l.type === 'task-subtask').length,
-    subtaskAtomicLinks: links.filter(l => l.type === 'subtask-atomic').length,
   });
-
-  // Log sample nodes for debugging
-  if (nodes.length > 0) {
-    console.log(`📊 [Sample Nodes]:`, nodes.slice(0, 5).map(n => ({
-      type: n.type,
-      title: n.title.substring(0, 30) + '...',
-      x: Math.round(n.x),
-      y: Math.round(n.y),
-      size: n.size,
-    })));
-  }
 
   return { nodes, links };
 }
@@ -210,11 +275,6 @@ export function generateHierarchyGraph(
 /**
  * Generate mobile-optimized single-task hierarchy
  * Shows only one task (solar system view) centered in viewport
- *
- * @param task - Single task to visualize
- * @param width - Canvas width
- * @param height - Canvas height
- * @returns Graph data for mobile view
  */
 export function generateMobileHierarchyGraph(
   task: Task,
@@ -224,22 +284,24 @@ export function generateMobileHierarchyGraph(
   const nodes: GraphNode[] = [];
   const links: GraphLink[] = [];
 
-  // Mobile-optimized sizes (smaller for compact screens)
-  const TASK_SIZE = 28;
-  const SUBTASK_SIZE = 18;
-  const ATOMIC_SIZE = 10;
+  // Mobile-optimized sizes (touch-friendly)
+  const TASK_SIZE = 36;
+  const SUBTASK_SIZE = 24;
+  const ATOMIC_SIZE = 14;
 
-  // Mobile-optimized orbit radii
-  const SUBTASK_ORBIT_RADIUS = 80;
-  const ATOMIC_ORBIT_RADIUS = 35;
+  // Mobile-optimized orbit radii (fit in small screen)
+  const SUBTASK_ORBIT_RADIUS = Math.min(width, height) * 0.3;
+  const ATOMIC_ORBIT_RADIUS = Math.min(width, height) * 0.12;
 
   // Center task in viewport
   const centerX = width / 2;
   const centerY = height / 2;
 
-  // Task node (Sun at center)
-  const taskColor = getTaskColor(task.status);
+  const taskColorKey = task.status as keyof typeof COLORS.task;
+  const taskColors = COLORS.task[taskColorKey] || COLORS.task.pending;
+  const taskConnectedIds: string[] = [];
 
+  // Task node (Sun at center)
   nodes.push({
     id: task.id,
     type: 'task',
@@ -250,24 +312,32 @@ export function generateMobileHierarchyGraph(
     x: centerX,
     y: centerY,
     size: TASK_SIZE,
-    color: taskColor,
+    color: taskColors.fill,
+    glowColor: taskColors.glow,
+    connectedNodeIds: taskConnectedIds,
   });
 
   // Subtask nodes (Planets)
-  const activeSubtasks = task.subtasks.filter(st => !st.isArchived && !st.parentSubtaskId);
+  const activeSubtasks = task.subtasks.filter(
+    st => !st.isArchived && !st.parentSubtaskId
+  );
 
   if (activeSubtasks.length === 0) {
     return { nodes, links };
   }
 
   const subtaskAngleStep = (Math.PI * 2) / activeSubtasks.length;
+  const startAngle = -Math.PI / 2; // Start from top
 
   activeSubtasks.forEach((subtask, stIndex) => {
-    const angle = stIndex * subtaskAngleStep;
+    const angle = startAngle + stIndex * subtaskAngleStep;
     const stX = centerX + Math.cos(angle) * SUBTASK_ORBIT_RADIUS;
     const stY = centerY + Math.sin(angle) * SUBTASK_ORBIT_RADIUS;
 
-    const subtaskColor = subtask.isCompleted ? '#22c55e' : '#A78BFA';
+    const subtaskColors = subtask.isCompleted
+      ? COLORS.subtask.completed
+      : COLORS.subtask.pending;
+    const subtaskConnectedIds: string[] = [task.id];
 
     nodes.push({
       id: subtask.id,
@@ -278,11 +348,15 @@ export function generateMobileHierarchyGraph(
       x: stX,
       y: stY,
       size: SUBTASK_SIZE,
-      color: subtaskColor,
+      color: subtaskColors.fill,
+      glowColor: subtaskColors.glow,
       parentId: task.id,
       estimatedMinutes: subtask.estimatedMinutes,
       isCompleted: subtask.isCompleted,
+      connectedNodeIds: subtaskConnectedIds,
     });
+
+    taskConnectedIds.push(subtask.id);
 
     links.push({
       source: task.id,
@@ -298,11 +372,13 @@ export function generateMobileHierarchyGraph(
     const atomicAngleStep = (Math.PI * 2) / atomicChildren.length;
 
     atomicChildren.forEach((atomic, atIndex) => {
-      const atomicAngle = angle + (atIndex * atomicAngleStep);
+      const atomicAngle = angle + Math.PI + atIndex * atomicAngleStep;
       const atX = stX + Math.cos(atomicAngle) * ATOMIC_ORBIT_RADIUS;
       const atY = stY + Math.sin(atomicAngle) * ATOMIC_ORBIT_RADIUS;
 
-      const atomicColor = atomic.isCompleted ? '#22c55e' : '#22D3EE';
+      const atomicColors = atomic.isCompleted
+        ? COLORS.atomic.completed
+        : COLORS.atomic.pending;
 
       nodes.push({
         id: atomic.id,
@@ -313,11 +389,15 @@ export function generateMobileHierarchyGraph(
         x: atX,
         y: atY,
         size: ATOMIC_SIZE,
-        color: atomicColor,
+        color: atomicColors.fill,
+        glowColor: atomicColors.glow,
         parentId: subtask.id,
         estimatedMinutes: atomic.estimatedMinutes,
         isCompleted: atomic.isCompleted,
+        connectedNodeIds: [subtask.id],
       });
+
+      subtaskConnectedIds.push(atomic.id);
 
       links.push({
         source: subtask.id,
@@ -331,32 +411,7 @@ export function generateMobileHierarchyGraph(
 }
 
 /**
- * Get color for task based on status
- */
-function getTaskColor(status: string): string {
-  switch (status) {
-    case 'completed':
-      return '#22c55e'; // Green
-    case 'in_progress':
-      return '#f59e0b'; // Amber
-    case 'draft':
-      return '#6b7280'; // Gray
-    default:
-      return '#FFD700'; // Gold
-  }
-}
-
-/**
  * Check if a point is within a circular hit area
- * Useful for touch/click detection on nodes
- *
- * @param x - Click X coordinate
- * @param y - Click Y coordinate
- * @param nodeX - Node center X
- * @param nodeY - Node center Y
- * @param nodeSize - Node diameter
- * @param hitMultiplier - Multiplier for hit area (default 2.5 for mobile)
- * @returns True if click is within hit area
  */
 export function isPointInNode(
   x: number,
@@ -375,14 +430,7 @@ export function isPointInNode(
 
 /**
  * Find node at given coordinates
- * Returns the smallest (most specific) node at that point
- * Priority: atomic > subtask > task
- *
- * @param x - Click X coordinate
- * @param y - Click Y coordinate
- * @param nodes - Array of graph nodes
- * @param hitMultiplier - Multiplier for hit area
- * @returns Clicked node or null
+ * Priority: atomic > subtask > task (smallest to largest)
  */
 export function findNodeAtPoint(
   x: number,
@@ -390,7 +438,7 @@ export function findNodeAtPoint(
   nodes: GraphNode[],
   hitMultiplier: number = 2.5
 ): GraphNode | null {
-  // Check in order: atomic > subtask > task (smallest to largest)
+  // Check in order: atomic > subtask > task
   const atomicNode = nodes.find(
     n => n.type === 'atomic' && isPointInNode(x, y, n.x, n.y, n.size, hitMultiplier)
   );
@@ -405,4 +453,26 @@ export function findNodeAtPoint(
     n => n.type === 'task' && isPointInNode(x, y, n.x, n.y, n.size, hitMultiplier)
   );
   return taskNode || null;
+}
+
+/**
+ * Get all connected nodes (for hover highlighting)
+ */
+export function getConnectedNodes(
+  nodeId: string,
+  nodes: GraphNode[],
+  links: GraphLink[]
+): Set<string> {
+  const connected = new Set<string>([nodeId]);
+
+  links.forEach(link => {
+    if (link.source === nodeId) {
+      connected.add(link.target);
+    }
+    if (link.target === nodeId) {
+      connected.add(link.source);
+    }
+  });
+
+  return connected;
 }

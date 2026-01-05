@@ -25,7 +25,7 @@ export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const { tasks, toggleSubtask } = useTaskStore();
-  const { isFocusMode, activeTaskId, activeSubtaskIndex, completeCurrentSubtask, skipCurrentSubtask, exitFocusMode } = useCoachStore();
+  const { isFocusMode, activeTaskId, activeSubtaskIndex, focusQueue, completeCurrentSubtask, skipCurrentSubtask, exitFocusMode } = useCoachStore();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [notificationStatus, setNotificationStatus] = useState<NotificationPermission>('default');
@@ -83,7 +83,10 @@ export default function Home() {
 
   // Focus mode data
   const activeTask = isFocusMode && activeTaskId ? tasks.find(t => t.id === activeTaskId) : null;
-  const currentSubtask = activeTask?.subtasks[activeSubtaskIndex];
+  // Use focusQueue if available (for children), otherwise fallback to subtasks
+  const currentSubtask = focusQueue.length > 0
+    ? focusQueue[activeSubtaskIndex]
+    : activeTask?.subtasks[activeSubtaskIndex];
 
   // Handle subtask completion in focus mode
   const handleCompleteSubtask = async () => {
@@ -93,22 +96,27 @@ export default function Home() {
     const focusedMinutes = currentSubtask.estimatedMinutes || 5;
     console.log(`✅ [Page] Completing subtask: ${currentSubtask.title} (${focusedMinutes}min focused)`);
 
-    // Mark subtask as completed
-    await toggleSubtask(activeTask.id, currentSubtask.id);
+    // Mark subtask as completed (need to handle children differently)
+    // Children might not be persisted yet, so only toggle if it's a real subtask
+    if (currentSubtask.id && !currentSubtask.id.includes('-child-')) {
+      await toggleSubtask(activeTask.id, currentSubtask.id);
+    }
 
-    // Get updated task with new completion status
-    const updatedTask = tasks.find(t => t.id === activeTask.id);
-    if (!updatedTask) return;
+    // Use focusQueue for navigation
+    const queueToUse = focusQueue.length > 0 ? focusQueue : activeTask.subtasks;
 
     // ✅ Move to next incomplete subtask with focused time tracking
-    completeCurrentSubtask(updatedTask.subtasks, focusedMinutes);
+    completeCurrentSubtask(queueToUse, focusedMinutes);
   };
 
   const handleSkipSubtask = () => {
     if (!activeTask) return;
 
+    // Use focusQueue for navigation
+    const queueToUse = focusQueue.length > 0 ? focusQueue : activeTask.subtasks;
+
     // Skip to next incomplete subtask (or exit if none left)
-    skipCurrentSubtask(activeTask.subtasks);
+    skipCurrentSubtask(queueToUse);
   };
 
   // Handle authentication state and guest mode

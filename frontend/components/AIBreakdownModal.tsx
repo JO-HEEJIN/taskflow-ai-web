@@ -12,11 +12,12 @@ import { useStreamingBreakdown } from '@/hooks/useStreamingBreakdown';
 
 interface AIBreakdownModalProps {
   taskId: string;
+  parentSubtaskId?: string; // If provided, add as children of this subtask
   onClose: () => void;
 }
 
-export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
-  const { generateAIBreakdown, addSubtasks, tasks } = useTaskStore();
+export function AIBreakdownModal({ taskId, parentSubtaskId, onClose }: AIBreakdownModalProps) {
+  const { generateAIBreakdown, addSubtasks, addChildrenToSubtask, tasks } = useTaskStore();
   const toast = useToast();
   const [suggestions, setSuggestions] = useState<AISubtaskSuggestion[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -186,8 +187,13 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
 
       console.log(`📊 [AIBreakdownModal] Flattened ${suggestions.length} suggestions into ${flattenedSubtasks.length} total subtasks (including atomic)`);
 
-      // Pass full suggestion objects (with estimatedMinutes and stepType)
-      await addSubtasks(taskId, flattenedSubtasks);
+      // If parentSubtaskId provided, add as children of that subtask
+      if (parentSubtaskId) {
+        await addChildrenToSubtask(taskId, parentSubtaskId, flattenedSubtasks);
+      } else {
+        // Otherwise add to parent task
+        await addSubtasks(taskId, flattenedSubtasks);
+      }
 
       // Get updated task with new subtasks
       const updatedTask = tasks.find(t => t.id === taskId);

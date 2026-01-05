@@ -863,7 +863,7 @@ Return ONLY the JSON array, no markdown, no explanation.`;
     estimatedMinutes: number,
     parentTaskTitle: string,
     currentDepth: number = 1,
-    maxDepth: number = 3
+    maxDepth: number = 1  // Reduced from 3 to 1 for faster generation
   ): Promise<any[]> {
     // SAFETY: Prevent infinite recursion
     if (currentDepth > maxDepth) {

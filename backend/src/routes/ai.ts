@@ -252,4 +252,32 @@ router.post('/coach', async (req: Request, res: Response) => {
   }
 });
 
+// On-demand subtask breakdown (for focus mode "Break Down Further" button)
+router.post('/breakdown-subtask', async (req: Request, res: Response) => {
+  try {
+    const { taskId, subtaskId, subtaskTitle, estimatedMinutes } = req.body;
+
+    if (!subtaskTitle || !estimatedMinutes) {
+      return res.status(400).json({ error: 'subtaskTitle and estimatedMinutes are required' });
+    }
+
+    console.log(`🔄 [On-Demand Breakdown] Breaking down: "${subtaskTitle}" (${estimatedMinutes}min)`);
+
+    // Use deepDiveBreakdown to get children (single level, not recursive)
+    const children = await azureOpenAIService.deepDiveBreakdown(
+      subtaskTitle,
+      estimatedMinutes,
+      subtaskTitle, // Use subtaskTitle as parent context
+      0 // parentDepth = 0
+    );
+
+    console.log(`✅ [On-Demand Breakdown] Generated ${children.length} atomic children`);
+
+    res.json({ children });
+  } catch (error: any) {
+    console.error('Error breaking down subtask:', error);
+    res.status(500).json({ error: error.message || 'Failed to break down subtask' });
+  }
+});
+
 export default router;

@@ -126,6 +126,7 @@ interface CoachState {
   isFocusMode: boolean;
   activeTaskId: string | null;
   activeSubtaskIndex: number;
+  focusQueue: Subtask[]; // The actual queue of subtasks being focused on (can be children)
   isTimerRunning: boolean;
   currentTimeLeft: number; // seconds
   endTime?: number; // Unix timestamp in ms
@@ -156,6 +157,7 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   isFocusMode: false,
   activeTaskId: null,
   activeSubtaskIndex: 0,
+  focusQueue: [], // The actual queue being iterated
   isTimerRunning: false,
   currentTimeLeft: 0,
   endTime: undefined,
@@ -203,6 +205,7 @@ export const useCoachStore = create<CoachState>((set, get) => ({
       isFocusMode: true,
       activeTaskId: taskId,
       activeSubtaskIndex: firstIncompleteIndex,
+      focusQueue: filteredSubtasks, // Store the actual queue (can be children)
       isTimerRunning: false,
       currentTimeLeft: 0,
       messages: [],
@@ -215,6 +218,7 @@ export const useCoachStore = create<CoachState>((set, get) => ({
       isFocusMode: false,
       activeTaskId: null,
       activeSubtaskIndex: 0,
+      focusQueue: [], // Reset queue
       isTimerRunning: false,
       currentTimeLeft: 0,
       messages: [],
@@ -270,7 +274,7 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   },
 
   completeCurrentSubtask: (subtasks: Subtask[], focusedMinutes: number = 0) => {
-    const { activeSubtaskIndex, accumulatedFocusTime } = get();
+    const { activeSubtaskIndex, accumulatedFocusTime, focusQueue } = get();
     const currentSubtask = subtasks[activeSubtaskIndex];
 
     // ✅ Track accumulated focus time
@@ -280,8 +284,19 @@ export const useCoachStore = create<CoachState>((set, get) => ({
     // ✅ Call addFocusTime to check for level up
     get().addFocusTime(focusedMinutes);
 
-    // ✅ Find next subtask using new logic
-    const nextIndex = findNextAfterCompletion(subtasks, activeSubtaskIndex);
+    // ✅ CRITICAL: Mark current subtask as completed in the local array
+    // This is needed because focusQueue is a copy that doesn't auto-update
+    const updatedSubtasks = subtasks.map((st, idx) =>
+      idx === activeSubtaskIndex ? { ...st, isCompleted: true } : st
+    );
+
+    // ✅ Also update focusQueue if it's being used
+    const updatedFocusQueue = focusQueue.length > 0
+      ? focusQueue.map((st, idx) => idx === activeSubtaskIndex ? { ...st, isCompleted: true } : st)
+      : [];
+
+    // ✅ Find next subtask using updated array
+    const nextIndex = findNextAfterCompletion(updatedSubtasks, activeSubtaskIndex);
 
     if (nextIndex === -1) {
       console.log('✅ All tasks completed! Exiting focus mode.');
@@ -289,19 +304,20 @@ export const useCoachStore = create<CoachState>((set, get) => ({
       return;
     }
 
-    const nextSubtask = subtasks[nextIndex];
+    const nextSubtask = updatedSubtasks[nextIndex];
 
     // ✅ Check if next subtask is a parent (after completing all atomic children)
     const isParent = nextSubtask.isComposite &&
-      findAtomicChildren(subtasks, nextSubtask.id).every(child => child.isCompleted);
+      findAtomicChildren(updatedSubtasks, nextSubtask.id).every(child => child.isCompleted);
 
     console.log(`➡️  [Next] ${nextSubtask.title} (${isParent ? 'PARENT - Show confirmation' : 'Continue'})`);
 
     set({
       activeSubtaskIndex: nextIndex,
+      focusQueue: updatedFocusQueue.length > 0 ? updatedFocusQueue : focusQueue, // ✅ Persist completed state
       isTimerRunning: false,
       currentTimeLeft: 0,
-      isParentSubtaskView: isParent, // ✅ Flag for UI to show "Next Subtask" button
+      isParentSubtaskView: isParent,
       accumulatedFocusTime: newAccumulatedTime,
     });
   },

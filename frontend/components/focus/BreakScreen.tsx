@@ -107,7 +107,7 @@ export function BreakScreen({
                 transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
                 className="inline-block mb-4"
               >
-                <div className="text-8xl">🎉</div>
+                <div className="text-8xl">⏰</div>
               </motion.div>
 
               <motion.h1
@@ -162,7 +162,7 @@ export function BreakScreen({
                   boxShadow: '0 0 30px rgba(192, 132, 252, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)',
                 }}
               >
-                <span className="text-white">Continue</span>
+                <span className="text-white">Time is done</span>
                 <ArrowRight className="w-6 h-6 text-white group-hover:translate-x-1 transition-transform" />
 
                 {/* Shine effect */}

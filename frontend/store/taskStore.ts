@@ -16,6 +16,7 @@ interface TaskStore {
   updateTaskStatus: (id: string, status: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   addSubtasks: (taskId: string, subtasks: (string | AISubtaskSuggestion)[]) => Promise<void>;
+  addChildrenToSubtask: (taskId: string, subtaskId: string, children: any[]) => Promise<void>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   deleteSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   reorderSubtasks: (taskId: string, subtaskOrders: { id: string; order: number }[]) => Promise<void>;
@@ -58,30 +59,37 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   createTaskWithAutoFocus: async (title: string, description?: string) => {
     set({ isLoading: true, error: null });
     try {
-      // Step 1: Create task
+      // Step 1: Create task immediately
       const { task } = await api.createTask(title, description);
       set((state) => ({
         tasks: [...state.tasks, task],
+        isLoading: false, // ✅ Close modal immediately after task creation
       }));
 
-      // Step 2: Generate AI breakdown
-      const taskToBreakdown = get().tasks.find(t => t.id === task.id);
-      const result = await api.breakdownTask(task.id, taskToBreakdown?.title, taskToBreakdown?.description);
+      console.log('✅ Task created, now generating AI breakdown in background...');
 
-      // Step 3: Add subtasks automatically
-      if (result.suggestions && result.suggestions.length > 0) {
-        const { task: updatedTask } = await api.addSubtasks(task.id, result.suggestions);
-        set((state) => ({
-          tasks: state.tasks.map((t) => (t.id === task.id ? updatedTask : t)),
-          isLoading: false,
-        }));
+      // Step 2: Generate AI breakdown in BACKGROUND (non-blocking)
+      // This happens async so UI is responsive
+      (async () => {
+        try {
+          const result = await api.breakdownTask(task.id, title, description);
 
-        // Return task ID so caller can enter focus mode
-        return task.id;
-      }
+          // Step 3: Add subtasks when ready
+          if (result.suggestions && result.suggestions.length > 0) {
+            const { task: updatedTask } = await api.addSubtasks(task.id, result.suggestions);
+            set((state) => ({
+              tasks: state.tasks.map((t) => (t.id === task.id ? updatedTask : t)),
+            }));
+            console.log(`✅ AI breakdown complete: ${result.suggestions.length} subtasks added`);
+          }
+        } catch (bgError) {
+          console.error('❌ Background AI breakdown failed:', bgError);
+          // Don't throw - task was already created successfully
+        }
+      })();
 
-      set({ isLoading: false });
-      return null;
+      // Return task ID immediately (breakdown happens in background)
+      return task.id;
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
       throw error;
@@ -154,6 +162,62 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
     }
+  },
+
+  addChildrenToSubtask: async (taskId: string, subtaskId: string, children: any[]) => {
+    const timestamp = Date.now();
+
+    set((state) => {
+      const task = state.tasks.find(t => t.id === taskId);
+      if (!task) return state;
+
+      // Find parent subtask - could be a real subtask or a synthetic child ID
+      const parentIndex = task.subtasks.findIndex(st => st.id === subtaskId);
+      const parentSubtask = parentIndex !== -1 ? task.subtasks[parentIndex] : null;
+
+      // Get parent order - if parent found, use its order + 0.5 as base; otherwise use max order
+      const baseOrder = parentSubtask
+        ? parentSubtask.order
+        : Math.max(...task.subtasks.map(st => st.order), 0);
+
+      // Format children as real subtasks with proper order (git-flow style: appear right after parent)
+      const formattedChildren = children.map((child, index) => ({
+        id: `${subtaskId}-child-${index}-${timestamp}`,
+        title: child.title,
+        isCompleted: false,
+        estimatedMinutes: child.estimatedMinutes || 5,
+        stepType: child.stepType || 'mental',
+        order: baseOrder + 0.01 * (index + 1), // Insert right after parent
+        parentSubtaskId: subtaskId,
+      }));
+
+      // Build new subtasks array: insert children right after parent
+      let newSubtasks;
+      if (parentIndex !== -1) {
+        // Mark parent as composite
+        const updatedParent = { ...task.subtasks[parentIndex], isComposite: true, children: formattedChildren };
+        newSubtasks = [
+          ...task.subtasks.slice(0, parentIndex),
+          updatedParent,
+          ...formattedChildren,
+          ...task.subtasks.slice(parentIndex + 1),
+        ];
+      } else {
+        // Parent not found (synthetic ID from focusQueue), just append children
+        newSubtasks = [...task.subtasks, ...formattedChildren];
+      }
+
+      // Re-sort by order and reassign clean integer orders
+      newSubtasks.sort((a, b) => a.order - b.order);
+      newSubtasks.forEach((st, idx) => {
+        st.order = idx;
+      });
+
+      return {
+        ...state,
+        tasks: state.tasks.map(t => t.id === taskId ? { ...t, subtasks: newSubtasks } : t),
+      };
+    });
   },
 
   toggleSubtask: async (taskId: string, subtaskId: string) => {

@@ -307,6 +307,22 @@ export const api = {
     return res.json();
   },
 
+  // Break down a subtask into smaller atomic tasks (on-demand in focus mode)
+  async breakdownSubtask(
+    taskId: string,
+    subtaskId: string,
+    subtaskTitle: string,
+    estimatedMinutes: number
+  ): Promise<{ children: any[] }> {
+    const res = await fetch(`${API_BASE_URL}/api/ai/breakdown-subtask`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify({ taskId, subtaskId, subtaskTitle, estimatedMinutes }),
+    });
+    if (!res.ok) throw new Error('Failed to break down subtask');
+    return res.json();
+  },
+
   // Images
   async uploadImage(file: File) {
     const userId = getUserId();
