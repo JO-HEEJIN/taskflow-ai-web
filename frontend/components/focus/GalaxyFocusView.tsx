@@ -367,21 +367,58 @@ export function GalaxyFocusView({
           </motion.button>
         </motion.div>
 
-        {/* OrbitTimer */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3, type: 'spring', stiffness: 200, damping: 20 }}
-          className="mb-8"
-        >
-          <OrbitTimer
-            duration={estimatedMinutes}
-            timeLeft={timeLeft}
-            isPlaying={isRunning}
-            onComplete={handleTimerComplete}
-            onToggle={handleToggleTimer}
-          />
-        </motion.div>
+        {/* Parent Confirmation View or Regular Timer */}
+        {isParentSubtaskView ? (
+          /* Parent Confirmation Screen - After completing all atomic children */
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="flex flex-col items-center justify-center mb-8 w-full max-w-md"
+          >
+            {/* Celebration Icon */}
+            <div className="text-8xl mb-6 animate-bounce">🎉</div>
+
+            {/* Parent Subtask Title */}
+            <h2 className="text-3xl font-bold text-white mb-3 text-center" style={{ textShadow: '0 2px 12px rgba(0,0,0,0.8)' }}>
+              {currentSubtask.title}
+            </h2>
+            <p className="text-lg text-blue-200 mb-8 text-center" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}>
+              All steps completed! 🌟
+            </p>
+
+            {/* Timer at 0:00 (no countdown) */}
+            <div className="text-7xl font-mono font-bold text-white mb-12" style={{ textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}>
+              0:00
+            </div>
+
+            {/* "You did well!" Button */}
+            <motion.button
+              onClick={onComplete}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="px-12 py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xl font-bold rounded-2xl shadow-2xl hover:shadow-green-500/50 transition-all"
+            >
+              You did well! Continue →
+            </motion.button>
+          </motion.div>
+        ) : (
+          /* Regular Timer View */
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, type: 'spring', stiffness: 200, damping: 20 }}
+            className="mb-8"
+          >
+            <OrbitTimer
+              duration={estimatedMinutes}
+              timeLeft={timeLeft}
+              isPlaying={isRunning}
+              onComplete={handleTimerComplete}
+              onToggle={handleToggleTimer}
+            />
+          </motion.div>
+        )}
 
         {/* Pop Out to Window button - Only show if PiP is supported and not already open */}
         {isPiPSupported && !isPiPOpen && (

@@ -1292,5 +1292,193 @@ Timer: 0:00 (paused) ← ✅ User must start
 
 ---
 
-**Last Updated**: January 3, 2026
+## Learning 19: AI Complexity Analysis - T-Shirt Sizing Over Time Estimation
+
+**Date**: January 5, 2026
+**Challenge**: AI consistently underestimated task complexity, resulting in oversimplified breakdowns
+
+### The Problem
+
+**User Report:**
+> "세금 신고 업무인데 어떻게 task가 3개 밖에 안 떠? atomic이 안 생기는 게 말이 돼?"
+
+"File Tax Return" task was generating only 3 simple subtasks (3min, 5min, 7min) with no atomic children, when it should be treated as a complex multi-hour task.
+
+### Root Cause Analysis
+
+**Original Architecture:**
+```
+1. Flash Estimate (gpt-4o-mini): "How many minutes?" → 30 min
+2. Rule-based scoring: Keywords [file, tax, return] → HIGH (score 15)
+3. Hybrid Decision: 30min < threshold → "moderate"
+4. Architect (o3-mini): Gets wrong instruction → "minute-scale subtasks"
+5. Result: 3 tiny subtasks, no recursive breakdown
+```
+
+**The Fundamental Flaw:**
+We asked `gpt-4o-mini` a **regression question** ("How many minutes?") instead of a **classification question** ("How complex is this?").
+
+**Why Regression Fails:**
+- LLMs default to "happy path" scenarios
+- "File taxes" → AI thinks: "Log in, fill form, submit" = 30 min
+- AI doesn't consider: gathering documents, correcting errors, waiting for confirmations
+- Time estimation is a **continuous value** - easy to hallucinate
+
+**Why Classification Works:**
+- LLMs excel at categorizing relative difficulty
+- "Is this Small, Medium, Large, or XL?" - discrete categories
+- Forces AI to think about **what's involved**, not **how long**
+
+### The Solution: T-Shirt Sizing Router
+
+**New Architecture:**
+```
+1. Rule-based Pre-Check: Keywords → Minimum size floor
+2. T-Shirt Classifier (gpt-4o-mini): "What size? S/M/L/XL" → "L"
+3. Pessimistic Merge: Take HIGHER of rule-based vs AI
+4. Routing: L/XL → o3-mini (Strategic), S/M → gpt-4o-mini (Tactical)
+```
+
+**The Magic Prompt:**
+```
+You are a T-Shirt Sizing Agent for an ADHD task manager.
+Your job is NOT to plan the task, but to SIZE it based on "Mental Friction" and "Hidden Steps."
+
+SIZING GUIDE:
+- S (Small): <15 min. No prep needed. (e.g., "Email Mom", "Water plants")
+- M (Medium): 15m - 1h. Requires focus or 1-2 prep steps.
+- L (Large): 1h - 4h. Requires gathering docs, deep thinking, or avoiding distractions.
+- XL (Epic): >4h. Multiple work sessions.
+
+INPUT TASK: "{user_task}"
+
+LOGIC:
+1. Identify immediate "preparation actions" (e.g., logging in, finding papers).
+2. Apply "ADHD Tax": Assume the user will get distracted or stuck.
+3. Select the Size (S, M, L, XL).
+
+OUTPUT JSON:
+{
+  "size": "S" | "M" | "L" | "XL",
+  "reasoning": "string (max 10 words)",
+  "implied_duration_minutes": number
+}
+```
+
+**Key Concepts:**
+1. **Hidden Steps**: Forces AI to think about prep work
+2. **ADHD Tax**: Accounts for distraction and transition costs
+3. **Mental Friction**: Considers cognitive load, not just time
+4. **Reference Class Forecasting**: Compare to similar tasks
+
+### Pessimistic Merge Logic
+
+```typescript
+// Keywords that set minimum complexity floor
+const COMPLEXITY_KEYWORDS = {
+  'XL': ['learn', 'study', 'develop', 'build', 'design', 'move'],
+  'L': ['tax', 'report', 'analyze', 'plan', 'research', 'write'],
+  'M': ['clean', 'organize', 'schedule', 'fix']
+};
+
+// Always take the HIGHER complexity
+const sizeOrder = ['S', 'M', 'L', 'XL'];
+const aiIndex = sizeOrder.indexOf(aiResult.size);
+const ruleIndex = sizeOrder.indexOf(minSizeFromKeywords);
+const finalSize = (ruleIndex > aiIndex) ? minSizeFromKeywords : aiResult.size;
+```
+
+**Why Pessimistic?**
+- If EITHER rule-based OR AI thinks it's complex → treat as complex
+- Better to over-prepare than under-prepare
+- ADHD users benefit from more structure, not less
+
+### Expected Results
+
+**Before (Time Estimation):**
+```
+"File Tax Return"
+→ Flash Estimate: 30 min
+→ Complexity: moderate
+→ Subtasks: 3 tiny tasks (3min, 5min, 7min)
+→ No atomic children
+```
+
+**After (T-Shirt Sizing):**
+```
+"File Tax Return"
+→ Keyword Match: "tax" → L minimum
+→ T-Shirt Size: L (hidden steps: gather docs, review forms)
+→ Complexity: complex
+→ Subtasks: 3 strategic phases (1-2hr each)
+→ Each phase → recursive breakdown → atomic children
+```
+
+### Core Lessons
+
+1. **Classification > Regression for LLMs:**
+   ```
+   ❌ "How many minutes?" → 30 (hallucinated)
+   ✅ "S/M/L/XL?" → L (categorical reasoning)
+   ```
+
+2. **Prompt Engineering Matters:**
+   - "Hidden Steps" forces deeper analysis
+   - "ADHD Tax" accounts for real-world friction
+   - "Mental Friction" captures cognitive load
+
+3. **Pessimistic Merge is Key:**
+   ```typescript
+   finalComplexity = Math.max(ruleBasedComplexity, aiComplexity);
+   ```
+   - Never underestimate
+   - When in doubt, provide more structure
+
+4. **Right Model for Right Job:**
+   - Fast classification: gpt-4o-mini (cheap, quick)
+   - Deep reasoning: o3-mini (expensive, thorough)
+   - Don't use expensive model for simple routing
+
+5. **Agile Wisdom Applies:**
+   - T-Shirt Sizing from Agile/Scrum
+   - Relative estimation > Absolute estimation
+   - "Is this bigger than X?" easier than "How long is this?"
+
+### Implementation Checklist
+
+- [x] Replace `getFlashEstimate()` with `getTShirtSize()`
+- [x] Update prompt to T-Shirt Sizing format
+- [x] Implement pessimistic merge logic
+- [x] Update routing: L/XL → o3-mini, S/M → gpt-4o-mini
+- [x] Add new keywords to complexity matrix (TSHIRT_KEYWORDS)
+- [x] Test with "File Tax Return" and similar complex tasks
+
+### Verified Results (January 5, 2026)
+
+```
+👕 [T-Shirt Analysis] Analyzing: "File Tax Return"
+📋 [Rule-Based] Size: L, Keywords: [L:tax, L:return, L:file]
+🤖 [AI T-Shirt] Size: L, Reasoning: "Requires gathering docs and deep thinking"
+🔀 [Pessimistic Merge] Rule: L vs AI: L → Final: L
+✅ [T-Shirt Result] L (COMPLEX) | 3.0h | hours scale
+
+→ Subtasks: 40min, 80min, 60min (hour-scale!)
+→ All recursively broken down to atomic children
+```
+
+### Files to Modify
+
+- `/backend/src/services/azureOpenAIService.ts`
+  - `getFlashEstimate()` → `getTShirtSize()`
+  - `analyzeComplexity()` → Use T-Shirt results
+  - Update `COMPLEXITY_KEYWORDS`
+
+### Source
+
+This insight came from consulting with Gemini AI, who identified that:
+> "The failure occurs because you are asking a 'happy path' question ('How many minutes?') to a model optimized for speed. Instead of asking for time (regression), you should ask for Magnitude (classification). This is known in Agile as 'T-Shirt Sizing.'"
+
+---
+
+**Last Updated**: January 5, 2026
 **Status**: iOS audio fully solved and verified on real devices

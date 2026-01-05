@@ -1,6 +1,6 @@
 'use client';
 
-import { Task } from '@/types';
+import { Task, NodeContext } from '@/types';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useToast } from '@/contexts/ToastContext';
@@ -25,9 +25,10 @@ const TaskMindMap = dynamic(() => import('./graph/TaskMindMap').then(mod => ({ d
 interface TaskDetailProps {
   taskId: string;
   onClose: () => void;
+  initialContext?: NodeContext; // Context of what was clicked (task/subtask/atomic)
 }
 
-export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
+export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps) {
   const { tasks, toggleSubtask, addSubtasks, deleteSubtask, reorderSubtasks, archiveSubtask, createLinkedTask, approveBreakdown, deepDiveBreakdown } = useTaskStore();
   const toast = useToast();
   const [showAIModal, setShowAIModal] = useState(false);
@@ -63,8 +64,40 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
   }
 
   // Separate active and archived subtasks
-  const activeSubtasks = task.subtasks.filter((st) => !st.isArchived);
+  const allActiveSubtasks = task.subtasks.filter((st) => !st.isArchived);
   const archivedSubtasks = task.subtasks.filter((st) => st.isArchived);
+
+  // Filter subtasks based on click context (Orion's Belt Perspective)
+  const getVisibleSubtasks = (): typeof allActiveSubtasks => {
+    if (!initialContext) return allActiveSubtasks; // Show all (backward compatible)
+
+    switch (initialContext.type) {
+      case 'task':
+        // Clicked task itself → Show full hierarchy
+        return allActiveSubtasks;
+
+      case 'subtask':
+        const targetSubtask = allActiveSubtasks.find((st) => st.id === initialContext.subtaskId);
+        if (!targetSubtask) return [];
+
+        // Show clicked subtask + its children (if any)
+        const childrenOfTarget = allActiveSubtasks.filter(
+          (st) => st.parentSubtaskId === targetSubtask.id
+        );
+        return [targetSubtask, ...childrenOfTarget];
+
+      case 'atomic':
+        // Clicked atomic → Show only that atomic
+        const atomic = allActiveSubtasks.find((st) => st.id === initialContext.atomicId);
+        if (!atomic) return [];
+        return [atomic];
+
+      default:
+        return allActiveSubtasks;
+    }
+  };
+
+  const activeSubtasks = getVisibleSubtasks();
 
   const handleToggleSubtask = async (subtaskId: string) => {
     await toggleSubtask(task.id, subtaskId);
@@ -270,7 +303,8 @@ export function TaskDetail({ taskId, onClose }: TaskDetailProps) {
     unlockTimerCompletionAudio();
 
     const { enterFocusMode } = useCoachStore.getState();
-    enterFocusMode(task.id, task.subtasks);
+    // Pass context to focus mode (Phase 5 will update coach store to accept this)
+    enterFocusMode(task.id, task.subtasks, initialContext);
     onClose();
   };
 

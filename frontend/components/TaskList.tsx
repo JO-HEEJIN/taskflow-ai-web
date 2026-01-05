@@ -9,7 +9,7 @@ import { KanbanView } from './KanbanView';
 import { OrphanedTasksModal } from './OrphanedTasksModal';
 import { EmptyStateWithActions } from './onboarding/EmptyStateWithActions';
 import { useEffect, useState, useMemo } from 'react';
-import { Task, TaskStatus } from '@/types';
+import { Task, TaskStatus, NodeContext } from '@/types';
 import { api } from '@/lib/api';
 import { unlockTimerCompletionAudio } from '@/lib/sounds';
 
@@ -23,6 +23,7 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
   const { enterFocusMode } = useCoachStore();
   const toast = useToast();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedNodeContext, setSelectedNodeContext] = useState<NodeContext | undefined>(undefined);
   const [viewMode, setViewMode] = useState<'constellation' | 'kanban'>('constellation');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
@@ -84,6 +85,13 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
   const handleKeepOrphaned = () => {
     setShowOrphanedModal(false);
     setOrphanedTasks([]);
+  };
+
+  const handleNodeClick = (context: NodeContext) => {
+    console.log('🎯 Node clicked:', context);
+    // Set the task ID and context for the modal
+    setSelectedTaskId(context.taskId);
+    setSelectedNodeContext(context);
   };
 
   const handleCreateSampleTask = async (sampleTitle: string) => {
@@ -243,7 +251,11 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
       {viewMode === 'constellation' ? (
         <TaskGraphView
           tasks={filteredTasks}
-          onTaskClick={(taskId) => setSelectedTaskId(taskId)}
+          onTaskClick={(taskId) => {
+            setSelectedTaskId(taskId);
+            setSelectedNodeContext(undefined); // Clear context for direct task clicks
+          }}
+          onNodeClick={handleNodeClick}
           onEditTask={onEditTask}
           onBackgroundClick={onBackgroundClick}
           onViewModeToggle={() => setViewMode('kanban')}
@@ -270,7 +282,11 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
       {selectedTaskId && viewMode === 'constellation' && (
         <TaskDetail
           taskId={selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
+          onClose={() => {
+            setSelectedTaskId(null);
+            setSelectedNodeContext(undefined);
+          }}
+          initialContext={selectedNodeContext}
         />
       )}
 

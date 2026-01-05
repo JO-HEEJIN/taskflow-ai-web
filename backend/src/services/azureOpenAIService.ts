@@ -24,36 +24,42 @@ interface EnhancedBreakdownResponse extends AIBreakdownResponse {
 }
 
 /**
- * Verb Dictionary for Hybrid Complexity Scoring
- * Based on ReCAP-ADHD algorithm (Recursive Complexity-Aware Partitioning)
+ * T-Shirt Sizing Keywords for Complexity Classification
+ * Based on Gemini's recommendation: Classification > Regression for LLMs
+ * Pessimistic merge: Always take the HIGHER complexity
  */
-const VERB_COMPLEXITY_MATRIX = {
-  // HIGH COMPLEXITY (Cognitive / Creative) - Hours to Days
-  high: {
-    korean: ['브레인스토밍', '설계', '개발', '분석', '작성', '연구', '아키텍처', '전략', '구현', '디자인', '계획'],
-    english: ['brainstorm', 'design', 'develop', 'analyze', 'write', 'research', 'architect', 'strategy', 'implement', 'plan', 'draft', 'thesis', 'report', 'code', 'build', 'create'],
-    weight: 5
+type TShirtSize = 'S' | 'M' | 'L' | 'XL';
+
+const TSHIRT_KEYWORDS: Record<TShirtSize, { korean: string[]; english: string[] }> = {
+  // XL (Epic): >4h. Multiple work sessions
+  'XL': {
+    korean: ['프로젝트', '시스템', '개발', '구축', '설계', '이사', '학습', '공부'],
+    english: ['learn', 'study', 'develop', 'build', 'design', 'move', 'project', 'system', 'architecture', 'migrate']
   },
-  // MEDIUM COMPLEXITY (Procedural / Routine) - 30min to 2 Hours
-  medium: {
-    korean: ['정리', '검토', '업데이트', '일정잡기', '계산', '준비', '확인', '테스트', '문서화'],
-    english: ['organize', 'review', 'update', 'schedule', 'calculate', 'prepare', 'check', 'test', 'document', 'fix', 'debug', 'refactor'],
-    weight: 3
+  // L (Large): 1h - 4h. Requires gathering docs, deep thinking
+  'L': {
+    korean: ['세금', '신고', '보고서', '분석', '계획', '연구', '작성', '결산', '회계'],
+    english: ['tax', 'return', 'file', 'report', 'analyze', 'plan', 'research', 'write', 'thesis', 'audit', 'budget', 'financial', 'draft']
   },
-  // LOW COMPLEXITY (Atomic / Transactional) - <15 Minutes
-  low: {
-    korean: ['이메일', '전화', '전송', '삭제', '구매', '인쇄', '읽기', '보내기', '제출'],
-    english: ['email', 'call', 'send', 'delete', 'buy', 'print', 'read', 'submit', 'click', 'open', 'close', 'save'],
-    weight: 1
+  // M (Medium): 15m - 1h. Requires focus or 1-2 prep steps
+  'M': {
+    korean: ['정리', '청소', '검토', '수정', '업데이트', '일정'],
+    english: ['clean', 'organize', 'schedule', 'fix', 'review', 'update', 'prepare', 'document']
+  },
+  // S (Small): <15 min. No prep needed
+  'S': {
+    korean: ['이메일', '전화', '전송', '읽기'],
+    english: ['email', 'call', 'send', 'read', 'submit', 'click', 'open', 'save']
   }
 };
 
-/**
- * Contextual Modifiers that escalate complexity
- */
-const COMPLEXITY_ESCALATORS = {
-  korean: ['프로젝트', '시스템', '전체', '완전한', '종합', '통합'],
-  english: ['project', 'system', 'complete', 'full', 'comprehensive', 'integrated', 'entire', 'campaign']
+const TSHIRT_SIZE_ORDER: TShirtSize[] = ['S', 'M', 'L', 'XL'];
+
+const TSHIRT_DURATION_MAP: Record<TShirtSize, { minMinutes: number; maxMinutes: number; defaultMinutes: number }> = {
+  'S': { minMinutes: 1, maxMinutes: 15, defaultMinutes: 10 },
+  'M': { minMinutes: 15, maxMinutes: 60, defaultMinutes: 30 },
+  'L': { minMinutes: 60, maxMinutes: 240, defaultMinutes: 120 },
+  'XL': { minMinutes: 240, maxMinutes: 960, defaultMinutes: 480 }
 };
 
 /**
@@ -117,123 +123,110 @@ class AzureOpenAIService {
   }
 
   /**
-   * [RULE-BASED] Calculate complexity score using verb dictionary
-   * Part of Hybrid Complexity Scoring (ReCAP-ADHD Algorithm)
+   * [RULE-BASED T-SHIRT SIZING] Get minimum T-Shirt size from keyword matching
+   * Returns the HIGHEST matching size (pessimistic approach)
    */
-  private calculateRuleBasedComplexity(taskTitle: string, taskDescription?: string): {
-    level: 'High' | 'Medium' | 'Low';
-    score: number;
+  private getRuleBasedTShirtSize(taskTitle: string, taskDescription?: string): {
+    size: TShirtSize;
     matchedKeywords: string[];
   } {
     const text = `${taskTitle} ${taskDescription || ''}`.toLowerCase();
     const language = this.detectLanguage(taskTitle);
 
-    let score = 0;
     const matchedKeywords: string[] = [];
+    let highestSize: TShirtSize = 'S'; // Default to smallest
 
-    // Check HIGH complexity verbs
-    const highVerbs = language === 'korean'
-      ? VERB_COMPLEXITY_MATRIX.high.korean
-      : VERB_COMPLEXITY_MATRIX.high.english;
+    // Check each size from largest to smallest (XL → S)
+    for (const size of [...TSHIRT_SIZE_ORDER].reverse()) {
+      const keywords = language === 'korean'
+        ? TSHIRT_KEYWORDS[size].korean
+        : TSHIRT_KEYWORDS[size].english;
 
-    for (const verb of highVerbs) {
-      if (text.includes(verb.toLowerCase())) {
-        score += VERB_COMPLEXITY_MATRIX.high.weight;
-        matchedKeywords.push(verb);
+      for (const keyword of keywords) {
+        if (text.includes(keyword.toLowerCase())) {
+          matchedKeywords.push(`${size}:${keyword}`);
+          // Update highestSize if this size is larger
+          if (TSHIRT_SIZE_ORDER.indexOf(size) > TSHIRT_SIZE_ORDER.indexOf(highestSize)) {
+            highestSize = size;
+          }
+        }
       }
     }
 
-    // Check MEDIUM complexity verbs
-    const mediumVerbs = language === 'korean'
-      ? VERB_COMPLEXITY_MATRIX.medium.korean
-      : VERB_COMPLEXITY_MATRIX.medium.english;
-
-    for (const verb of mediumVerbs) {
-      if (text.includes(verb.toLowerCase())) {
-        score += VERB_COMPLEXITY_MATRIX.medium.weight;
-        matchedKeywords.push(verb);
-      }
-    }
-
-    // Check LOW complexity verbs
-    const lowVerbs = language === 'korean'
-      ? VERB_COMPLEXITY_MATRIX.low.korean
-      : VERB_COMPLEXITY_MATRIX.low.english;
-
-    for (const verb of lowVerbs) {
-      if (text.includes(verb.toLowerCase())) {
-        score += VERB_COMPLEXITY_MATRIX.low.weight;
-        matchedKeywords.push(verb);
-      }
-    }
-
-    // Check for complexity escalators (e.g., "프로젝트", "시스템")
-    const escalators = language === 'korean'
-      ? COMPLEXITY_ESCALATORS.korean
-      : COMPLEXITY_ESCALATORS.english;
-
-    for (const escalator of escalators) {
-      if (text.includes(escalator.toLowerCase())) {
-        score += 2; // Escalate complexity
-        matchedKeywords.push(`+${escalator}`);
-      }
-    }
-
-    // Context length bonus (longer descriptions = more complex)
-    const wordCount = text.split(/\s+/).length;
-    if (wordCount > 20) {
-      score += 2;
-    }
-
-    // Determine level based on score
-    let level: 'High' | 'Medium' | 'Low';
-    if (score >= 5) {
-      level = 'High';
-    } else if (score >= 3) {
-      level = 'Medium';
-    } else {
-      level = 'Low';
-    }
-
-    return { level, score, matchedKeywords };
+    return { size: highestSize, matchedKeywords };
   }
 
   /**
-   * [FLASH ESTIMATE] Quick AI-based duration estimate (latency-optimized)
-   * Uses gpt-4o-mini with max_tokens=10 for speed
-   * Part of Hybrid Complexity Scoring
+   * [T-SHIRT SIZING] AI-based complexity classification (not time regression!)
+   * Uses gpt-4o-mini with structured prompt for S/M/L/XL sizing
+   * Key insight: LLMs are better at classification than regression
    */
-  private async getFlashEstimate(taskTitle: string, taskDescription?: string): Promise<number> {
+  private async getTShirtSize(taskTitle: string, taskDescription?: string): Promise<{
+    size: TShirtSize;
+    reasoning: string;
+    impliedMinutes: number;
+  }> {
     if (!this.client) {
-      return 60; // Default fallback
+      return { size: 'M', reasoning: 'Default (no AI)', impliedMinutes: 30 };
     }
 
     try {
+      const systemPrompt = `You are a T-Shirt Sizing Agent for an ADHD task manager.
+Your job is NOT to plan the task, but to SIZE it based on "Mental Friction" and "Hidden Steps."
+
+SIZING GUIDE:
+- S (Small): <15 min. No prep needed. (e.g., "Email Mom", "Water plants")
+- M (Medium): 15m - 1h. Requires focus or 1-2 prep steps. (e.g., "Write weekly update", "Clean kitchen")
+- L (Large): 1h - 4h. Requires gathering docs, deep thinking, or avoiding distractions. (e.g., "File taxes", "Code new feature")
+- XL (Epic): >4h. Multiple work sessions. (e.g., "Build a website", "Move house")
+
+LOGIC:
+1. Identify immediate "preparation actions" (e.g., logging in, finding papers).
+2. Apply "ADHD Tax": Assume the user will get distracted or stuck.
+3. Select the Size (S, M, L, XL).
+
+OUTPUT FORMAT (JSON only):
+{"size": "S" | "M" | "L" | "XL", "reasoning": "string (max 10 words)", "implied_duration_minutes": number}`;
+
+      const userPrompt = `INPUT TASK: "${taskTitle}"${taskDescription ? `\nContext: ${taskDescription}` : ''}
+
+Respond with JSON only.`;
+
       const response = await this.client.getChatCompletions(
         this.models.coach, // gpt-4o-mini for speed
         [
-          {
-            role: 'user',
-            content: `You are a project manager. Estimate the time in minutes for: "${taskTitle}". ${taskDescription ? `Context: ${taskDescription}` : ''} Respond ONLY with an integer (number of minutes).`
-          }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        { maxTokens: 10, temperature: 0 }
+        { maxTokens: 100, temperature: 0.1 }
       );
 
-      const content = response.choices[0]?.message?.content || '60';
-      const estimate = parseInt(content.trim());
+      const content = response.choices[0]?.message?.content || '{}';
 
-      return isNaN(estimate) ? 60 : estimate;
+      // Parse JSON response
+      try {
+        const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const parsed = JSON.parse(cleanedContent);
+
+        const size = (['S', 'M', 'L', 'XL'].includes(parsed.size) ? parsed.size : 'M') as TShirtSize;
+        const reasoning = parsed.reasoning || 'AI classified';
+        const impliedMinutes = parsed.implied_duration_minutes || TSHIRT_DURATION_MAP[size].defaultMinutes;
+
+        return { size, reasoning, impliedMinutes };
+      } catch (parseError) {
+        console.warn('[T-Shirt Sizing] Failed to parse JSON, using default M');
+        return { size: 'M', reasoning: 'Parse error fallback', impliedMinutes: 30 };
+      }
     } catch (error) {
-      console.error('[Flash Estimate] Error:', error);
-      return 60; // Fallback
+      console.error('[T-Shirt Sizing] Error:', error);
+      return { size: 'M', reasoning: 'Error fallback', impliedMinutes: 30 };
     }
   }
 
   /**
-   * [HYBRID COMPLEXITY ANALYSIS] Combines rule-based + AI flash estimate
-   * Based on ReCAP-ADHD Algorithm (Recursive Complexity-Aware Partitioning)
-   * Determines if task should be broken down in hours or minutes
+   * [T-SHIRT COMPLEXITY ANALYSIS] Combines rule-based + AI T-Shirt sizing
+   * Uses PESSIMISTIC MERGE: Always take the HIGHER complexity
+   * Key insight from Gemini: Classification > Regression for LLMs
    */
   private async analyzeComplexity(
     taskTitle: string,
@@ -243,70 +236,60 @@ class AzureOpenAIService {
     estimatedTotalHours: number;
     timeScale: 'minutes' | 'hours';
     reasoning: string;
-    ruleScore?: number;
-    flashEstimate?: number;
+    tshirtSize?: TShirtSize;
+    ruleBasedSize?: TShirtSize;
+    aiSize?: TShirtSize;
     adhdAdjusted?: boolean;
   }> {
-    console.log(`🧠 [Hybrid Complexity] Analyzing: "${taskTitle}"`);
+    console.log(`👕 [T-Shirt Analysis] Analyzing: "${taskTitle}"`);
 
-    // PHASE 1: Rule-Based Scoring
-    const ruleResult = this.calculateRuleBasedComplexity(taskTitle, taskDescription);
-    console.log(`📋 [Rule-Based] Level: ${ruleResult.level}, Score: ${ruleResult.score}, Keywords: [${ruleResult.matchedKeywords.join(', ')}]`);
+    // PHASE 1: Rule-Based T-Shirt Sizing (keyword matching)
+    const ruleResult = this.getRuleBasedTShirtSize(taskTitle, taskDescription);
+    console.log(`📋 [Rule-Based] Size: ${ruleResult.size}, Keywords: [${ruleResult.matchedKeywords.join(', ')}]`);
 
-    // PHASE 2: Flash Estimate (AI Sanity Check)
-    const flashEstimate = await this.getFlashEstimate(taskTitle, taskDescription);
-    console.log(`⚡ [Flash Estimate] ${flashEstimate} minutes`);
+    // PHASE 2: AI T-Shirt Sizing (classification, not regression!)
+    const aiResult = await this.getTShirtSize(taskTitle, taskDescription);
+    console.log(`🤖 [AI T-Shirt] Size: ${aiResult.size}, Reasoning: "${aiResult.reasoning}", Implied: ${aiResult.impliedMinutes}min`);
 
-    // PHASE 3: Hybrid Decision Logic
-    // AI estimate overrides rule if significant divergence
-    let finalComplexity: 'simple' | 'moderate' | 'complex' | 'very_complex';
-    let rawEstimateMinutes = flashEstimate;
+    // PHASE 3: PESSIMISTIC MERGE - Always take the HIGHER complexity
+    const ruleIndex = TSHIRT_SIZE_ORDER.indexOf(ruleResult.size);
+    const aiIndex = TSHIRT_SIZE_ORDER.indexOf(aiResult.size);
+    const finalSize: TShirtSize = ruleIndex > aiIndex ? ruleResult.size : aiResult.size;
 
-    if (flashEstimate > 480) {
-      // 8+ hours = Very Complex (AI override)
-      finalComplexity = 'very_complex';
-      console.log(`🔀 [Hybrid] AI Override: Very Complex (${flashEstimate}min > 480min)`);
-    } else if (flashEstimate > 120) {
-      // 2+ hours = Complex (AI override)
-      finalComplexity = 'complex';
-      console.log(`🔀 [Hybrid] AI Override: Complex (${flashEstimate}min > 120min)`);
-    } else if (flashEstimate < 15) {
-      // <15 min = Simple (AI override)
-      finalComplexity = 'simple';
-      console.log(`🔀 [Hybrid] AI Override: Simple (${flashEstimate}min < 15min)`);
-    } else {
-      // Rule-based takes precedence for moderate range
-      if (ruleResult.level === 'High') {
-        finalComplexity = flashEstimate > 60 ? 'complex' : 'moderate';
-      } else if (ruleResult.level === 'Medium') {
-        finalComplexity = 'moderate';
-      } else {
-        finalComplexity = 'simple';
-      }
-      console.log(`📊 [Hybrid] Rule-Based: ${finalComplexity} (from ${ruleResult.level})`);
-    }
+    console.log(`🔀 [Pessimistic Merge] Rule: ${ruleResult.size} (idx ${ruleIndex}) vs AI: ${aiResult.size} (idx ${aiIndex}) → Final: ${finalSize}`);
 
-    // PHASE 4: ADHD Multiplier (1.5x for transition costs and time blindness)
-    const adhdAdjustedMinutes = Math.round(rawEstimateMinutes * ADHD_MULTIPLIER);
+    // PHASE 4: Map T-Shirt to complexity level
+    const complexityMap: Record<TShirtSize, 'simple' | 'moderate' | 'complex' | 'very_complex'> = {
+      'S': 'simple',
+      'M': 'moderate',
+      'L': 'complex',
+      'XL': 'very_complex'
+    };
+    const finalComplexity = complexityMap[finalSize];
+
+    // PHASE 5: Calculate duration with ADHD multiplier
+    const baseDuration = TSHIRT_DURATION_MAP[finalSize].defaultMinutes;
+    const adhdAdjustedMinutes = Math.round(baseDuration * ADHD_MULTIPLIER);
     const estimatedTotalHours = adhdAdjustedMinutes / 60;
 
-    console.log(`🧠 [ADHD Adjustment] ${rawEstimateMinutes}min × ${ADHD_MULTIPLIER} = ${adhdAdjustedMinutes}min (${estimatedTotalHours.toFixed(1)}h)`);
+    console.log(`🧠 [ADHD Adjustment] ${baseDuration}min × ${ADHD_MULTIPLIER} = ${adhdAdjustedMinutes}min (${estimatedTotalHours.toFixed(1)}h)`);
 
-    // PHASE 5: Time Scale Determination
+    // PHASE 6: Time Scale - L/XL use hours, S/M use minutes
     const timeScale: 'minutes' | 'hours' =
-      (finalComplexity === 'complex' || finalComplexity === 'very_complex') ? 'hours' : 'minutes';
+      (finalSize === 'L' || finalSize === 'XL') ? 'hours' : 'minutes';
 
-    const reasoning = `Hybrid analysis: Rule-based scored ${ruleResult.score} (${ruleResult.level}), Flash estimate ${flashEstimate}min, Applied ${ADHD_MULTIPLIER}x ADHD multiplier → ${adhdAdjustedMinutes}min total`;
+    const reasoning = `T-Shirt Analysis: Rule-based=${ruleResult.size}, AI=${aiResult.size} ("${aiResult.reasoning}"), Pessimistic Merge→${finalSize}, ADHD×${ADHD_MULTIPLIER}→${adhdAdjustedMinutes}min`;
 
-    console.log(`✅ [Hybrid Result] ${finalComplexity.toUpperCase()} | ${estimatedTotalHours.toFixed(1)}h | ${timeScale} scale`);
+    console.log(`✅ [T-Shirt Result] ${finalSize} (${finalComplexity.toUpperCase()}) | ${estimatedTotalHours.toFixed(1)}h | ${timeScale} scale`);
 
     return {
       complexity: finalComplexity,
       estimatedTotalHours,
       timeScale,
       reasoning,
-      ruleScore: ruleResult.score,
-      flashEstimate,
+      tshirtSize: finalSize,
+      ruleBasedSize: ruleResult.size,
+      aiSize: aiResult.size,
       adhdAdjusted: true
     };
   }
@@ -506,7 +489,7 @@ class AzureOpenAIService {
             order: st.order ?? index,
             estimatedMinutes,
             stepType: st.stepType || 'mental',
-            status: 'draft',
+            status: 'draft' as const,
             isComposite: estimatedMinutes > 10,
             depth: 0,
             // ✅ AUTOMATIC RECURSIVE BREAKDOWN
@@ -607,7 +590,6 @@ class AzureOpenAIService {
         this.logBreakdown({
           userId,
           taskTitle,
-          taskDescription: taskDescription || '',
           model: modelUsed,
           latencyMs,
           tokensUsed: 0, // Not available in streaming
@@ -711,7 +693,7 @@ Respond with verification results:`;
         { ...this.getModelOptions(modelUsed, 800), responseFormat: { type: 'json_object' } }
       );
 
-      const result = JSON.parse(response.choices[0].message.content || '{}');
+      const result = JSON.parse(response.choices[0]?.message?.content || '{}');
       const latencyMs = Date.now() - startTime;
 
       console.log(`🔍 [CoV] Verification: ${result.isValid ? '✅ PASS' : '❌ FAIL'} (${latencyMs}ms)`);
@@ -876,7 +858,7 @@ Return ONLY the JSON array, no markdown, no explanation.`;
    * @param maxDepth - Maximum recursion depth (default 3 to prevent infinite loops)
    * @returns Array of atomic subtasks with all children recursively broken down
    */
-  private async recursiveBreakdownUntilAtomic(
+  async recursiveBreakdownUntilAtomic(
     subtaskTitle: string,
     estimatedMinutes: number,
     parentTaskTitle: string,

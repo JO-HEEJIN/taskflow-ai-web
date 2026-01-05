@@ -133,37 +133,46 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
   };
 
   /**
-   * Flatten children into atomic constellation nodes
+   * Flatten children into atomic constellation nodes (RECURSIVE)
    * Children become top-level subtasks with "Atomic: " prefix
+   * Handles deeply nested children from recursive breakdown
+   *
+   * IMPORTANT: Parent subtasks KEEP their children array for constellation graph!
    */
   const flattenChildrenToAtomicTasks = (suggestions: AISubtaskSuggestion[]): AISubtaskSuggestion[] => {
     const flattened: AISubtaskSuggestion[] = [];
 
-    suggestions.forEach((suggestion, parentIndex) => {
-      // Add parent subtask (without "Atomic:" prefix)
+    // Recursive helper to flatten nested children
+    const flattenRecursively = (
+      node: AISubtaskSuggestion,
+      parentTitle: string | undefined,
+      depth: number
+    ) => {
+      // Add this node (with "Atomic:" prefix if it's a child)
+      const isChild = depth > 0;
       flattened.push({
-        ...suggestion,
-        order: parentIndex,
-        // Remove children from parent (they'll be added separately)
-        children: undefined,
+        ...node,
+        title: isChild ? `Atomic: ${node.title}` : node.title,
+        order: flattened.length,
+        parentSubtaskId: parentTitle,
+        isAtomic: isChild,
+        depth: depth,
+        // KEEP children for parent subtasks (depth 0) - needed for constellation graph!
+        // Only remove children for atomic subtasks (depth > 0)
+        children: isChild ? undefined : node.children,
       });
 
-      // Add children as atomic constellation nodes
-      if (suggestion.children && suggestion.children.length > 0) {
-        suggestion.children.forEach((child: any, childIndex: number) => {
-          flattened.push({
-            title: `Atomic: ${child.title}`,  // ✅ "Atomic:" prefix
-            estimatedMinutes: child.estimatedMinutes || 5,
-            stepType: child.stepType || 'mental',
-            order: flattened.length,
-            // Link back to parent via parentSubtaskId
-            // (This will be set properly when creating subtask with IDs)
-            parentSubtaskId: suggestion.title, // Temporary - will be replaced with actual ID
-            isAtomic: true, // Flag for styling
-            depth: (child.depth || 1),
-          });
+      // Recursively flatten children
+      if (node.children && node.children.length > 0) {
+        node.children.forEach((child: any) => {
+          flattenRecursively(child, node.title, depth + 1);
         });
       }
+    };
+
+    // Start flattening from top-level suggestions
+    suggestions.forEach((suggestion) => {
+      flattenRecursively(suggestion, undefined, 0);
     });
 
     return flattened;
@@ -229,12 +238,12 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
           ) : isStreaming && suggestions.length > 0 ? (
             // PROGRESSIVE RENDERING: Show subtasks as they arrive
             <div className="space-y-4">
-              <p className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600">
                 <span className="inline-flex items-center gap-2">
-                  <div className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-solid border-purple-600 border-r-transparent"></div>
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-solid border-purple-600 border-r-transparent"></span>
                   Generating more subtasks...
                 </span>
-              </p>
+              </div>
               <div className="space-y-2">
                 {suggestions.map((suggestion, index) => (
                   <div
@@ -259,9 +268,9 @@ export function AIBreakdownModal({ taskId, onClose }: AIBreakdownModalProps) {
             </div>
           ) : suggestions.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-600 mb-6">
+              <div className="text-gray-600 mb-6">
                 No suggestions generated. Try again?
-              </p>
+              </div>
               <button
                 onClick={handleGenerate}
                 disabled={isGenerating}

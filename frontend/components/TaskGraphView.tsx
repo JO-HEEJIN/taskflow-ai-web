@@ -1,15 +1,17 @@
 'use client';
 
-import { Task, TaskStatus } from '@/types';
+import { Task, TaskStatus, NodeContext } from '@/types';
 import { TaskCard } from './TaskCard';
 import { StarryBackground } from './StarryBackground';
 import { SearchFilter } from './SearchFilter';
 import { LayoutGrid } from 'lucide-react';
 import { useMemo, useState, useRef, useEffect } from 'react';
+import { generateHierarchyGraph, GraphNode, GraphLink } from './graph/hierarchyUtils';
 
 interface TaskGraphViewProps {
   tasks: Task[];
   onTaskClick: (taskId: string) => void;
+  onNodeClick?: (context: NodeContext) => void; // NEW: Handle subtask/atomic clicks
   onEditTask?: (taskId: string) => void;
   onBackgroundClick?: () => void;
   onViewModeToggle?: () => void;
@@ -37,6 +39,7 @@ interface TaskPosition {
 export function TaskGraphView({
   tasks,
   onTaskClick,
+  onNodeClick,
   onEditTask,
   onBackgroundClick,
   onViewModeToggle,
@@ -56,142 +59,26 @@ export function TaskGraphView({
   // Touch gesture states
   const [lastTouchDistance, setLastTouchDistance] = useState<number | null>(null);
   const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [containerReady, setContainerReady] = useState(false);
 
-  // Build task relationships and positions
-  const { positions, connections } = useMemo(() => {
-    const positions: TaskPosition[] = [];
-    const connections: { from: TaskPosition; to: TaskPosition }[] = [];
+  // Track when container is mounted
+  useEffect(() => {
+    if (containerRef.current && !containerReady) {
+      setContainerReady(true);
+    }
+  }, [containerReady]);
 
-    // Build depth map: calculate how deeply nested each task is
-    const depthMap = new Map<string, number>();
-    const taskLinkMap = new Map<string, string>(); // linkedTaskId -> parentTaskId
+  // Generate hierarchy graph with Task → Subtask → Atomic nodes
+  const hierarchyGraph = useMemo(() => {
+    if (!containerRef.current || !containerReady) {
+      return { nodes: [], links: [] };
+    }
 
-    // First pass: build link map
-    tasks.forEach((task) => {
-      task.subtasks.forEach((subtask) => {
-        if (subtask.linkedTaskId) {
-          taskLinkMap.set(subtask.linkedTaskId, task.id);
-        }
-      });
-    });
+    const width = containerRef.current.clientWidth || 1920;
+    const height = containerRef.current.clientHeight || 1080;
 
-    // Calculate depth for each task
-    const calculateDepth = (taskId: string, visited = new Set<string>()): number => {
-      if (visited.has(taskId)) return 0; // Prevent circular references
-      if (depthMap.has(taskId)) return depthMap.get(taskId)!;
-
-      visited.add(taskId);
-      const parentId = taskLinkMap.get(taskId);
-      if (!parentId) {
-        depthMap.set(taskId, 0);
-        return 0;
-      }
-
-      const depth = calculateDepth(parentId, visited) + 1;
-      depthMap.set(taskId, depth);
-      return depth;
-    };
-
-    tasks.forEach((task) => calculateDepth(task.id));
-
-    // Separate root tasks and linked tasks
-    const linkedTaskIds = new Set(taskLinkMap.keys());
-    const rootTasks = tasks.filter((t) => !linkedTaskIds.has(t.id) && !t.sourceSubtaskId);
-
-    const SPACING_X = 350;
-    const SPACING_Y = 350;
-    const MIN_DISTANCE = 200; // Minimum distance between any two tasks
-
-    // Position root tasks in a grid
-    rootTasks.forEach((task, index) => {
-      const col = index % 3; // 3 columns
-      const row = Math.floor(index / 3);
-      positions.push({
-        task,
-        x: col * SPACING_X + 200,
-        y: row * SPACING_Y + 200,
-        isLinked: false,
-        depth: 0,
-      });
-    });
-
-    // Position linked tasks with collision avoidance
-    const positionLinkedTask = (linkedTask: Task) => {
-      const parentId = taskLinkMap.get(linkedTask.id);
-      if (!parentId) return;
-
-      const parentPos = positions.find((p) => p.task.id === parentId);
-      if (!parentPos) return;
-
-      const depth = depthMap.get(linkedTask.id) || 0;
-      const baseDistance = 250 - (depth * 30); // Decrease distance with depth
-
-      // Try different angles to find a position without collision
-      const siblings = positions.filter((p) => p.parentId === parentId);
-      const angleStep = (Math.PI * 2) / Math.max(8, siblings.length + 1);
-
-      for (let attempt = 0; attempt < 16; attempt++) {
-        const angle = angleStep * (siblings.length + attempt * 0.5);
-        const distance = baseDistance + (attempt * 30);
-        const x = parentPos.x + Math.cos(angle) * distance;
-        const y = parentPos.y + Math.sin(angle) * distance;
-
-        // Check collision with all existing positions
-        const hasCollision = positions.some((pos) => {
-          const dx = pos.x - x;
-          const dy = pos.y - y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          return dist < MIN_DISTANCE;
-        });
-
-        if (!hasCollision) {
-          const linkedPos: TaskPosition = {
-            task: linkedTask,
-            x,
-            y,
-            isLinked: true,
-            parentId,
-            depth,
-          };
-
-          positions.push(linkedPos);
-
-          // Create connection
-          connections.push({
-            from: parentPos,
-            to: linkedPos,
-          });
-          return;
-        }
-      }
-
-      // Fallback: position with offset even if collision exists
-      const fallbackAngle = angleStep * siblings.length;
-      const fallbackDist = baseDistance + 100;
-      positions.push({
-        task: linkedTask,
-        x: parentPos.x + Math.cos(fallbackAngle) * fallbackDist,
-        y: parentPos.y + Math.sin(fallbackAngle) * fallbackDist,
-        isLinked: true,
-        parentId,
-        depth,
-      });
-
-      connections.push({
-        from: parentPos,
-        to: positions[positions.length - 1],
-      });
-    };
-
-    // Position linked tasks in order of depth (shallow first)
-    const linkedTasks = tasks
-      .filter((t) => linkedTaskIds.has(t.id) || t.sourceSubtaskId)
-      .sort((a, b) => (depthMap.get(a.id) || 0) - (depthMap.get(b.id) || 0));
-
-    linkedTasks.forEach(positionLinkedTask);
-
-    return { positions, connections };
-  }, [tasks]);
+    return generateHierarchyGraph(tasks, width, height);
+  }, [tasks, containerReady]);
 
   // Zoom handlers
   const handleWheel = (e: React.WheelEvent) => {
@@ -420,16 +307,17 @@ export function TaskGraphView({
             className="absolute inset-0 pointer-events-none"
             style={{ width: '100%', height: '100%', overflow: 'visible' }}
           >
-            {connections.map((conn, index) => {
-              // Use base size without depth scale since nodes use transform: scale()
-              // The visual size changes but the coordinate space stays the same
-              const baseFromSize = conn.from.isLinked ? 120 : 160;
-              const baseToSize = conn.to.isLinked ? 120 : 160;
+            {hierarchyGraph.links.map((link, index) => {
+              const sourceNode = hierarchyGraph.nodes.find((n) => n.id === link.source);
+              const targetNode = hierarchyGraph.nodes.find((n) => n.id === link.target);
 
-              const fromX = conn.from.x + baseFromSize / 2;
-              const fromY = conn.from.y + baseFromSize / 2;
-              const toX = conn.to.x + baseToSize / 2;
-              const toY = conn.to.y + baseToSize / 2;
+              if (!sourceNode || !targetNode) return null;
+
+              // Calculate center points
+              const fromX = sourceNode.x;
+              const fromY = sourceNode.y;
+              const toX = targetNode.x;
+              const toY = targetNode.y;
 
               // Calculate control point for curve
               const dx = toX - fromX;
@@ -437,15 +325,25 @@ export function TaskGraphView({
               const controlX = fromX + dx * 0.5;
               const controlY = fromY + dy * 0.5 - Math.abs(dx) * 0.2;
 
+              // Different styles for different connection types
+              const isAtomicLink = link.type === 'subtask-atomic';
+              const strokeColor = isAtomicLink ? '#22D3EE' : '#A78BFA'; // Cyan for atomic, Purple for subtask
+              const glowColor = isAtomicLink ? '#06B6D4' : '#9f7aea';
+              const dashArray = isAtomicLink ? '4 2' : 'none'; // Dashed for atomic
+              const strokeWidth = isAtomicLink ? 1 : 2;
+
+              // Hide atomic links when zoomed out
+              if (isAtomicLink && zoom < 0.4) return null;
+
               return (
-                <g key={index}>
-                  {/* Outer glow effect - constellation style */}
+                <g key={`${link.source}-${link.target}-${index}`}>
+                  {/* Outer glow effect */}
                   {showDetails && (
                     <path
                       d={`M ${fromX} ${fromY} Q ${controlX} ${controlY} ${toX} ${toY}`}
                       fill="none"
-                      stroke="#9f7aea"
-                      strokeWidth={zoom > 0.7 ? 12 : 8}
+                      stroke={glowColor}
+                      strokeWidth={zoom > 0.7 ? (isAtomicLink ? 8 : 12) : (isAtomicLink ? 6 : 8)}
                       opacity="0.08"
                       filter="blur(4px)"
                     />
@@ -455,22 +353,22 @@ export function TaskGraphView({
                     <path
                       d={`M ${fromX} ${fromY} Q ${controlX} ${controlY} ${toX} ${toY}`}
                       fill="none"
-                      stroke="#b794f4"
-                      strokeWidth={zoom > 0.7 ? 6 : 4}
+                      stroke={strokeColor}
+                      strokeWidth={zoom > 0.7 ? (isAtomicLink ? 4 : 6) : (isAtomicLink ? 3 : 4)}
                       opacity="0.15"
                       filter="blur(2px)"
                     />
                   )}
-                  {/* Main line - subtle purple constellation line */}
+                  {/* Main line */}
                   <path
                     d={`M ${fromX} ${fromY} Q ${controlX} ${controlY} ${toX} ${toY}`}
                     fill="none"
-                    stroke="#7c3aed"
-                    strokeWidth={zoom > 0.7 ? 2 : 1.5}
-                    strokeDasharray={showDetails ? "4,4" : "none"}
-                    opacity={showDetails ? "0.6" : "0.4"}
+                    stroke={strokeColor}
+                    strokeWidth={zoom > 0.7 ? strokeWidth : strokeWidth * 0.75}
+                    strokeDasharray={dashArray}
+                    opacity={showDetails ? '0.6' : '0.4'}
                   >
-                    {showDetails && (
+                    {showDetails && !isAtomicLink && (
                       <animate
                         attributeName="stroke-dashoffset"
                         from="0"
@@ -484,8 +382,8 @@ export function TaskGraphView({
                   <circle
                     cx={toX}
                     cy={toY}
-                    r={showDetails ? 8 : 6}
-                    fill="#9f7aea"
+                    r={showDetails ? (isAtomicLink ? 5 : 8) : (isAtomicLink ? 3 : 6)}
+                    fill={glowColor}
                     opacity="0.15"
                     filter="blur(3px)"
                   />
@@ -493,17 +391,17 @@ export function TaskGraphView({
                   <circle
                     cx={toX}
                     cy={toY}
-                    r={showDetails ? 4 : 2.5}
-                    fill="#c4b5fd"
-                    opacity={showDetails ? "0.8" : "0.6"}
+                    r={showDetails ? (isAtomicLink ? 2.5 : 4) : (isAtomicLink ? 1.5 : 2.5)}
+                    fill={strokeColor}
+                    opacity={showDetails ? '0.8' : '0.6'}
                   />
                 </g>
               );
             })}
           </svg>
 
-          {/* Task nodes */}
-          {positions.length === 0 ? (
+          {/* Hierarchy nodes (Tasks, Subtasks, Atomics) */}
+          {hierarchyGraph.nodes.length === 0 ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
                 <p className="text-white text-xl mb-2">No tasks found</p>
@@ -512,47 +410,67 @@ export function TaskGraphView({
                 </p>
               </div>
             </div>
-          ) : positions.map((pos) => {
-            // Calculate size based on depth: each level is 20% smaller
-            const depthScale = Math.pow(0.8, pos.depth);
+          ) : (
+            hierarchyGraph.nodes.map((node) => {
+              // Hide atomic nodes when zoomed out
+              if (node.type === 'atomic' && zoom < 0.4) return null;
 
-            return (
-              <div
-                key={pos.task.id}
-                className="absolute pointer-events-auto"
-                style={{
-                  left: pos.x,
-                  top: pos.y,
-                  transform: `scale(${depthScale})`,
-                  transformOrigin: 'center center',
-                }}
-              >
-                {showFullDetails ? (
-                  // Full detail view
-                  <TaskCard
-                    task={pos.task}
-                    isLinked={pos.isLinked}
-                    onClick={() => onTaskClick(pos.task.id)}
-                    onEdit={onEditTask}
-                  />
-                ) : showDetails ? (
-                  // Simplified view - just circle with title and progress
-                  <SimplifiedTaskNode
-                    task={pos.task}
-                    isLinked={pos.isLinked}
-                    onClick={() => onTaskClick(pos.task.id)}
-                  />
-                ) : (
-                  // Minimal view - just colored circles
-                  <MinimalTaskNode
-                    task={pos.task}
-                    isLinked={pos.isLinked}
-                    onClick={() => onTaskClick(pos.task.id)}
-                  />
-                )}
-              </div>
-            );
-          })}
+              // Handle click based on node type
+              const handleNodeClick = () => {
+                if (node.type === 'task') {
+                  // Task click - use existing handler
+                  onTaskClick((node.data as Task).id);
+                } else if (onNodeClick) {
+                  // Subtask or atomic click - construct NodeContext
+                  const context: NodeContext = {
+                    type: node.type,
+                    taskId: node.parentId || (node.data as any).parentTaskId || '',
+                    subtaskId: node.type === 'subtask' ? node.id : undefined,
+                    atomicId: node.type === 'atomic' ? node.id : undefined,
+                  };
+                  onNodeClick(context);
+                }
+              };
+
+              return (
+                <div
+                  key={node.id}
+                  className="absolute pointer-events-auto"
+                  style={{
+                    left: node.x - node.size / 2,
+                    top: node.y - node.size / 2,
+                  }}
+                >
+                  {node.type === 'task' ? (
+                    // Task nodes - use existing TaskCard/SimplifiedTaskNode/MinimalTaskNode
+                    showFullDetails ? (
+                      <TaskCard
+                        task={node.data as Task}
+                        isLinked={false}
+                        onClick={handleNodeClick}
+                        onEdit={onEditTask}
+                      />
+                    ) : showDetails ? (
+                      <SimplifiedTaskNode
+                        task={node.data as Task}
+                        isLinked={false}
+                        onClick={handleNodeClick}
+                      />
+                    ) : (
+                      <MinimalTaskNode
+                        task={node.data as Task}
+                        isLinked={false}
+                        onClick={handleNodeClick}
+                      />
+                    )
+                  ) : (
+                    // Subtask and Atomic nodes - new hierarchy nodes
+                    <HierarchyNode node={node} onClick={handleNodeClick} zoom={zoom} />
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
       </div>
@@ -660,6 +578,90 @@ function MinimalTaskNode({ task, isLinked, onClick }: { task: Task; isLinked: bo
           if (onClick) onClick();
         }}
       />
+    </div>
+  );
+}
+
+// Hierarchy node for Subtasks and Atomics
+function HierarchyNode({ node, onClick, zoom }: { node: GraphNode; onClick?: () => void; zoom: number }) {
+  const isSubtask = node.type === 'subtask';
+  const isAtomic = node.type === 'atomic';
+  const isCompleted = node.status === 'completed';
+
+  // Colors
+  const subtaskColor = isCompleted ? '#22C55E' : '#A78BFA'; // Green or Purple
+  const atomicColor = isCompleted ? '#10B981' : '#22D3EE'; // Green or Cyan
+  const color = isSubtask ? subtaskColor : atomicColor;
+  const glowColor = isSubtask ? 'rgba(167, 139, 250, 0.4)' : 'rgba(34, 211, 238, 0.4)';
+
+  // Show details based on zoom
+  const showLabel = zoom > 0.6;
+  const showFullLabel = zoom > 0.8;
+
+  return (
+    <div
+      className="relative cursor-pointer hover:scale-110 transition-transform"
+      style={{ width: node.size, height: node.size }}
+      title={node.title}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onClick) onClick();
+      }}
+    >
+      {/* Glow effect */}
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
+          filter: 'blur(6px)',
+          transform: 'scale(1.4)',
+          opacity: isCompleted ? 0.3 : 0.6,
+        }}
+      />
+
+      {/* Main circle */}
+      <div
+        className="relative rounded-full backdrop-blur-sm flex items-center justify-center"
+        style={{
+          width: node.size,
+          height: node.size,
+          backgroundColor: color,
+          border: `2px solid ${color}`,
+          opacity: isCompleted ? 0.6 : 1,
+          boxShadow: `0 0 ${node.size / 2}px ${glowColor}`,
+        }}
+      >
+        {/* Label for larger nodes */}
+        {showLabel && isSubtask && (
+          <div
+            className="text-center px-2 overflow-hidden"
+            style={{
+              fontSize: showFullLabel ? '10px' : '8px',
+              color: 'white',
+              textShadow: '0 1px 2px rgba(0,0,0,0.8)',
+              lineHeight: '1.2',
+            }}
+          >
+            {showFullLabel ? (
+              <span className="font-medium">{node.title}</span>
+            ) : (
+              <span>{node.title.slice(0, 8)}...</span>
+            )}
+          </div>
+        )}
+
+        {/* Completion checkmark */}
+        {isCompleted && showLabel && (
+          <div
+            className="absolute inset-0 flex items-center justify-center"
+            style={{
+              fontSize: isSubtask ? '14px' : '8px',
+            }}
+          >
+            ✓
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -45,6 +45,9 @@ export interface AISubtaskSuggestion {
   status?: 'draft' | 'active';
   isComposite?: boolean;
   depth?: number;
+  children?: AISubtaskSuggestion[]; // Nested children from recursive breakdown
+  parentSubtaskId?: string; // Link to parent subtask for atomic tasks
+  isAtomic?: boolean; // Flag for atomic constellation styling
 }
 
 // AI Coaching Response
@@ -55,4 +58,13 @@ export interface AICoachingResponse {
     firstTaskPrompt: string;
     encouragement: string;
   };
+}
+
+// Node Context for Constellation View (Orion's Belt Perspective)
+// Tracks what the user clicked to enable context-aware modals and focus mode
+export interface NodeContext {
+  type: 'task' | 'subtask' | 'atomic';
+  taskId: string;
+  subtaskId?: string; // For subtask or atomic clicks
+  atomicId?: string; // For atomic clicks only
 }

@@ -1,6 +1,6 @@
 // API Client for TaskFlow AI Backend
 import { guestStorage } from './guestStorage';
-import { AISubtaskSuggestion } from '@/types';
+import { AISubtaskSuggestion, Subtask } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -216,11 +216,17 @@ export const api = {
       const subtask = task.subtasks.find(st => st.id === subtaskId);
       if (!subtask) throw new Error('Subtask not found');
 
-      // Create atomic tasks with "Atomic: " prefix
-      const atomicTasks = [
-        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 1`, estimatedMinutes: 3, isCompleted: false, isArchived: false, order: task.subtasks.length, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
-        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 2`, estimatedMinutes: 4, isCompleted: false, isArchived: false, order: task.subtasks.length + 1, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
-        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 3`, estimatedMinutes: 3, isCompleted: false, isArchived: false, order: task.subtasks.length + 2, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' },
+      // Calculate atomic times to match parent's total time
+      const parentMinutes = subtask.estimatedMinutes || 30;
+      const atomicTime1 = Math.ceil(parentMinutes * 0.35); // 35% of parent time
+      const atomicTime2 = Math.ceil(parentMinutes * 0.35); // 35% of parent time
+      const atomicTime3 = parentMinutes - atomicTime1 - atomicTime2; // Remaining ~30%
+
+      // Create atomic tasks with "Atomic: " prefix - times sum to parent's time
+      const atomicTasks: Subtask[] = [
+        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 1`, estimatedMinutes: atomicTime1, isCompleted: false, isArchived: false, order: task.subtasks.length, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
+        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 2`, estimatedMinutes: atomicTime2, isCompleted: false, isArchived: false, order: task.subtasks.length + 1, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
+        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 3`, estimatedMinutes: atomicTime3, isCompleted: false, isArchived: false, order: task.subtasks.length + 2, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
       ];
 
       // Mark parent as composite and add atomic tasks to main subtasks array

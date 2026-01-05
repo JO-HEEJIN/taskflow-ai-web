@@ -181,7 +181,31 @@ CMD ["node", "dist/server.js"]
 
 If we're telling ADHD users "remove friction to execute tasks," we must remove friction from our own execution.
 
-### 4. **Deployment as Execution, Not Organization**
+### 4. **Perspective-Driven Design: The Orion's Belt Philosophy**
+
+> "같은 Task도 관점에 따라 완전히 다르게 보인다"
+> (The same task appears completely different depending on your perspective)
+
+Inspired by a thought experiment about viewing Orion's Belt constellation from different positions in space:
+
+**Desktop (관리자 관점 - Manager Perspective): Galaxy View**
+- See all tasks, subtasks, and atomic steps in a hierarchical constellation
+- Zoom and pan across the entire project structure
+- Understand dependencies and relationships at a glance
+- Perfect for planning and oversight
+
+**Mobile (실행자 관점 - Executor Perspective): Solar System View**
+- Focus on ONE task at a time, like standing at the center of a solar system
+- Current task is the "Sun" - subtasks orbit as "planets" - atomic steps as "moons"
+- Rotation animation when switching tasks (changing your perspective in space)
+- Perfect for heads-down execution without distraction
+
+**The Insight:**
+Just like Orion's Belt looks completely different from Earth vs. from Alpha Centauri, the same set of tasks needs different visualizations for different mental contexts. A manager planning needs the galaxy view. An executor with ADHD needs the solar system view.
+
+**This isn't just UI design - it's cognitive prosthetic design.** We're not showing the same data differently; we're providing the exact perspective your brain needs for the current mode of work.
+
+### 5. **Deployment as Execution, Not Organization**
 
 Traditional DevOps focuses on **organization**:
 - Dockerfile templates

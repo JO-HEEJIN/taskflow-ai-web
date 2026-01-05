@@ -131,10 +131,40 @@ router.get('/breakdown-stream', async (req: Request, res: Response) => {
       try {
         const cleanedBuffer = buffer.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         const parsed = JSON.parse(cleanedBuffer);
-        const subtasks = Array.isArray(parsed) ? parsed : parsed.subtasks || [];
+        const rawSubtasks = Array.isArray(parsed) ? parsed : parsed.subtasks || [];
 
-        // Send completion event with all subtasks
-        res.write(`data: ${JSON.stringify({ type: 'complete', subtasks })}\n\n`);
+        console.log(`🔄 [SSE] Performing recursive breakdown for ${rawSubtasks.length} initial subtasks...`);
+
+        // Perform automatic recursive breakdown for subtasks >10 min (like non-streaming version)
+        const recursivelyBrokenDown = await Promise.all(
+          rawSubtasks.map(async (st: any, index: number) => {
+            const estimatedMinutes = st.estimatedMinutes || 5;
+
+            return {
+              title: st.title || String(st),
+              order: st.order ?? index,
+              estimatedMinutes,
+              stepType: st.stepType || 'mental',
+              status: 'draft',
+              isComposite: estimatedMinutes > 10,
+              depth: 0,
+              // Automatic recursive breakdown for >10 min subtasks
+              children: estimatedMinutes > 10
+                ? await azureOpenAIService.recursiveBreakdownUntilAtomic(
+                    st.title,
+                    estimatedMinutes,
+                    taskTitle,
+                    1
+                  )
+                : [],
+            };
+          })
+        );
+
+        console.log(`✅ [SSE] Recursive breakdown complete. Total subtasks with children generated.`);
+
+        // Send completion event with fully broken-down subtasks
+        res.write(`data: ${JSON.stringify({ type: 'complete', subtasks: recursivelyBrokenDown })}\n\n`);
       } catch (e) {
         console.error('Failed to parse final JSON:', e);
         res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to parse JSON' })}\n\n`);

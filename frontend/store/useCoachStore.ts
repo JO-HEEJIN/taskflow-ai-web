@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Subtask } from '@/types';
+import { Subtask, NodeContext } from '@/types';
 import { useGamificationStore } from './useGamificationStore'; // ✅ NEW: Import gamification store
 
 interface Message {
@@ -136,7 +136,7 @@ interface CoachState {
   isParentSubtaskView: boolean; // ✅ NEW: True when showing parent after atomic tasks complete
 
   // Actions
-  enterFocusMode: (taskId: string, subtasks: Subtask[]) => void;
+  enterFocusMode: (taskId: string, subtasks: Subtask[], context?: NodeContext) => void;
   exitFocusMode: () => void;
   startTimer: (durationMinutes: number) => void;
   pauseTimer: () => void;
@@ -165,17 +165,39 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   accumulatedFocusTime: 0, // ✅ NEW
   isParentSubtaskView: false, // ✅ NEW
 
-  enterFocusMode: (taskId: string, subtasks: Subtask[]) => {
-    // ✅ UPDATED: Find first incomplete atomic task or regular subtask
-    const firstIncompleteIndex = findFirstIncompleteAtomicOrSubtask(subtasks);
+  enterFocusMode: (taskId: string, subtasks: Subtask[], context?: NodeContext) => {
+    // ✅ Filter subtasks based on click context (Orion's Belt Perspective)
+    let filteredSubtasks = subtasks;
+
+    if (context?.type === 'subtask') {
+      // Only show clicked subtask + its atomics (if any)
+      const target = subtasks.find(st => st.id === context.subtaskId);
+      if (target) {
+        if (target.children && target.children.length > 0) {
+          // Start with atomic children
+          filteredSubtasks = target.children;
+        } else {
+          // Single subtask only
+          filteredSubtasks = [target];
+        }
+      }
+    } else if (context?.type === 'atomic') {
+      // Only show clicked atomic task
+      const atomic = subtasks.find(st => st.id === context.atomicId);
+      filteredSubtasks = atomic ? [atomic] : subtasks;
+    }
+
+    // ✅ Find first incomplete atomic task or regular subtask
+    const firstIncompleteIndex = findFirstIncompleteAtomicOrSubtask(filteredSubtasks);
 
     if (firstIncompleteIndex === -1) {
       console.log('All subtasks already completed');
       return;
     }
 
-    const firstSubtask = subtasks[firstIncompleteIndex];
+    const firstSubtask = filteredSubtasks[firstIncompleteIndex];
     console.log(`🎯 [Focus Mode] Starting with: ${firstSubtask.title} (${firstSubtask.estimatedMinutes || 5}min)`);
+    console.log(`📍 [Context] Type: ${context?.type || 'full'}, Filtered: ${filteredSubtasks.length}/${subtasks.length} subtasks`);
 
     set({
       isFocusMode: true,

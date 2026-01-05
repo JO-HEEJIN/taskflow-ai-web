@@ -413,7 +413,7 @@ router.post('/:taskId/subtasks/:subtaskId/deep-dive', async (req: Request, res: 
       parentSubtaskId: subtaskId,
       title: `Atomic: ${child.title}`, // Add "Atomic: " prefix for constellation view
       order: task.subtasks.length + index, // Place at end of subtask list
-      status: 'draft',
+      status: 'draft' as const,
       isCompleted: false,
       isArchived: false,
     }));
