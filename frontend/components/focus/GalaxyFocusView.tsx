@@ -225,23 +225,27 @@ export function GalaxyFocusView({
       if (result.children && result.children.length > 0) {
         const timestamp = Date.now();
         // Format children with proper structure for focus mode
-        const formattedChildren = result.children.map((child: any, index: number) => ({
+        // NOTE: Don't set parentSubtaskId here - these children are used as independent focus queue
+        const formattedChildren: Subtask[] = result.children.map((child: any, index: number) => ({
           id: `${currentSubtask.id}-child-${index}-${timestamp}`,
           title: child.title,
           isCompleted: false,
+          isArchived: false,
+          parentTaskId: task.id,
           estimatedMinutes: child.estimatedMinutes || 5,
           stepType: child.stepType || 'mental',
           order: index,
-          parentSubtaskId: currentSubtask.id,
+          // parentSubtaskId NOT set - this array is the new focus queue
         }));
 
-        console.log('📝 Formatted children:', formattedChildren);
+        console.log('📝 Formatted children for focus queue:', formattedChildren);
 
         // Add children to the subtask in store (also adds to task.subtasks for hierarchy)
         await addChildrenToSubtask(task.id, currentSubtask.id, result.children);
 
         // Enter focus mode with the formatted children directly
         const { enterFocusMode } = useCoachStore.getState();
+        console.log('🎯 Entering focus mode with', formattedChildren.length, 'children');
         enterFocusMode(task.id, formattedChildren);
 
         console.log(`✅ Added ${result.children.length} atomic children, now focusing on first one`);
