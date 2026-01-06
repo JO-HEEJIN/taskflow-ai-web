@@ -83,7 +83,7 @@ export function MobileConstellationView({
         ? getConnectedNodes(selectedNodeId, nodes, links)
         : new Set<string>();
 
-      // 1. Draw connection lines (visible)
+      // 1. Draw connection lines (nearly invisible like desktop - real constellation style)
       links.forEach(link => {
         const source = nodes.find(n => n.id === link.source);
         const target = nodes.find(n => n.id === link.target);
@@ -97,12 +97,17 @@ export function MobileConstellationView({
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
 
-        if (isDimmed) {
-          ctx.strokeStyle = 'rgba(80, 80, 100, 0.1)';
+        if (isHighlighted) {
+          // Bright when selected
+          ctx.strokeStyle = 'rgba(200, 200, 230, 0.5)';
+          ctx.lineWidth = 1;
+        } else if (isDimmed) {
+          ctx.strokeStyle = 'rgba(80, 80, 100, 0.03)';
           ctx.lineWidth = 0.5;
         } else {
-          ctx.strokeStyle = 'rgba(150, 150, 180, 0.4)';
-          ctx.lineWidth = 1;
+          // Default - nearly transparent (like distant star dust)
+          ctx.strokeStyle = 'rgba(120, 120, 150, 0.08)';
+          ctx.lineWidth = 0.5;
         }
 
         ctx.stroke();
@@ -133,7 +138,7 @@ export function MobileConstellationView({
         const rgb = hexToRgb(node.color);
 
         // Glow intensity hierarchy: Task (brightest) → Subtask (dimmer) → Atomic (very dim)
-        // On selection, all glow bright
+        // Match desktop's subtle star-like appearance
         let glowIntensity: number;
         if (isSelected || isConnected) {
           glowIntensity = 1.0;
@@ -142,43 +147,63 @@ export function MobileConstellationView({
         } else if (node.type === 'subtask') {
           glowIntensity = 0.4;
         } else {
-          glowIntensity = 0.15; // Very dim like distant star
+          glowIntensity = 0.1; // Very dim like distant star (match desktop)
         }
 
-        // === BLOOM/GLOW EFFECT ===
+        // === BLOOM/GLOW EFFECT (subtle like desktop) ===
         if (!isDimmed) {
-          // Outer glow (soft, large)
-          const glowRadius = radius * (isSelected ? 8 : 5);
+          // Atomic nodes get wider, softer glow to distinguish from background stars
+          const isAtomic = node.type === 'atomic';
+          const glowMultiplier = isAtomic ? 12 : 6; // Wider glow for atomics
+          const glowRadius = radius * (isSelected ? 10 : glowMultiplier);
+
           const gradient1 = ctx.createRadialGradient(
             node.x, node.y, 0,
             node.x, node.y, glowRadius
           );
-          gradient1.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.8 * pulse * glowIntensity})`);
-          gradient1.addColorStop(0.3, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.4 * pulse * glowIntensity})`);
-          gradient1.addColorStop(0.6, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.1 * pulse * glowIntensity})`);
-          gradient1.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+          if (isAtomic && !isSelected && !isConnected) {
+            // Soft, diffuse glow for atomic nodes - more spread out
+            gradient1.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.5 * pulse})`);
+            gradient1.addColorStop(0.2, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.25 * pulse})`);
+            gradient1.addColorStop(0.5, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.08 * pulse})`);
+            gradient1.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          } else {
+            gradient1.addColorStop(0, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.8 * pulse * glowIntensity})`);
+            gradient1.addColorStop(0.3, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.4 * pulse * glowIntensity})`);
+            gradient1.addColorStop(0.6, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.1 * pulse * glowIntensity})`);
+            gradient1.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          }
 
           ctx.beginPath();
           ctx.arc(node.x, node.y, glowRadius, 0, Math.PI * 2);
           ctx.fillStyle = gradient1;
           ctx.fill();
 
-          // Inner bright glow (only for non-atomic or when selected)
-          if (node.type !== 'atomic' || isSelected || isConnected) {
-            const innerGlowRadius = radius * (isSelected ? 3.5 : 2);
-            const gradient2 = ctx.createRadialGradient(
-              node.x, node.y, 0,
-              node.x, node.y, innerGlowRadius
-            );
+          // Inner bright glow (for all nodes now, but softer for atomics)
+          const innerGlowRadius = isAtomic
+            ? radius * (isSelected ? 4 : 3)
+            : radius * (isSelected ? 4 : 2.5);
+          const gradient2 = ctx.createRadialGradient(
+            node.x, node.y, 0,
+            node.x, node.y, innerGlowRadius
+          );
+
+          if (isAtomic && !isSelected && !isConnected) {
+            // Softer inner glow for atomics
+            gradient2.addColorStop(0, `rgba(255, 255, 255, ${0.6 * pulse})`);
+            gradient2.addColorStop(0.3, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.3 * pulse})`);
+            gradient2.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          } else {
             gradient2.addColorStop(0, `rgba(255, 255, 255, ${0.9 * pulse * glowIntensity})`);
             gradient2.addColorStop(0.25, `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${0.6 * pulse * glowIntensity})`);
             gradient2.addColorStop(1, 'rgba(0, 0, 0, 0)');
-
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, innerGlowRadius, 0, Math.PI * 2);
-            ctx.fillStyle = gradient2;
-            ctx.fill();
           }
+
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, innerGlowRadius, 0, Math.PI * 2);
+          ctx.fillStyle = gradient2;
+          ctx.fill();
         }
 
         // === MAIN STAR POINT (bright dot) ===
@@ -192,10 +217,10 @@ export function MobileConstellationView({
         }
         ctx.fill();
 
-        // White core for star effect
+        // White core for star effect (smaller and more subtle)
         if (!isDimmed) {
           ctx.beginPath();
-          ctx.arc(node.x, node.y, radius * 0.4, 0, Math.PI * 2);
+          ctx.arc(node.x, node.y, radius * 0.5, 0, Math.PI * 2);
           ctx.fillStyle = `rgba(255, 255, 255, ${0.95 * pulse})`;
           ctx.fill();
         }

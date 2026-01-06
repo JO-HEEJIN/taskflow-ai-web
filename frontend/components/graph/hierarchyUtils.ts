@@ -348,10 +348,10 @@ export function generateMobileHierarchyGraph(
   const nodes: GraphNode[] = [];
   const links: GraphLink[] = [];
 
-  // Mobile-optimized sizes (touch-friendly)
-  const TASK_SIZE = 36;
-  const SUBTASK_SIZE = 24;
-  const ATOMIC_SIZE = 14;
+  // Mobile-optimized sizes (touch-friendly but subtle like desktop stars)
+  const TASK_SIZE = 18;    // Task as bright star (not giant circle)
+  const SUBTASK_SIZE = 10; // Subtask as dimmer star
+  const ATOMIC_SIZE = 5;   // Atomic as distant faint star
 
   // Mobile-optimized orbit radii (fit in small screen)
   const SUBTASK_ORBIT_RADIUS = Math.min(width, height) * 0.3;
