@@ -219,10 +219,18 @@ export const guestStorage = {
           status: (data as any).status || 'active',
           depth: (data as any).depth || 0,
           children: [],
-          // ✅ For atomic tasks: link to parent subtask
-          parentSubtaskId: (data as any).isAtomic && (data as any).parentSubtaskId
-            ? parentIdMap.get((data as any).parentSubtaskId) // Get actual parent ID from map
-            : undefined,
+          // ✅ Link to parent subtask - accept UUID directly or look up from title map
+          parentSubtaskId: (() => {
+            const passedId = (data as any).parentSubtaskId;
+            if (!passedId) return undefined;
+            // UUID v4 regex pattern: 8-4-4-4-12 hex chars
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (typeof passedId === 'string' && uuidRegex.test(passedId)) {
+              return passedId;
+            }
+            // Otherwise try to look up from title map (parentSubtaskId is a title string)
+            return parentIdMap.get(passedId) || passedId;
+          })(),
         };
 
         newSubtasks.push(subtask);
@@ -233,8 +241,9 @@ export const guestStorage = {
     });
 
     // ✅ Second pass: Fix parentSubtaskId references that use titles
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     newSubtasks.forEach(subtask => {
-      if (subtask.parentSubtaskId && !subtask.parentSubtaskId.includes('-')) {
+      if (subtask.parentSubtaskId && !uuidRegex.test(subtask.parentSubtaskId)) {
         // If parentSubtaskId is a title (not a UUID), replace with actual ID
         const actualParentId = parentIdMap.get(subtask.parentSubtaskId);
         if (actualParentId) {

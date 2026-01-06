@@ -24,7 +24,7 @@ import { unlockAudioForMobile } from '@/lib/sounds';
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const { tasks, toggleSubtask, toggleChildSubtask } = useTaskStore();
+  const { tasks, toggleSubtask } = useTaskStore();
   const { isFocusMode, activeTaskId, activeSubtaskIndex, focusQueue, completeCurrentSubtask, skipCurrentSubtask, exitFocusMode } = useCoachStore();
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -96,15 +96,29 @@ export default function Home() {
     const focusedMinutes = currentSubtask.estimatedMinutes || 5;
     console.log(`✅ [Page] Completing subtask: ${currentSubtask.title} (${focusedMinutes}min focused)`);
 
-    // Mark subtask as completed
+    // Mark subtask as completed via server API
+    // All subtasks (including children from Break Down Further) are now persisted
     if (currentSubtask.id) {
-      if (currentSubtask.id.includes('-child-')) {
-        // Child subtask from "Break Down Further" - toggle in client store only
-        toggleChildSubtask(activeTask.id, currentSubtask.id);
-        console.log(`🔄 [Page] Toggled child subtask in store: ${currentSubtask.id}`);
-      } else {
-        // Regular subtask - toggle via server API
-        await toggleSubtask(activeTask.id, currentSubtask.id);
+      await toggleSubtask(activeTask.id, currentSubtask.id);
+      console.log(`🔄 [Page] Toggled subtask via server: ${currentSubtask.id}`);
+
+      // ✅ Check if this was a child and all siblings are now complete
+      // If so, we need to auto-complete the parent subtask
+      if (currentSubtask.parentSubtaskId) {
+        const parentId = currentSubtask.parentSubtaskId;
+        // Get fresh task data after toggle
+        const freshTask = useTaskStore.getState().tasks.find(t => t.id === activeTask.id);
+        if (freshTask) {
+          const siblings = freshTask.subtasks.filter(st => st.parentSubtaskId === parentId);
+          const allSiblingsCompleted = siblings.every(st => st.isCompleted || st.id === currentSubtask.id);
+
+          console.log(`📊 [Page] Parent ${parentId}: ${siblings.filter(s => s.isCompleted || s.id === currentSubtask.id).length}/${siblings.length} children completed`);
+
+          if (allSiblingsCompleted && siblings.length > 0) {
+            console.log(`✅ [Page] All children completed! Auto-completing parent: ${parentId}`);
+            await toggleSubtask(activeTask.id, parentId);
+          }
+        }
       }
     }
 

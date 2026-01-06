@@ -18,12 +18,14 @@ const findNextIncompleteIndex = (subtasks: Subtask[], startFrom: number = 0): nu
   return -1;
 };
 
-// ✅ NEW: Helper to find atomic children of a parent subtask
+// ✅ Helper to find children of a parent subtask (by parentSubtaskId)
+const findChildrenOfParent = (subtasks: Subtask[], parentSubtaskId: string): Subtask[] => {
+  return subtasks.filter(st => st.parentSubtaskId === parentSubtaskId);
+};
+
+// Find all children of a parent (by parentSubtaskId, no title prefix requirement)
 const findAtomicChildren = (subtasks: Subtask[], parentSubtaskId: string): Subtask[] => {
-  return subtasks.filter(st =>
-    st.parentSubtaskId === parentSubtaskId &&
-    st.title.startsWith('Atomic: ')
-  );
+  return subtasks.filter(st => st.parentSubtaskId === parentSubtaskId);
 };
 
 // ✅ NEW: Helper to find first incomplete subtask respecting order
@@ -66,31 +68,32 @@ const findFirstIncompleteAtomicOrSubtask = (subtasks: Subtask[]): number => {
 const findNextAfterCompletion = (subtasks: Subtask[], currentIndex: number): number => {
   const currentSubtask = subtasks[currentIndex];
 
-  // If current is an atomic task, find next atomic sibling or parent
-  if (currentSubtask.parentSubtaskId && currentSubtask.title.startsWith('Atomic: ')) {
+  // If current is a child subtask (has parentSubtaskId), find next sibling or parent
+  if (currentSubtask.parentSubtaskId) {
     const parentId = currentSubtask.parentSubtaskId;
-    const atomicSiblings = findAtomicChildren(subtasks, parentId);
-    const currentAtomicIndex = atomicSiblings.indexOf(currentSubtask);
+    const siblings = findChildrenOfParent(subtasks, parentId)
+      .sort((a, b) => a.order - b.order);
+    const currentSiblingIndex = siblings.findIndex(s => s.id === currentSubtask.id);
 
-    // Find next incomplete atomic sibling
-    for (let i = currentAtomicIndex + 1; i < atomicSiblings.length; i++) {
-      if (!atomicSiblings[i].isCompleted) {
-        return subtasks.indexOf(atomicSiblings[i]);
+    // Find next incomplete sibling
+    for (let i = currentSiblingIndex + 1; i < siblings.length; i++) {
+      if (!siblings[i].isCompleted) {
+        return subtasks.indexOf(siblings[i]);
       }
     }
 
-    // All atomic siblings completed, return parent subtask
+    // All siblings completed, return parent subtask (for confirmation screen)
     const parentIndex = subtasks.findIndex(st => st.id === parentId);
     if (parentIndex !== -1 && !subtasks[parentIndex].isCompleted) {
       return parentIndex;
     }
   }
 
-  // If current is a parent subtask (just finished confirming atomic children), find next regular subtask
+  // If current is a parent subtask (just finished confirming children), find next regular subtask
   if (currentSubtask.isComposite) {
-    // Sort all subtasks by order and find next incomplete non-atomic subtask
+    // Sort all subtasks by order and find next incomplete non-child subtask
     const sorted = [...subtasks]
-      .filter(st => !st.parentSubtaskId) // Only top-level subtasks (not atomic children)
+      .filter(st => !st.parentSubtaskId) // Only top-level subtasks (not children)
       .sort((a, b) => a.order - b.order);
 
     const currentOrderIndex = sorted.findIndex(st => st.id === currentSubtask.id);
@@ -100,12 +103,11 @@ const findNextAfterCompletion = (subtasks: Subtask[], currentIndex: number): num
       if (!sorted[i].isCompleted) {
         const nextSubtask = sorted[i];
 
-        // If next subtask is composite, start with its first atomic child
+        // If next subtask is composite, start with its first incomplete child
         if (nextSubtask.isComposite) {
-          const atomicChildren = findAtomicChildren(subtasks, nextSubtask.id);
-          const firstIncomplete = atomicChildren
-            .sort((a, b) => a.order - b.order)
-            .find(child => !child.isCompleted);
+          const children = findChildrenOfParent(subtasks, nextSubtask.id)
+            .sort((a, b) => a.order - b.order);
+          const firstIncomplete = children.find(child => !child.isCompleted);
 
           if (firstIncomplete) {
             return subtasks.indexOf(firstIncomplete);
@@ -312,11 +314,11 @@ export const useCoachStore = create<CoachState>((set, get) => ({
 
     const nextSubtask = updatedSubtasks[nextIndex];
 
-    // ✅ Check if next subtask is a parent (after completing all atomic children)
+    // ✅ Check if next subtask is a parent (after completing all children)
     // For "Break Down Further" focus queue, parent has children array directly
-    // For regular flow, check via parentSubtaskId
+    // For regular flow, check via parentSubtaskId relationship
     const childrenFromParent = nextSubtask.children || [];
-    const childrenFromSubtasks = findAtomicChildren(updatedSubtasks, nextSubtask.id);
+    const childrenFromSubtasks = findChildrenOfParent(updatedSubtasks, nextSubtask.id);
     const allChildren = childrenFromParent.length > 0 ? childrenFromParent : childrenFromSubtasks;
 
     const isParent = nextSubtask.isComposite && allChildren.length > 0 &&
@@ -326,7 +328,7 @@ export const useCoachStore = create<CoachState>((set, get) => ({
         return subtaskInQueue?.isCompleted || child.isCompleted;
       });
 
-    console.log(`➡️  [Next] ${nextSubtask.title} (${isParent ? 'PARENT - Show confirmation' : 'Continue'}, children: ${allChildren.length})`);
+    console.log(`➡️  [Next] ${nextSubtask.title.substring(0, 30)} (${isParent ? 'PARENT' : 'Continue'})`);
 
     set({
       activeSubtaskIndex: nextIndex,

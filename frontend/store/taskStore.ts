@@ -16,7 +16,7 @@ interface TaskStore {
   updateTaskStatus: (id: string, status: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   addSubtasks: (taskId: string, subtasks: (string | AISubtaskSuggestion)[]) => Promise<void>;
-  addChildrenToSubtask: (taskId: string, subtaskId: string, children: any[]) => Promise<void>;
+  addChildrenToSubtask: (taskId: string, subtaskId: string, children: any[], timestamp?: number) => Promise<void>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   toggleChildSubtask: (taskId: string, childId: string) => void; // Client-only toggle for focus mode children
   deleteSubtask: (taskId: string, subtaskId: string) => Promise<void>;
@@ -165,8 +165,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  addChildrenToSubtask: async (taskId: string, subtaskId: string, children: any[]) => {
-    const timestamp = Date.now();
+  addChildrenToSubtask: async (taskId: string, subtaskId: string, children: any[], timestamp?: number) => {
+    const ts = timestamp || Date.now();
 
     set((state) => {
       const task = state.tasks.find(t => t.id === taskId);
@@ -183,7 +183,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
       // Format children as real subtasks with proper order (git-flow style: appear right after parent)
       const formattedChildren = children.map((child, index) => ({
-        id: `${subtaskId}-child-${index}-${timestamp}`,
+        id: `${subtaskId}-child-${index}-${ts}`,
         title: child.title,
         isCompleted: false,
         isArchived: false,

@@ -42,7 +42,7 @@ export function GalaxyFocusView({
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isBreakingDown, setIsBreakingDown] = useState(false);
 
-  const { addChildrenToSubtask } = useTaskStore();
+  // Note: We use api.addSubtasks directly for server persistence
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
   const canBreakDown = estimatedMinutes >= 10 && !currentSubtask.children?.length;
 
@@ -212,7 +212,7 @@ export function GalaxyFocusView({
     try {
       console.log(`🔄 Breaking down subtask: "${currentSubtask.title}" (${estimatedMinutes}min)`);
 
-      // Call backend to get atomic breakdown for this subtask
+      // Step 1: Call AI to get atomic breakdown
       const result = await api.breakdownSubtask(
         task.id,
         currentSubtask.id,
@@ -220,52 +220,95 @@ export function GalaxyFocusView({
         estimatedMinutes
       );
 
-      console.log('📥 API Response:', result);
+      console.log('📥 AI Response:', result);
 
       if (result.children && result.children.length > 0) {
-        // Add children to the subtask in store FIRST (this creates the canonical IDs)
-        await addChildrenToSubtask(task.id, currentSubtask.id, result.children);
+        // Step 2: Format children WITH parentSubtaskId for server persistence
+        // Get current max order in task subtasks
+        const maxOrder = Math.max(...task.subtasks.map(st => st.order), -1);
 
-        // Get the updated task from store to get children with correct IDs
-        const { tasks } = useTaskStore.getState();
-        const updatedTask = tasks.find(t => t.id === task.id);
+        const childrenForServer = result.children.map((child: any, index: number) => ({
+          title: child.title,
+          estimatedMinutes: child.estimatedMinutes || 5,
+          stepType: child.stepType || 'mental',
+          parentSubtaskId: currentSubtask.id, // ✅ Link to parent for hierarchy
+          order: maxOrder + 1 + index, // Place after existing subtasks
+          isComposite: false,
+          depth: (currentSubtask.depth || 0) + 1, // Increment depth for nesting
+        }));
 
-        if (updatedTask) {
-          // Find the parent subtask (now marked as composite)
-          const parentSubtask = updatedTask.subtasks.find(st => st.id === currentSubtask.id);
+        console.log('📝 Saving children to server with parentSubtaskId:', currentSubtask.id);
+        console.log('📝 Children data being sent:', JSON.stringify(childrenForServer, null, 2));
 
-          // Find the children that were just added (they have parentSubtaskId = currentSubtask.id)
-          const storeChildren = updatedTask.subtasks.filter(
-            st => st.parentSubtaskId === currentSubtask.id
-          );
+        // Step 3: Persist children to server via API
+        const apiResult = await api.addSubtasks(task.id, childrenForServer);
+        console.log('📝 API addSubtasks result:', apiResult);
 
-          console.log('📝 Children from store:', storeChildren);
-          console.log('📝 Parent subtask:', parentSubtask);
-
-          // Build focus queue: children first, then parent (for confirmation screen)
-          const focusQueueItems: Subtask[] = [
-            // Children without parentSubtaskId for navigation
-            ...storeChildren.map(child => ({
-              ...child,
-              parentSubtaskId: undefined, // Remove for focus queue navigation
-            })),
-            // Parent at the end (for confirmation screen after all children done)
-            ...(parentSubtask ? [{
-              ...parentSubtask,
-              isComposite: true,
-              children: storeChildren, // Include children reference for parent view
-            }] : []),
-          ];
-
-          // Enter focus mode with children + parent
-          const { enterFocusMode } = useCoachStore.getState();
-          console.log('🎯 Entering focus mode with', storeChildren.length, 'children + parent');
-          enterFocusMode(task.id, focusQueueItems);
-
-          console.log(`✅ Added ${result.children.length} atomic children, now focusing on first one`);
+        const updatedTask = apiResult?.task;
+        if (!updatedTask) {
+          console.error('❌ api.addSubtasks returned null task!');
+          return;
         }
+        console.log('✅ Server saved children. Updated task has', updatedTask.subtasks.length, 'subtasks');
+
+        // Log all subtasks to see their parentSubtaskId values
+        console.log('📝 All subtasks after save:');
+        updatedTask.subtasks.forEach((st: Subtask, i: number) => {
+          console.log(`  [${i}] ${st.title.substring(0, 30)} | parentSubtaskId: ${st.parentSubtaskId || 'none'}`);
+        });
+
+        // Step 4: Update store with server response
+        const { fetchTasks } = useTaskStore.getState();
+        // Update the specific task in store
+        useTaskStore.setState((state) => ({
+          tasks: state.tasks.map((t) => (t.id === task.id ? updatedTask : t)),
+        }));
+
+        // Step 5: Find the newly added children (they have parentSubtaskId matching current subtask)
+        console.log('📝 Looking for children with parentSubtaskId:', currentSubtask.id);
+        const newChildren = updatedTask.subtasks.filter(
+          (st: Subtask) => st.parentSubtaskId === currentSubtask.id && !st.isCompleted
+        ).sort((a: Subtask, b: Subtask) => a.order - b.order);
+
+        console.log('📝 Found', newChildren.length, 'new children from server');
+        if (newChildren.length === 0) {
+          console.error('❌ No children found! Check if parentSubtaskId was saved correctly.');
+        }
+
+        // Step 6: Build focus queue with children + parent for confirmation
+        // Find the updated parent subtask (marked as composite by server)
+        const updatedParent = updatedTask.subtasks.find((st: Subtask) => st.id === currentSubtask.id);
+
+        const focusQueueWithParent: Subtask[] = [
+          ...newChildren.map((child: Subtask, index: number) => ({
+            ...child,
+            order: index, // Reset order for focus queue navigation
+          })),
+          // Parent at the end for confirmation screen
+          {
+            ...(updatedParent || currentSubtask),
+            isComposite: true,
+            children: newChildren,
+            order: newChildren.length, // Ensure parent comes last
+          },
+        ];
+
+        console.log('📝 Focus queue:', focusQueueWithParent.length, 'items');
+        console.log('📝 Queue:', focusQueueWithParent.map(s => ({
+          title: s.title.substring(0, 25),
+          order: s.order,
+          id: s.id.substring(0, 15),
+          isComposite: s.isComposite
+        })));
+
+        // Step 7: Enter focus mode with persisted children
+        const { enterFocusMode } = useCoachStore.getState();
+        console.log('🎯 Entering focus mode with', newChildren.length, 'children + parent');
+        enterFocusMode(task.id, focusQueueWithParent);
+
+        console.log(`✅ Added ${result.children.length} children to server, now focusing on first one`);
       } else {
-        console.log('⚠️ API returned no children');
+        console.log('⚠️ AI returned no children');
       }
     } catch (error: any) {
       console.error('❌ Failed to break down subtask:', error);
