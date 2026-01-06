@@ -207,8 +207,20 @@ export function generateHierarchyGraph(
         type: 'task-subtask',
       });
 
-      // 3. ATOMIC NODES (Moons)
-      const atomicChildren = subtask.children || [];
+      // 3. ATOMIC NODES (Moons) - from subtask.children OR via parentSubtaskId
+      // Combine both sources of children:
+      // 1. subtask.children (from modal breakdown)
+      // 2. task.subtasks filtered by parentSubtaskId (from focus mode breakdown)
+      const childrenFromArray = subtask.children || [];
+      const childrenFromParentId = task.subtasks.filter(
+        st => st.parentSubtaskId === subtask.id && !st.isArchived
+      );
+
+      // Combine and deduplicate by id
+      const allChildrenMap = new Map<string, Subtask>();
+      childrenFromArray.forEach(c => allChildrenMap.set(c.id, c));
+      childrenFromParentId.forEach(c => allChildrenMap.set(c.id, c));
+      const atomicChildren = Array.from(allChildrenMap.values());
 
       if (atomicChildren.length === 0) return;
 
@@ -231,6 +243,8 @@ export function generateHierarchyGraph(
           ? COLORS.atomic.completed
           : COLORS.atomic.pending;
 
+        const atomicConnectedIds: string[] = [subtask.id]; // Connected to parent subtask
+
         nodes.push({
           id: atomic.id,
           type: 'atomic',
@@ -245,7 +259,7 @@ export function generateHierarchyGraph(
           parentId: subtask.id,
           estimatedMinutes: atomic.estimatedMinutes,
           isCompleted: atomic.isCompleted,
-          connectedNodeIds: [subtask.id], // Connected to parent subtask
+          connectedNodeIds: atomicConnectedIds,
         });
 
         // Track connection in subtask
@@ -257,6 +271,56 @@ export function generateHierarchyGraph(
           target: atomic.id,
           type: 'subtask-atomic',
         });
+
+        // 4. NESTED CHILDREN (when atomic is broken down further)
+        // Check for children of this atomic task via parentSubtaskId
+        const nestedChildren = task.subtasks.filter(
+          st => st.parentSubtaskId === atomic.id && !st.isArchived
+        );
+
+        if (nestedChildren.length > 0) {
+          const nestedAngleStep = (Math.PI * 2) / nestedChildren.length;
+          const nestedOrbit = BASE_ATOMIC_ORBIT * 0.6; // Smaller orbit for nested
+
+          nestedChildren.forEach((nested, nIndex) => {
+            const nestedSeed = atomicSeed * 100 + nIndex;
+            const nestedAngleJitter = (seededRandom(nestedSeed) - 0.5) * 0.8;
+            const nestedAngle = atomicAngle + Math.PI + nIndex * nestedAngleStep + nestedAngleJitter;
+
+            const nestedOrbitJitter = 0.7 + seededRandom(nestedSeed + 1) * 0.6;
+            const nX = atX + Math.cos(nestedAngle) * nestedOrbit * nestedOrbitJitter;
+            const nY = atY + Math.sin(nestedAngle) * nestedOrbit * nestedOrbitJitter;
+
+            const nestedColors = nested.isCompleted
+              ? COLORS.atomic.completed
+              : COLORS.atomic.pending;
+
+            nodes.push({
+              id: nested.id,
+              type: 'atomic',
+              title: nested.title,
+              status: nested.isCompleted ? 'completed' : 'pending',
+              data: nested,
+              x: nX,
+              y: nY,
+              size: ATOMIC_SIZE, // Same size as atomic
+              color: nestedColors.fill,
+              glowColor: nestedColors.glow,
+              parentId: atomic.id,
+              estimatedMinutes: nested.estimatedMinutes,
+              isCompleted: nested.isCompleted,
+              connectedNodeIds: [atomic.id],
+            });
+
+            atomicConnectedIds.push(nested.id);
+
+            links.push({
+              source: atomic.id,
+              target: nested.id,
+              type: 'subtask-atomic',
+            });
+          });
+        }
       });
     });
   });
@@ -364,8 +428,17 @@ export function generateMobileHierarchyGraph(
       type: 'task-subtask',
     });
 
-    // Atomic nodes (Moons)
-    const atomicChildren = subtask.children || [];
+    // Atomic nodes (Moons) - from subtask.children OR via parentSubtaskId
+    const childrenFromArray = subtask.children || [];
+    const childrenFromParentId = task.subtasks.filter(
+      st => st.parentSubtaskId === subtask.id && !st.isArchived
+    );
+
+    // Combine and deduplicate by id
+    const allChildrenMap = new Map<string, Subtask>();
+    childrenFromArray.forEach(c => allChildrenMap.set(c.id, c));
+    childrenFromParentId.forEach(c => allChildrenMap.set(c.id, c));
+    const atomicChildren = Array.from(allChildrenMap.values());
 
     if (atomicChildren.length === 0) return;
 
@@ -379,6 +452,8 @@ export function generateMobileHierarchyGraph(
       const atomicColors = atomic.isCompleted
         ? COLORS.atomic.completed
         : COLORS.atomic.pending;
+
+      const atomicConnectedIds: string[] = [subtask.id];
 
       nodes.push({
         id: atomic.id,
@@ -394,7 +469,7 @@ export function generateMobileHierarchyGraph(
         parentId: subtask.id,
         estimatedMinutes: atomic.estimatedMinutes,
         isCompleted: atomic.isCompleted,
-        connectedNodeIds: [subtask.id],
+        connectedNodeIds: atomicConnectedIds,
       });
 
       subtaskConnectedIds.push(atomic.id);
@@ -404,6 +479,51 @@ export function generateMobileHierarchyGraph(
         target: atomic.id,
         type: 'subtask-atomic',
       });
+
+      // Nested children (when atomic is broken down further)
+      const nestedChildren = task.subtasks.filter(
+        st => st.parentSubtaskId === atomic.id && !st.isArchived
+      );
+
+      if (nestedChildren.length > 0) {
+        const nestedAngleStep = (Math.PI * 2) / nestedChildren.length;
+        const nestedOrbit = ATOMIC_ORBIT_RADIUS * 0.6;
+
+        nestedChildren.forEach((nested, nIndex) => {
+          const nestedAngle = atomicAngle + Math.PI + nIndex * nestedAngleStep;
+          const nX = atX + Math.cos(nestedAngle) * nestedOrbit;
+          const nY = atY + Math.sin(nestedAngle) * nestedOrbit;
+
+          const nestedColors = nested.isCompleted
+            ? COLORS.atomic.completed
+            : COLORS.atomic.pending;
+
+          nodes.push({
+            id: nested.id,
+            type: 'atomic',
+            title: nested.title,
+            status: nested.isCompleted ? 'completed' : 'pending',
+            data: nested,
+            x: nX,
+            y: nY,
+            size: ATOMIC_SIZE,
+            color: nestedColors.fill,
+            glowColor: nestedColors.glow,
+            parentId: atomic.id,
+            estimatedMinutes: nested.estimatedMinutes,
+            isCompleted: nested.isCompleted,
+            connectedNodeIds: [atomic.id],
+          });
+
+          atomicConnectedIds.push(nested.id);
+
+          links.push({
+            source: atomic.id,
+            target: nested.id,
+            type: 'subtask-atomic',
+          });
+        });
+      }
     });
   });
 

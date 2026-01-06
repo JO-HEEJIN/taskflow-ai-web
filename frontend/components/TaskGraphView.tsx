@@ -135,7 +135,7 @@ export function TaskGraphView({
       ctx.translate(pan.x, pan.y);
       ctx.scale(zoom, zoom);
 
-      // 1. Draw connection lines (visible like hover state)
+      // 1. Draw connection lines (nearly transparent until hover)
       links.forEach(link => {
         const source = nodes.find(n => n.id === link.source);
         const target = nodes.find(n => n.id === link.target);
@@ -144,20 +144,24 @@ export function TaskGraphView({
         // Check if connected to hovered node
         const isHighlighted =
           highlightedNodes.has(link.source) && highlightedNodes.has(link.target);
-        const isDimmed = highlightedNodes.size > 0 && !isHighlighted;
+        const hasHover = highlightedNodes.size > 0;
 
         ctx.beginPath();
         ctx.moveTo(source.x, source.y);
         ctx.lineTo(target.x, target.y);
 
-        if (isDimmed) {
-          // Dimmed when something else is hovered
-          ctx.strokeStyle = 'rgba(80, 80, 100, 0.1)';
+        if (isHighlighted) {
+          // Bright when this connection is highlighted
+          ctx.strokeStyle = 'rgba(200, 200, 230, 0.7)';
+          ctx.lineWidth = 1.5;
+        } else if (hasHover) {
+          // Very dim when something else is hovered
+          ctx.strokeStyle = 'rgba(80, 80, 100, 0.05)';
           ctx.lineWidth = 0.5;
         } else {
-          // Default - visible like hover state
-          ctx.strokeStyle = 'rgba(150, 150, 180, 0.35)';
-          ctx.lineWidth = 1;
+          // Default - nearly transparent (like distant star dust)
+          ctx.strokeStyle = 'rgba(120, 120, 150, 0.08)';
+          ctx.lineWidth = 0.5;
         }
 
         ctx.stroke();
