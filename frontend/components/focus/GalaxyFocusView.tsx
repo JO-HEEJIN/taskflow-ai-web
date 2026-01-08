@@ -785,7 +785,7 @@ export function GalaxyFocusView({
                 }}
               >
                 <span className="text-lg">🔴</span>
-                <span className="text-white text-xs">Didn't get it</span>
+                <span className="text-white text-xs">Didn&apos;t get it</span>
                 <span className="text-white/60 text-[10px]">20 min</span>
               </button>
 
@@ -1084,7 +1084,7 @@ export function GalaxyFocusView({
                   Time to Interleave!
                 </h3>
                 <p className="text-purple-200 text-sm leading-relaxed mb-6">
-                  You've been on this topic for 25+ minutes. Switching topics can actually improve your retention - it's called interleaving!
+                  You&apos;ve been on this topic for 25+ minutes. Switching topics can actually improve your retention - it&apos;s called interleaving!
                 </p>
 
                 {/* Suggestion */}
