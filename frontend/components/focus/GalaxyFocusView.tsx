@@ -4,13 +4,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Task, Subtask, ConfidenceLevel } from '@/types';
 import { OrbitTimer } from './OrbitTimer';
 import { CoachView } from './CoachView';
-import { PiPTimer } from './PiPTimer';
 import { BreakScreen } from './BreakScreen';
 import { NetworkBackground } from './NetworkBackground';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { useReliableTimer } from '@/hooks/useReliableTimer';
-import { usePictureInPicture } from '@/hooks/usePictureInPicture';
+import { useVideoPictureInPicture } from '@/hooks/useVideoPictureInPicture';
 import { useEffect, useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import { X, ChevronRight, SkipForward, MessageCircle, Maximize, Sparkles, AlertCircle } from 'lucide-react';
@@ -56,7 +55,7 @@ export function GalaxyFocusView({
     dismissInterleavePopup,
   } = useCoachStore();
   const { addXp } = useGamificationStore();
-  const { isSupported: isPiPSupported, isPiPOpen, openPiP, updatePiP, closePiP } = usePictureInPicture();
+  const { isSupported: isPiPSupported, isPiPOpen, openPiP, updatePiP, closePiP } = useVideoPictureInPicture();
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
   const [showEncouragement, setShowEncouragement] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -161,46 +160,37 @@ export function GalaxyFocusView({
     setIsPiPActive(false);
   }, [closePiP]);
 
-  // Handle opening Picture-in-Picture
+  // Handle opening Picture-in-Picture (Video-based for fullscreen app support)
   const handleOpenPiP = useCallback(async () => {
     if (!isPiPSupported) {
       console.warn('Picture-in-Picture is not supported in this browser');
       return;
     }
 
-    await openPiP(
-      <PiPTimer
-        taskTitle={task.title}
-        subtaskTitle={currentSubtask.title}
-        currentTimeLeft={timeLeft}
-        isTimerRunning={isRunning}
-        initialDuration={estimatedMinutes * 60}
-        onClose={handleClosePiP}
-        onToggleTimer={handleToggleTimer}
-      />,
-      { width: 320, height: 175 }
-    );
+    await openPiP({
+      taskTitle: task.title,
+      subtaskTitle: currentSubtask.title,
+      timeLeft: timeLeft,
+      initialDuration: estimatedMinutes * 60,
+      isRunning: isRunning,
+    });
 
     setIsPiPActive(true);
-  }, [isPiPSupported, openPiP, task.title, currentSubtask.title, timeLeft, isRunning, estimatedMinutes, handleClosePiP, handleToggleTimer]);
+  }, [isPiPSupported, openPiP, task.title, currentSubtask.title, timeLeft, isRunning, estimatedMinutes]);
 
   // Update PiP when timer state changes
   useEffect(() => {
     if (!isPiPOpen) return;
 
-    // Update PiP content with latest props
-    updatePiP(
-      <PiPTimer
-        taskTitle={task.title}
-        subtaskTitle={currentSubtask.title}
-        currentTimeLeft={timeLeft}
-        isTimerRunning={isRunning}
-        initialDuration={estimatedMinutes * 60}
-        onClose={handleClosePiP}
-        onToggleTimer={handleToggleTimer}
-      />
-    );
-  }, [timeLeft, isRunning, isPiPOpen, task.title, currentSubtask.title, estimatedMinutes, handleClosePiP, handleToggleTimer, updatePiP]);
+    // Update PiP content with latest state (Video PiP uses canvas rendering)
+    updatePiP({
+      taskTitle: task.title,
+      subtaskTitle: currentSubtask.title,
+      timeLeft: timeLeft,
+      initialDuration: estimatedMinutes * 60,
+      isRunning: isRunning,
+    });
+  }, [timeLeft, isRunning, isPiPOpen, task.title, currentSubtask.title, estimatedMinutes, updatePiP]);
 
   // Sync PiP state with store
   useEffect(() => {
