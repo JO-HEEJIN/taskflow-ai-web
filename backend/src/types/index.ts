@@ -19,6 +19,26 @@ export enum TaskStatus {
   COMPLETED = 'completed',       // Finished
 }
 
+// Learning Engine Types
+export type LearningStrategy =
+  | 'active_recall'
+  | 'feynman'
+  | 'blurting'
+  | 'interleaving'
+  | 'priming'
+  | 'elaboration'
+  | 'concrete_analogy'
+  | 'spaced_repetition';
+
+export type InteractionType =
+  | 'checkbox'
+  | 'text_input'
+  | 'voice_input'
+  | 'quiz'
+  | 'confidence_rating';
+
+export type ConfidenceLevel = 'red' | 'yellow' | 'green';
+
 export interface Subtask {
   id: string;
   title: string;
@@ -34,6 +54,11 @@ export interface Subtask {
   isComposite?: boolean; // True if subtask has/needs children (>10 min)
   depth?: number; // Nesting level: 0 = top-level, 1 = child, 2 = grandchild, etc.
   children?: Subtask[]; // Nested subtasks (recursive)
+  // Learning Engine fields
+  strategyTag?: LearningStrategy;
+  interactionType?: InteractionType;
+  confidenceLevel?: ConfidenceLevel;
+  nextReviewAt?: string;
 }
 
 // Sync Types
@@ -59,5 +84,8 @@ export interface AIBreakdownResponse {
     status?: 'draft' | 'active';
     isComposite?: boolean;
     depth?: number;
+    // Learning Engine fields
+    strategyTag?: LearningStrategy;
+    interactionType?: InteractionType;
   }[];
 }

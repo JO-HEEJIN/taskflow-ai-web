@@ -252,6 +252,26 @@ router.post('/coach', async (req: Request, res: Response) => {
   }
 });
 
+// Clarifying questions endpoint (for enriched context before breakdown)
+router.post('/clarify', async (req: Request, res: Response) => {
+  try {
+    const { title, description } = req.body;
+
+    if (!title || typeof title !== 'string' || title.trim().length === 0) {
+      return res.status(400).json({ error: 'Task title is required' });
+    }
+
+    console.log(`❓ [Clarify] Generating questions for: "${title}"`);
+
+    const result = await azureOpenAIService.generateClarifyingQuestions(title, description);
+
+    res.json(result);
+  } catch (error: any) {
+    console.error('Error generating clarifying questions:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate questions' });
+  }
+});
+
 // On-demand subtask breakdown (for focus mode "Break Down Further" button)
 router.post('/breakdown-subtask', async (req: Request, res: Response) => {
   try {

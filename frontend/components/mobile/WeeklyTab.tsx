@@ -1,10 +1,9 @@
 'use client';
 
-import { Task, NodeContext } from '@/types';
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { Task } from '@/types';
+import { useEffect, useRef, useState } from 'react';
 import { Settings, ArrowLeft } from 'lucide-react';
 import { ZodiacIcon } from './ZodiacIcon';
-import { MobileConstellationView } from './MobileConstellationView';
 
 interface WeeklyTabProps {
   tasks: Task[];
@@ -16,14 +15,12 @@ interface WeeklyTabProps {
   showCompletionAnimation?: boolean;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
-  onNodeClick?: (context: NodeContext) => void; // For constellation node interaction
 }
 
-export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettingsClick, onCreateTask, showCompletionAnimation, searchQuery = '', onSearchChange, onNodeClick }: WeeklyTabProps) {
+export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettingsClick, onCreateTask, showCompletionAnimation, searchQuery = '', onSearchChange }: WeeklyTabProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [showTwinkle, setShowTwinkle] = useState(false);
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
-  const [constellationSize, setConstellationSize] = useState({ width: 320, height: 320 });
 
   // Filter tasks based on search query
   const filteredTasks = searchQuery.trim()
@@ -120,38 +117,6 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
       setShowTwinkle(true);
     }
   }, [showCompletionAnimation]);
-
-  // Measure constellation container size
-  useEffect(() => {
-    const updateSize = () => {
-      const size = Math.min(window.innerWidth - 48, window.innerHeight * 0.5, 400);
-      setConstellationSize({ width: size, height: size });
-    };
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
-
-  // Handle node click from MobileConstellationView
-  const handleNodeClick = useCallback((context: NodeContext) => {
-    console.log('📱 [WeeklyTab] Node clicked:', context);
-    if (onNodeClick) {
-      onNodeClick(context);
-    }
-  }, [onNodeClick]);
-
-  // Handle task switch (swipe gesture)
-  const handleTaskSwitch = useCallback((direction: 'left' | 'right') => {
-    if (!selectedTaskId) return;
-    const currentIndex = filteredTasks.findIndex(t => t.id === selectedTaskId);
-    if (currentIndex === -1) return;
-
-    const newIndex = direction === 'right'
-      ? (currentIndex + 1) % filteredTasks.length
-      : (currentIndex - 1 + filteredTasks.length) % filteredTasks.length;
-
-    onTaskClick(filteredTasks[newIndex].id);
-  }, [selectedTaskId, filteredTasks, onTaskClick]);
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -258,26 +223,15 @@ export function WeeklyTab({ tasks, selectedTaskId, onTaskClick, onBack, onSettin
         </div>
 
         {/* Constellation View */}
-        <div className="w-full aspect-square max-h-[60vh] rounded-2xl overflow-hidden relative flex items-center justify-center">
-          {/* Show MobileConstellationView when task is selected, otherwise show all-tasks canvas */}
-          {selectedTask && selectedTask.subtasks.length > 0 ? (
-            <MobileConstellationView
-              task={selectedTask}
-              onNodeClick={handleNodeClick}
-              onTaskSwitch={handleTaskSwitch}
-              width={constellationSize.width}
-              height={constellationSize.height}
-            />
-          ) : (
-            <canvas
-              ref={canvasRef}
-              className="w-full h-full cursor-pointer"
-              onClick={handleCanvasClick}
-            />
-          )}
+        <div className="w-full aspect-square max-h-[60vh] rounded-2xl overflow-hidden relative">
+          <canvas
+            ref={canvasRef}
+            className="w-full h-full cursor-pointer"
+            onClick={handleCanvasClick}
+          />
 
           {/* Completion Animation - Twinkling and "Tap here" hint */}
-          {(showTwinkle || allTasksCompleted) && !selectedTask && (
+          {(showTwinkle || allTasksCompleted) && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               {/* Twinkling star effect */}
               <div

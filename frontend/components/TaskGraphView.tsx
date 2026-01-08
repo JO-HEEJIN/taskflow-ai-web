@@ -64,6 +64,10 @@ export function TaskGraphView({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mouseDownPos, setMouseDownPos] = useState({ x: 0, y: 0 });
 
+  // Node dragging state (for repositioning tasks)
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
+
   // Hover state for Obsidian-style interaction
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
@@ -75,12 +79,41 @@ export function TaskGraphView({
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [links, setLinks] = useState<GraphLink[]>([]);
 
+  // Track previous task IDs to detect new tasks
+  const prevTaskIdsRef = useRef<Set<string>>(new Set());
+
   // Canvas dimensions
   const [canvasSize, setCanvasSize] = useState({ width: 1920, height: 1080 });
 
   // Animated glow intensities and radii for smooth fade-in/fade-out
   const glowIntensitiesRef = useRef<Map<string, number>>(new Map());
   const nodeRadiiRef = useRef<Map<string, number>>(new Map());
+
+  // LocalStorage key for node positions
+  const NODE_POSITIONS_KEY = 'taskflow_node_positions';
+
+  // Load saved node positions from localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem(NODE_POSITIONS_KEY);
+      if (saved) {
+        setNodePositions(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error('Failed to load node positions:', e);
+    }
+  }, []);
+
+  // Save node positions to localStorage
+  const saveNodePositions = useCallback((positions: Record<string, { x: number; y: number }>) => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(NODE_POSITIONS_KEY, JSON.stringify(positions));
+    } catch (e) {
+      console.error('Failed to save node positions:', e);
+    }
+  }, []);
 
   // Generate hierarchy graph when tasks change
   useEffect(() => {
@@ -91,20 +124,74 @@ export function TaskGraphView({
     setCanvasSize({ width: width * 2, height: height * 2 }); // 2x for pan space
 
     const graph = generateHierarchyGraph(tasks, width * 2, height * 2);
-    setNodes(graph.nodes);
+
+    // Apply saved positions to task nodes and move all descendants accordingly
+    const taskOffsets = new Map<string, { dx: number; dy: number }>();
+
+    // First pass: calculate offsets for tasks that have saved positions
+    graph.nodes.forEach(node => {
+      if (node.type === 'task' && nodePositions[node.id]) {
+        const dx = nodePositions[node.id].x - node.x;
+        const dy = nodePositions[node.id].y - node.y;
+        taskOffsets.set(node.id, { dx, dy });
+      }
+    });
+
+    // Helper to find the root task for any node
+    const findRootTaskId = (nodeId: string): string | null => {
+      const node = graph.nodes.find(n => n.id === nodeId);
+      if (!node) return null;
+      if (node.type === 'task') return node.id;
+      if (node.parentId) return findRootTaskId(node.parentId);
+      return null;
+    };
+
+    // Apply offsets to all nodes based on their root task
+    const finalNodes = graph.nodes.map(node => {
+      if (node.type === 'task' && nodePositions[node.id]) {
+        return { ...node, x: nodePositions[node.id].x, y: nodePositions[node.id].y };
+      }
+      // For subtasks and atomics, find their root task and apply the offset
+      const rootTaskId = findRootTaskId(node.id);
+      if (rootTaskId && taskOffsets.has(rootTaskId)) {
+        const { dx, dy } = taskOffsets.get(rootTaskId)!;
+        return { ...node, x: node.x + dx, y: node.y + dy };
+      }
+      return node;
+    });
+
+    setNodes(finalNodes);
     setLinks(graph.links);
 
-    // Center view on first load
-    if (graph.nodes.length > 0 && pan.x === 0 && pan.y === 0) {
-      // Find center of mass
-      const avgX = graph.nodes.reduce((sum, n) => sum + n.x, 0) / graph.nodes.length;
-      const avgY = graph.nodes.reduce((sum, n) => sum + n.y, 0) / graph.nodes.length;
+    // Detect newly created tasks and center view on them
+    const currentTaskIds = new Set(tasks.map(t => t.id));
+    const newTaskIds = [...currentTaskIds].filter(id => !prevTaskIdsRef.current.has(id));
+
+    if (newTaskIds.length > 0 && prevTaskIdsRef.current.size > 0) {
+      // New task(s) created - center on the first new task
+      const newTaskId = newTaskIds[0];
+      const newTaskNode = finalNodes.find(n => n.type === 'task' && n.id === newTaskId);
+
+      if (newTaskNode) {
+        console.log(`🎯 Centering view on new task: ${newTaskNode.title.substring(0, 30)}`);
+        setPan({
+          x: width / 2 - newTaskNode.x,
+          y: height / 2 - newTaskNode.y,
+        });
+      }
+    } else if (finalNodes.length > 0 && pan.x === 0 && pan.y === 0) {
+      // Center view on first load (no previous tasks)
+      const avgX = finalNodes.reduce((sum, n) => sum + n.x, 0) / finalNodes.length;
+      const avgY = finalNodes.reduce((sum, n) => sum + n.y, 0) / finalNodes.length;
       setPan({
         x: width / 2 - avgX,
         y: height / 2 - avgY,
       });
     }
-  }, [tasks]);
+
+    // Update previous task IDs reference
+    prevTaskIdsRef.current = currentTaskIds;
+  }, [tasks, nodePositions]);
 
   // Render loop
   useEffect(() => {
@@ -363,9 +450,48 @@ export function TaskGraphView({
     [nodes, pan, zoom]
   );
 
-  // Mouse move handler (hover detection)
+  // Mouse move handler (hover detection + node dragging)
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      // If dragging a node, move it
+      if (draggingNodeId) {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const newX = (e.clientX - rect.left - pan.x) / zoom;
+        const newY = (e.clientY - rect.top - pan.y) / zoom;
+
+        // Update node position in state
+        setNodes(prevNodes => {
+          const draggedNode = prevNodes.find(n => n.id === draggingNodeId);
+          if (!draggedNode) return prevNodes;
+
+          const deltaX = newX - draggedNode.x;
+          const deltaY = newY - draggedNode.y;
+
+          // Find all descendants (subtasks and their atomics)
+          const getDescendantIds = (parentId: string): string[] => {
+            const children = prevNodes.filter(n => n.parentId === parentId);
+            return children.flatMap(c => [c.id, ...getDescendantIds(c.id)]);
+          };
+          const descendantIds = new Set(getDescendantIds(draggingNodeId));
+
+          return prevNodes.map(node => {
+            if (node.id === draggingNodeId) {
+              return { ...node, x: newX, y: newY };
+            }
+            // Move all descendants (subtasks + atomics) together
+            if (descendantIds.has(node.id)) {
+              return { ...node, x: node.x + deltaX, y: node.y + deltaY };
+            }
+            return node;
+          });
+        });
+        return;
+      }
+
+      // If dragging canvas (panning)
       if (isDragging) {
         setPan({
           x: e.clientX - dragStart.x,
@@ -386,25 +512,58 @@ export function TaskGraphView({
         setHighlightedNodes(new Set());
       }
     },
-    [isDragging, dragStart, findNodeAtCanvasPos, nodes, links]
+    [isDragging, dragStart, findNodeAtCanvasPos, nodes, links, draggingNodeId, pan, zoom]
   );
 
   // Mouse down handler (start drag)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Check if clicking on a task node (for node dragging)
+    const node = findNodeAtCanvasPos(e.clientX, e.clientY);
+    if (node && node.type === 'task') {
+      // Start dragging the node
+      setDraggingNodeId(node.id);
+      setMouseDownPos({ x: e.clientX, y: e.clientY });
+      return;
+    }
+
+    // Otherwise, start canvas panning
     setIsDragging(true);
     setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
     setMouseDownPos({ x: e.clientX, y: e.clientY });
-  }, [pan]);
+  }, [pan, findNodeAtCanvasPos]);
 
-  // Mouse up handler (click detection)
+  // Mouse up handler (click detection + save node position)
   const handleMouseUp = useCallback(
     (e: React.MouseEvent) => {
-      setIsDragging(false);
-
       // Check if it was a click (not a drag)
       const deltaX = Math.abs(e.clientX - mouseDownPos.x);
       const deltaY = Math.abs(e.clientY - mouseDownPos.y);
       const wasClick = deltaX < 5 && deltaY < 5;
+
+      // If we were dragging a node, save its position
+      if (draggingNodeId) {
+        const wasDragged = !wasClick;
+        if (wasDragged) {
+          // Save the new position
+          const draggedNode = nodes.find(n => n.id === draggingNodeId);
+          if (draggedNode) {
+            const newPositions = {
+              ...nodePositions,
+              [draggingNodeId]: { x: draggedNode.x, y: draggedNode.y },
+            };
+            setNodePositions(newPositions);
+            saveNodePositions(newPositions);
+            console.log(`📍 Saved position for task: ${draggedNode.title.substring(0, 20)}`);
+          }
+        } else {
+          // It was a click on the task, trigger task click
+          onTaskClick(draggingNodeId);
+        }
+        setDraggingNodeId(null);
+        return;
+      }
+
+      setIsDragging(false);
 
       if (wasClick) {
         const node = findNodeAtCanvasPos(e.clientX, e.clientY);
@@ -435,7 +594,7 @@ export function TaskGraphView({
         }
       }
     },
-    [mouseDownPos, findNodeAtCanvasPos, nodes, onTaskClick, onNodeClick, onBackgroundClick]
+    [mouseDownPos, findNodeAtCanvasPos, nodes, onTaskClick, onNodeClick, onBackgroundClick, draggingNodeId, nodePositions, saveNodePositions]
   );
 
   // Wheel handler (zoom)
@@ -571,7 +730,13 @@ export function TaskGraphView({
       {/* Canvas container */}
       <div
         ref={containerRef}
-        className={`absolute inset-0 z-10 ${isDragging ? 'cursor-grabbing' : hoveredNode ? 'cursor-pointer' : 'cursor-grab'}`}
+        className={`absolute inset-0 z-10 ${
+          draggingNodeId ? 'cursor-grabbing' :
+          isDragging ? 'cursor-grabbing' :
+          (hoveredNode?.type === 'task') ? 'cursor-grab' :
+          hoveredNode ? 'cursor-pointer' :
+          'cursor-default'
+        }`}
         style={{ touchAction: 'none' }}
       >
         <canvas
@@ -581,6 +746,7 @@ export function TaskGraphView({
           onMouseUp={handleMouseUp}
           onMouseLeave={() => {
             setIsDragging(false);
+            setDraggingNodeId(null);
             setHoveredNode(null);
             setHighlightedNodes(new Set());
           }}

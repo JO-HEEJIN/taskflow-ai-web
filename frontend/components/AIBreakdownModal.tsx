@@ -151,9 +151,13 @@ export function AIBreakdownModal({ taskId, parentSubtaskId, onClose }: AIBreakdo
     ) => {
       // Add this node (with "Atomic:" prefix if it's a child)
       const isChild = depth > 0;
+      // Avoid duplicate "Atomic:" prefix if title already starts with it
+      const nodeTitle = node.title.startsWith('Atomic: ')
+        ? node.title
+        : isChild ? `Atomic: ${node.title}` : node.title;
       flattened.push({
         ...node,
-        title: isChild ? `Atomic: ${node.title}` : node.title,
+        title: nodeTitle,
         order: flattened.length,
         parentSubtaskId: parentTitle,
         isAtomic: isChild,

@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { Task, Subtask } from '@/types';
+import { Task, Subtask, ConfidenceLevel } from '@/types';
 import { OrbitTimer } from './OrbitTimer';
 import { CoachView } from './CoachView';
 import { PiPTimer } from './PiPTimer';
@@ -13,11 +13,20 @@ import { useReliableTimer } from '@/hooks/useReliableTimer';
 import { usePictureInPicture } from '@/hooks/usePictureInPicture';
 import { useEffect, useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { X, ChevronRight, SkipForward, MessageCircle, Maximize, Sparkles } from 'lucide-react';
+import { X, ChevronRight, SkipForward, MessageCircle, Maximize, Sparkles, AlertCircle } from 'lucide-react';
 import { api } from '@/lib/api';
 import { soundManager } from '@/lib/SoundManager';
 import { showTimerCompletedNotification } from '@/lib/notifications';
 import { useTaskStore } from '@/store/taskStore';
+
+// Emergency quests for calming down when timer is >= 100 minutes
+const EMERGENCY_QUESTS = [
+  { title: "Stretch your arms", duration: 1, icon: "🙆" },
+  { title: "Drink a glass of water", duration: 2, icon: "💧" },
+  { title: "Take 3 deep breaths", duration: 1, icon: "🌬️" },
+  { title: "Jump 10 times in place", duration: 1, icon: "🦘" },
+  { title: "Close eyes and meditate for 10 seconds", duration: 1, icon: "🧘" },
+];
 
 interface GalaxyFocusViewProps {
   task: Task;
@@ -34,7 +43,18 @@ export function GalaxyFocusView({
   onSkip,
   onClose,
 }: GalaxyFocusViewProps) {
-  const { setIsPiPActive, showBreakScreen, setShowBreakScreen, isParentSubtaskView } = useCoachStore(); // ✅ Get isParentSubtaskView
+  const {
+    setIsPiPActive,
+    showBreakScreen,
+    setShowBreakScreen,
+    isParentSubtaskView,
+    // Learning Engine state
+    isLearningMode,
+    currentLearningStrategy,
+    showInterleavePopup,
+    checkInterleaveBreak,
+    dismissInterleavePopup,
+  } = useCoachStore();
   const { addXp } = useGamificationStore();
   const { isSupported: isPiPSupported, isPiPOpen, openPiP, updatePiP, closePiP } = usePictureInPicture();
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
@@ -42,9 +62,56 @@ export function GalaxyFocusView({
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isBreakingDown, setIsBreakingDown] = useState(false);
 
+  // Emergency popup state for 100+ min tasks
+  const [showEmergencyPopup, setShowEmergencyPopup] = useState(false);
+  const [currentEmergencyQuest, setCurrentEmergencyQuest] = useState(EMERGENCY_QUESTS[0]);
+  const [emergencyQuestCompleted, setEmergencyQuestCompleted] = useState(false);
+
   // Note: We use api.addSubtasks directly for server persistence
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
   const canBreakDown = estimatedMinutes >= 10 && !currentSubtask.children?.length;
+
+  // Auto-show emergency popup when timer >= 100 minutes
+  useEffect(() => {
+    if (estimatedMinutes >= 100) {
+      // Pick random quest
+      const randomQuest = EMERGENCY_QUESTS[Math.floor(Math.random() * EMERGENCY_QUESTS.length)];
+      setCurrentEmergencyQuest(randomQuest);
+      setEmergencyQuestCompleted(false);
+      setShowEmergencyPopup(true);
+    }
+  }, [currentSubtask.id]); // Only trigger on subtask change
+
+  // Check for interleaving break every minute (for learning tasks)
+  useEffect(() => {
+    if (!isLearningMode) return;
+
+    const interval = setInterval(() => {
+      checkInterleaveBreak();
+    }, 60 * 1000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [isLearningMode, checkInterleaveBreak]);
+
+  // Handle emergency quest completion
+  const handleEmergencyQuestComplete = () => {
+    // Micro confetti
+    confetti({
+      particleCount: 50,
+      spread: 60,
+      origin: { y: 0.7 },
+      colors: ['#22c55e', '#86efac', '#fbbf24'],
+    });
+
+    // Add XP
+    addXp(10);
+    setEmergencyQuestCompleted(true);
+
+    // Auto-close after showing success
+    setTimeout(() => {
+      setShowEmergencyPopup(false);
+    }, 1500);
+  };
 
   // Callback for timer completion - defined before hook usage
   const handleTimerComplete = useCallback(() => {
@@ -190,6 +257,66 @@ export function GalaxyFocusView({
   const handleSkip = () => {
     onSkip();
   };
+
+  // Handle confidence-based completion for learning tasks (SRS - Spaced Repetition)
+  const handleConfidenceComplete = async (confidence: ConfidenceLevel) => {
+    // Supernova confetti effect with color based on confidence
+    const confettiColors = {
+      red: ['#ef4444', '#f87171', '#fca5a5'],
+      yellow: ['#eab308', '#facc15', '#fde047'],
+      green: ['#22c55e', '#4ade80', '#86efac'],
+    };
+
+    confetti({
+      particleCount: 120,
+      spread: 80,
+      origin: { y: 0.5 },
+      colors: confettiColors[confidence],
+      ticks: 180,
+    });
+
+    // Add XP based on confidence
+    const xpReward = confidence === 'green' ? 100 : confidence === 'yellow' ? 50 : 25;
+    addXp(xpReward);
+
+    try {
+      // Complete with confidence rating via API
+      await api.completeWithConfidence(task.id, currentSubtask.id, confidence);
+
+      // Get encouragement message
+      const activeSubtaskIndex = task.subtasks.findIndex(st => st.id === currentSubtask.id);
+      const completedSubtasks = activeSubtaskIndex + 1;
+      const totalSubtasks = task.subtasks.length;
+      const nextSubtaskIndex = activeSubtaskIndex + 1;
+      const nextSubtask = nextSubtaskIndex < totalSubtasks ? task.subtasks[nextSubtaskIndex] : null;
+
+      const result = await api.generateEncouragement(
+        { title: currentSubtask.title, estimatedMinutes: currentSubtask.estimatedMinutes },
+        nextSubtask ? { title: nextSubtask.title, estimatedMinutes: nextSubtask.estimatedMinutes } : null,
+        { completed: completedSubtasks, total: totalSubtasks }
+      );
+
+      setEncouragementMessage(result.message);
+      setShowEncouragement(true);
+
+      // Auto-hide and proceed
+      setTimeout(() => {
+        setShowEncouragement(false);
+        setTimeout(() => {
+          onComplete();
+        }, 300);
+      }, 3000);
+    } catch (error) {
+      console.error('Failed to complete with confidence:', error);
+      // Proceed anyway
+      setTimeout(() => {
+        onComplete();
+      }, 600);
+    }
+  };
+
+  // Check if current subtask is a learning task (has strategyTag)
+  const isLearningTask = !!currentSubtask.strategyTag;
 
   // Break down current subtask into smaller atomic tasks
   const handleBreakDownFurther = async () => {
@@ -644,25 +771,75 @@ export function GalaxyFocusView({
           transition={{ delay: 0.5 }}
           className="flex flex-col sm:flex-row gap-3 w-full max-w-md px-4"
         >
-          {/* Complete button - Changes based on isParentSubtaskView */}
-          <button
-            onClick={handleComplete}
-            className="flex-1 py-3 md:py-4 px-6 text-base md:text-lg font-bold rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
-            style={{
-              background: isParentSubtaskView
-                ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'  // Purple for parent confirmation
-                : 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', // Green for atomic tasks
-              boxShadow: isParentSubtaskView
-                ? '0 0 30px rgba(139, 92, 246, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)'
-                : '0 0 30px rgba(34, 197, 94, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)',
-              textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-            }}
-          >
-            <span>{isParentSubtaskView ? '➡️' : '✅'}</span>
-            <span className="text-white">
-              {isParentSubtaskView ? 'Next Subtask' : 'I DID IT!'}
-            </span>
-          </button>
+          {/* Traffic Light Confidence Buttons - For learning tasks (SRS) */}
+          {isLearningTask && !isParentSubtaskView ? (
+            <div className="flex-1 flex gap-2">
+              {/* Red - Didn't get it */}
+              <button
+                onClick={() => handleConfidenceComplete('red')}
+                className="flex-1 py-3 md:py-4 px-3 text-sm md:text-base font-bold rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-1"
+                style={{
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  boxShadow: '0 0 20px rgba(239, 68, 68, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                }}
+              >
+                <span className="text-lg">🔴</span>
+                <span className="text-white text-xs">Didn't get it</span>
+                <span className="text-white/60 text-[10px]">20 min</span>
+              </button>
+
+              {/* Yellow - Kind of get it */}
+              <button
+                onClick={() => handleConfidenceComplete('yellow')}
+                className="flex-1 py-3 md:py-4 px-3 text-sm md:text-base font-bold rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-1"
+                style={{
+                  background: 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
+                  boxShadow: '0 0 20px rgba(234, 179, 8, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                }}
+              >
+                <span className="text-lg">🟡</span>
+                <span className="text-white text-xs">Kind of get it</span>
+                <span className="text-white/60 text-[10px]">Tomorrow</span>
+              </button>
+
+              {/* Green - Nailed it */}
+              <button
+                onClick={() => handleConfidenceComplete('green')}
+                className="flex-1 py-3 md:py-4 px-3 text-sm md:text-base font-bold rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-1"
+                style={{
+                  background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                  boxShadow: '0 0 20px rgba(34, 197, 94, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+                  textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                }}
+              >
+                <span className="text-lg">🟢</span>
+                <span className="text-white text-xs">Nailed it!</span>
+                <span className="text-white/60 text-[10px]">3 days</span>
+              </button>
+            </div>
+          ) : (
+            /* Standard Complete button - For non-learning tasks */
+            <button
+              onClick={handleComplete}
+              className="flex-1 py-3 md:py-4 px-6 text-base md:text-lg font-bold rounded-2xl transition-all transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2"
+              style={{
+                background: isParentSubtaskView
+                  ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'  // Purple for parent confirmation
+                  : 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)', // Green for atomic tasks
+                boxShadow: isParentSubtaskView
+                  ? '0 0 30px rgba(139, 92, 246, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)'
+                  : '0 0 30px rgba(34, 197, 94, 0.6), inset 0 0 30px rgba(255, 255, 255, 0.1)',
+                textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+              }}
+            >
+              <span>{isParentSubtaskView ? '➡️' : '✅'}</span>
+              <span className="text-white">
+                {isParentSubtaskView ? 'Next Subtask' : 'I DID IT!'}
+              </span>
+            </button>
+          )}
 
           {/* Skip button */}
           <button
@@ -692,24 +869,39 @@ export function GalaxyFocusView({
             <div
               className="p-8 md:p-10 rounded-3xl text-center max-w-md md:max-w-lg w-full"
               style={{
-                background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.98) 0%, rgba(16, 185, 129, 0.98) 100%)',
-                border: '3px solid rgba(255, 255, 255, 0.4)',
-                boxShadow: '0 0 60px rgba(34, 197, 94, 0.8), inset 0 0 60px rgba(255, 255, 255, 0.15)',
+                background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.95) 0%, rgba(34, 197, 94, 0.95) 100%)',
+                border: '3px solid rgba(134, 239, 172, 0.4)',
+                boxShadow: '0 0 60px rgba(34, 197, 94, 0.5), 0 0 100px rgba(139, 92, 246, 0.4), inset 0 0 60px rgba(255, 255, 255, 0.08)',
               }}
             >
               <motion.div
-                className="text-6xl md:text-7xl mb-4"
+                className="w-28 h-28 md:w-32 md:h-32 mx-auto mb-4 relative"
                 animate={{
-                  scale: [1, 1.2, 1],
-                  rotate: [0, 10, -10, 0],
+                  scale: [1, 1.15, 1],
                 }}
                 transition={{
-                  duration: 0.6,
+                  duration: 1.5,
                   repeat: Infinity,
-                  repeatDelay: 0.5,
+                  ease: "easeInOut",
                 }}
               >
-                🎉
+                {/* Multiple glow layers for bloom effect */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: 'radial-gradient(circle, rgba(34, 197, 94, 0.4) 0%, transparent 70%)',
+                    filter: 'blur(20px)',
+                    transform: 'scale(1.5)',
+                  }}
+                />
+                <img
+                  src="/icons/tick_network_icon.png"
+                  alt="Success"
+                  className="w-full h-full object-contain relative z-10"
+                  style={{
+                    filter: 'drop-shadow(0 0 15px rgba(134, 239, 172, 1)) drop-shadow(0 0 30px rgba(34, 197, 94, 0.9)) drop-shadow(0 0 50px rgba(139, 92, 246, 0.7)) drop-shadow(0 0 80px rgba(34, 197, 94, 0.5))',
+                  }}
+                />
               </motion.div>
               <p
                 className="text-white text-xl md:text-2xl font-bold leading-relaxed"
@@ -737,6 +929,200 @@ export function GalaxyFocusView({
         onContinue={handleContinueWorking}
         xpEarned={50}
       />
+
+      {/* Emergency "Don't Freak Out" Popup - Shows when timer >= 100 minutes */}
+      <AnimatePresence>
+        {showEmergencyPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+            onClick={() => !emergencyQuestCompleted && setShowEmergencyPopup(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="relative max-w-md w-full p-8 rounded-3xl"
+              style={{
+                background: 'rgba(0, 0, 0, 0.9)',
+                border: '1px solid rgba(59, 130, 246, 0.5)',
+                boxShadow: '0 0 40px rgba(59, 130, 246, 0.4), inset 0 0 40px rgba(255, 255, 255, 0.05)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              {!emergencyQuestCompleted && (
+                <button
+                  onClick={() => setShowEmergencyPopup(false)}
+                  className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+
+              {emergencyQuestCompleted ? (
+                // Success state
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-center"
+                >
+                  <div className="text-6xl mb-4">🎉</div>
+                  <h3 className="text-2xl font-bold text-white mb-2">You got this!</h3>
+                  <p className="text-blue-200 text-lg">+10 XP earned!</p>
+                </motion.div>
+              ) : (
+                // Calming message + Quest
+                <>
+                  {/* "Don't Freak Out!" Header */}
+                  <div className="text-center mb-6">
+                    <motion.div
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="text-6xl mb-4"
+                    >
+                      🧘
+                    </motion.div>
+                    <h3
+                      className="text-3xl font-bold text-white mb-3"
+                      style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
+                    >
+                      Don&apos;t Freak Out!
+                    </h3>
+                    <p className="text-blue-200 text-sm leading-relaxed">
+                      This task is {estimatedMinutes} minutes long. That&apos;s okay!
+                      <br />
+                      <span className="text-purple-300">Let&apos;s take a quick calming break first.</span>
+                    </p>
+                  </div>
+
+                  {/* Quest Card */}
+                  <div className="bg-white/5 rounded-2xl p-6 mb-6 border border-white/10">
+                    <div className="text-4xl mb-3 text-center">{currentEmergencyQuest.icon}</div>
+                    <h4 className="text-xl font-semibold text-white mb-2 text-center">
+                      {currentEmergencyQuest.title}
+                    </h4>
+                    <p className="text-blue-200 text-center text-sm">
+                      Takes about {currentEmergencyQuest.duration} min
+                    </p>
+                  </div>
+
+                  {/* Complete button */}
+                  <button
+                    onClick={handleEmergencyQuestComplete}
+                    className="w-full py-4 px-6 text-lg font-bold text-white rounded-2xl transition-all transform hover:scale-105 active:scale-95"
+                    style={{
+                      background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                      boxShadow: '0 4px 20px rgba(34, 197, 94, 0.4)',
+                      textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                    }}
+                  >
+                    ✅ Done! I&apos;m Ready
+                  </button>
+
+                  {/* Skip option */}
+                  <button
+                    onClick={() => setShowEmergencyPopup(false)}
+                    className="w-full mt-3 py-2 text-sm text-white/50 hover:text-white/80 transition-colors"
+                  >
+                    Skip, I&apos;m fine
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Interleaving Popup - Suggests switching topics after 25+ min on same topic */}
+      <AnimatePresence>
+        {showInterleavePopup && isLearningMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10002] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+            onClick={() => dismissInterleavePopup()}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="relative max-w-md w-full p-8 rounded-3xl"
+              style={{
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(99, 102, 241, 0.3) 100%)',
+                border: '1px solid rgba(139, 92, 246, 0.5)',
+                boxShadow: '0 0 40px rgba(139, 92, 246, 0.4), inset 0 0 40px rgba(255, 255, 255, 0.05)',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close button */}
+              <button
+                onClick={() => dismissInterleavePopup()}
+                className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Interleave message */}
+              <div className="text-center">
+                <motion.div
+                  animate={{ rotate: [0, 10, -10, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="text-6xl mb-4"
+                >
+                  🔄
+                </motion.div>
+                <h3
+                  className="text-2xl font-bold text-white mb-3"
+                  style={{ textShadow: '0 2px 8px rgba(0,0,0,0.6)' }}
+                >
+                  Time to Interleave!
+                </h3>
+                <p className="text-purple-200 text-sm leading-relaxed mb-6">
+                  You've been on this topic for 25+ minutes. Switching topics can actually improve your retention - it's called interleaving!
+                </p>
+
+                {/* Suggestion */}
+                <div
+                  className="p-4 rounded-xl mb-6"
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                  }}
+                >
+                  <p className="text-white text-sm">
+                    💡 <strong>Pro tip:</strong> After this subtask, consider working on a different topic for 10-15 minutes, then come back!
+                  </p>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => dismissInterleavePopup()}
+                    className="flex-1 py-3 px-4 rounded-xl font-medium text-white transition-all hover:scale-105"
+                    style={{
+                      background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                      boxShadow: '0 0 20px rgba(139, 92, 246, 0.4)',
+                    }}
+                  >
+                    Got it, keep going
+                  </button>
+                </div>
+
+                {/* Dismiss hint */}
+                <p className="text-white/40 text-xs mt-4">
+                  Timer will reset after 25 more minutes
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

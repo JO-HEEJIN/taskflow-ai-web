@@ -319,6 +319,46 @@ class TaskService {
     });
   }
 
+  // Complete subtask with confidence rating (SRS - Spaced Repetition for learning tasks)
+  async completeWithConfidence(
+    taskId: string,
+    syncCode: string,
+    subtaskId: string,
+    confidenceData: { confidenceLevel: string; nextReviewAt: string }
+  ): Promise<Task | null> {
+    const task = await this.getTaskById(taskId, syncCode);
+    if (!task) return null;
+
+    // Helper to update a subtask with confidence data
+    const updateSubtaskWithConfidence = (st: Subtask): Subtask => {
+      if (st.id === subtaskId) {
+        return {
+          ...st,
+          isCompleted: true,
+          confidenceLevel: confidenceData.confidenceLevel as any,
+          nextReviewAt: confidenceData.nextReviewAt,
+        };
+      }
+      // Also check children recursively
+      if (st.children && st.children.length > 0) {
+        return {
+          ...st,
+          children: st.children.map(child => updateSubtaskWithConfidence(child)),
+        };
+      }
+      return st;
+    };
+
+    const updatedSubtasks = task.subtasks.map(st => updateSubtaskWithConfidence(st));
+    const progress = this.calculateProgress(updatedSubtasks);
+
+    return this.updateTask(taskId, syncCode, {
+      subtasks: updatedSubtasks,
+      progress,
+      status: progress === 100 ? TaskStatus.COMPLETED : TaskStatus.IN_PROGRESS,
+    });
+  }
+
   // Delete a subtask
   async deleteSubtask(
     taskId: string,

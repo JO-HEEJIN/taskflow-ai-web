@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
 import { useToast } from '@/contexts/ToastContext';
 import { Task } from '@/types';
 import { api } from '@/lib/api';
+import { ChevronDown, ChevronUp, Loader2, MessageCircle, Send } from 'lucide-react';
+import { CoachMessageContent } from './CoachMessageContent';
 import '@uiw/react-md-editor/markdown-editor.css';
 import '@uiw/react-markdown-preview/markdown.css';
 
@@ -20,6 +22,11 @@ interface TaskFormProps {
   onClose?: () => void;
 }
 
+interface CoachMessage {
+  role: 'ai' | 'user';
+  content: string;
+}
+
 export function TaskForm({ task, onClose }: TaskFormProps) {
   const { createTask, createTaskWithAutoFocus, updateTask, isLoading } = useTaskStore();
   const { enterFocusMode } = useCoachStore();
@@ -30,12 +37,73 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
   const isEditMode = !!task;
   const isGuest = typeof window !== 'undefined' && !localStorage.getItem('userId');
 
+  // AI Coach state for task creation help
+  const [isCoachExpanded, setIsCoachExpanded] = useState(false);
+  const [coachMessages, setCoachMessages] = useState<CoachMessage[]>([]);
+  const [coachInput, setCoachInput] = useState('');
+  const [isCoachLoading, setIsCoachLoading] = useState(false);
+  const coachMessagesEndRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (task) {
       setTitle(task.title);
       setDescription(task.description || '');
     }
   }, [task]);
+
+  // Auto-scroll coach messages
+  useEffect(() => {
+    if (coachMessagesEndRef.current && isCoachExpanded) {
+      coachMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [coachMessages, isCoachExpanded]);
+
+  // Welcome message when coach expands
+  useEffect(() => {
+    if (isCoachExpanded && coachMessages.length === 0) {
+      setCoachMessages([{
+        role: 'ai',
+        content: "Hey! Need help figuring out what task to create? What are you trying to accomplish today?",
+      }]);
+    }
+  }, [isCoachExpanded, coachMessages.length]);
+
+  // Send message to coach
+  const handleCoachSend = async () => {
+    if (!coachInput.trim() || isCoachLoading) return;
+
+    const userMessage: CoachMessage = { role: 'user', content: coachInput.trim() };
+    const updatedMessages = [...coachMessages, userMessage];
+    setCoachMessages(updatedMessages);
+    setCoachInput('');
+    setIsCoachLoading(true);
+
+    try {
+      const response = await api.chatWithCoach(
+        userMessage.content,
+        title || 'New Task',  // Use current title as context
+        undefined,
+        coachMessages.map(m => ({ role: m.role, content: m.content }))
+      );
+
+      setCoachMessages([...updatedMessages, { role: 'ai', content: response.message }]);
+    } catch (error) {
+      console.error('Coach error:', error);
+      setCoachMessages([...updatedMessages, {
+        role: 'ai',
+        content: "Sorry, I had trouble connecting. Try again?"
+      }]);
+    } finally {
+      setIsCoachLoading(false);
+    }
+  };
+
+  const handleCoachKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleCoachSend();
+    }
+  };
 
   // Moved uploadImage function before useEffect so it can be used
   const uploadImage = async (file: File) => {
@@ -243,6 +311,92 @@ export function TaskForm({ task, onClose }: TaskFormProps) {
             </p>
           )}
         </div>
+      </div>
+
+      {/* AI Coach - Help with task creation */}
+      <div
+        className="rounded-lg overflow-hidden"
+        style={{
+          background: 'rgba(139, 92, 246, 0.1)',
+          border: '1px solid rgba(139, 92, 246, 0.3)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setIsCoachExpanded(!isCoachExpanded)}
+          className="w-full px-4 py-3 flex items-center justify-between hover:bg-purple-500/10 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-purple-400" />
+            <span className="text-sm font-medium text-purple-300">
+              Need help? Ask AI Coach
+            </span>
+          </div>
+          {isCoachExpanded ? (
+            <ChevronUp className="w-4 h-4 text-purple-400" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-purple-400" />
+          )}
+        </button>
+
+        {isCoachExpanded && (
+          <div style={{ borderTop: '1px solid rgba(139, 92, 246, 0.2)' }}>
+            {/* Messages */}
+            <div className="h-40 overflow-y-auto p-3 space-y-2">
+              {coachMessages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] px-3 py-2 rounded-lg text-sm ${
+                      msg.role === 'user'
+                        ? 'bg-purple-600 text-white rounded-br-none'
+                        : 'bg-white/10 text-gray-200 rounded-bl-none'
+                    }`}
+                  >
+                    <CoachMessageContent content={msg.content} isUser={msg.role === 'user'} />
+                  </div>
+                </div>
+              ))}
+              {isCoachLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-white/10 px-3 py-2 rounded-lg rounded-bl-none">
+                    <Loader2 className="w-4 h-4 text-purple-400 animate-spin" />
+                  </div>
+                </div>
+              )}
+              <div ref={coachMessagesEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="p-3" style={{ borderTop: '1px solid rgba(139, 92, 246, 0.2)' }}>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={coachInput}
+                  onChange={(e) => setCoachInput(e.target.value)}
+                  onKeyDown={handleCoachKeyDown}
+                  placeholder="What do you want to accomplish?"
+                  disabled={isCoachLoading}
+                  className="flex-1 px-3 py-2 text-sm rounded-lg text-white placeholder:text-gray-500 disabled:opacity-50"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleCoachSend}
+                  disabled={isCoachLoading || !coachInput.trim()}
+                  className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-3 pt-2">

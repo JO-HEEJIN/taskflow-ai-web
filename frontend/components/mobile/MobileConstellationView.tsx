@@ -284,7 +284,7 @@ export function MobileConstellationView({
     };
   }, [nodes, links, width, height, opacity, selectedNodeId]);
 
-  // Handle touch/click
+  // Handle touch/click - Single tap opens directly
   const handleCanvasClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
       const canvas = canvasRef.current;
@@ -310,35 +310,33 @@ export function MobileConstellationView({
       const clickedNode = findNodeAtPoint(x, y, nodes, 3); // Generous hit area for mobile
 
       if (clickedNode) {
-        // If same node is clicked twice, trigger action
-        if (selectedNodeId === clickedNode.id) {
-          // Build NodeContext
-          const context: NodeContext = {
-            type: clickedNode.type,
-            taskId: task.id,
-          };
+        // Single tap - directly trigger action
+        const context: NodeContext = {
+          type: clickedNode.type,
+          taskId: task.id,
+        };
 
-          if (clickedNode.type === 'subtask') {
-            context.subtaskId = clickedNode.id;
-          } else if (clickedNode.type === 'atomic') {
-            context.atomicId = clickedNode.id;
-            const parentSubtask = nodes.find(n => n.id === clickedNode.parentId);
-            if (parentSubtask) {
-              context.subtaskId = parentSubtask.id;
-            }
+        if (clickedNode.type === 'subtask') {
+          context.subtaskId = clickedNode.id;
+        } else if (clickedNode.type === 'atomic') {
+          context.atomicId = clickedNode.id;
+          const parentSubtask = nodes.find(n => n.id === clickedNode.parentId);
+          if (parentSubtask) {
+            context.subtaskId = parentSubtask.id;
           }
-
-          onNodeClick(context);
-        } else {
-          // First tap - select the node
-          setSelectedNodeId(clickedNode.id);
         }
+
+        // Highlight briefly then open
+        setSelectedNodeId(clickedNode.id);
+        setTimeout(() => {
+          onNodeClick(context);
+        }, 150); // Brief highlight before opening
       } else {
         // Clicked on empty space - deselect
         setSelectedNodeId(null);
       }
     },
-    [nodes, task, selectedNodeId, onNodeClick]
+    [nodes, task, onNodeClick]
   );
 
   // Swipe gesture detection
@@ -397,16 +395,9 @@ export function MobileConstellationView({
         }}
       />
 
-      {/* Tap hint */}
-      {selectedNodeId && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-white/50 pointer-events-none animate-pulse">
-          Tap again to open
-        </div>
-      )}
-
       {/* Swipe hint */}
-      {onTaskSwitch && !selectedNodeId && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-white/40 pointer-events-none">
+      {onTaskSwitch && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-white/30 pointer-events-none">
           ← Swipe to switch tasks →
         </div>
       )}

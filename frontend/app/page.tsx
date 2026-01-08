@@ -10,7 +10,6 @@ import { TaskForm } from '@/components/TaskForm';
 import { useTaskStore } from '@/store/taskStore';
 import { useCoachStore } from '@/store/useCoachStore';
 import { GalaxyFocusView } from '@/components/focus/GalaxyFocusView';
-import { EmergencyButton } from '@/components/focus/EmergencyButton';
 import { LevelUpModal } from '@/components/rewards/LevelUpModal';
 import { ProfileButton } from '@/components/profile/ProfileButton';
 import { LoadingScreen } from '@/components/LoadingScreen';
@@ -236,9 +235,6 @@ export default function Home() {
           />
         )}
       </AnimatePresence>
-
-      {/* Emergency Button - Hidden on mobile */}
-      {!isMobile && <EmergencyButton />}
 
       {/* Task Form Modal */}
       {showTaskForm && (

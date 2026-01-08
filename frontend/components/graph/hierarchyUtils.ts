@@ -93,7 +93,6 @@ export function generateHierarchyGraph(
   const links: GraphLink[] = [];
 
   // Base layout constants
-  const TASK_SPACING = 450;
   const BASE_SUBTASK_ORBIT = 160;
   const BASE_ATOMIC_ORBIT = 55;
 
@@ -109,22 +108,32 @@ export function generateHierarchyGraph(
     return { nodes, links };
   }
 
-  // Calculate grid layout for tasks
-  const cols = Math.max(1, Math.ceil(Math.sqrt(tasksToRender.length)));
-  const rows = Math.ceil(tasksToRender.length / cols);
+  // Calculate circular layout for tasks (like stars in a galaxy)
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const taskCount = tasksToRender.length;
 
-  // Center the grid
-  const gridWidth = (cols - 1) * TASK_SPACING;
-  const gridHeight = (rows - 1) * TASK_SPACING;
-  const startX = (width - gridWidth) / 2;
-  const startY = (height - gridHeight) / 2;
+  // Calculate radius based on task count and screen size
+  // More tasks = larger radius to prevent overlap
+  const minRadius = Math.min(width, height) * 0.25;
+  const maxRadius = Math.min(width, height) * 0.4;
+  const baseRadius = Math.min(maxRadius, minRadius + taskCount * 30);
+
+  // Add slight randomness for organic feel
+  const angleStep = (Math.PI * 2) / taskCount;
+  const startAngle = -Math.PI / 2; // Start from top
 
   tasksToRender.forEach((task, index) => {
-    // 1. TASK NODE (Star)
-    const col = index % cols;
-    const row = Math.floor(index / cols);
-    const taskX = startX + col * TASK_SPACING;
-    const taskY = startY + row * TASK_SPACING;
+    // 1. TASK NODE (Star) - Circular layout with organic variation
+    const baseSeed = task.id.charCodeAt(0) + index;
+    const radiusJitter = 0.85 + seededRandom(baseSeed) * 0.3; // ±15% variation
+    const angleJitter = (seededRandom(baseSeed + 1) - 0.5) * 0.3; // Slight angle offset
+
+    const angle = startAngle + index * angleStep + angleJitter;
+    const radius = baseRadius * radiusJitter;
+
+    const taskX = centerX + Math.cos(angle) * radius;
+    const taskY = centerY + Math.sin(angle) * radius;
 
     const taskColorKey = task.status as keyof typeof COLORS.task;
     const taskColors = COLORS.task[taskColorKey] || COLORS.task.pending;

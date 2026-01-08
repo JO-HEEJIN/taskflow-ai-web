@@ -304,6 +304,45 @@ router.patch('/:taskId/subtasks/:subtaskId/archive', async (req: Request, res: R
   }
 });
 
+// Complete subtask with confidence rating (SRS - Spaced Repetition for learning tasks)
+router.patch('/:taskId/subtasks/:subtaskId/confidence', async (req: Request, res: Response) => {
+  try {
+    const { taskId, subtaskId } = req.params;
+    const { confidenceLevel, nextReviewAt } = req.body;
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing x-user-id header' });
+    }
+
+    if (!confidenceLevel || !['red', 'yellow', 'green'].includes(confidenceLevel)) {
+      return res.status(400).json({ error: 'confidenceLevel must be red, yellow, or green' });
+    }
+
+    console.log(`🎯 [SRS] Completing subtask with confidence: ${confidenceLevel}, next review: ${nextReviewAt}`);
+
+    // Update subtask with confidence data and mark as completed
+    const task = await taskService.completeWithConfidence(taskId, userId, subtaskId, {
+      confidenceLevel,
+      nextReviewAt,
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task or subtask not found' });
+    }
+
+    // Send notification: Task Completed (if progress reaches 100%)
+    if (task.progress === 100 && task.status !== 'completed') {
+      await webPushService.notifyTaskCompleted(userId, task.title);
+    }
+
+    res.json({ task });
+  } catch (error) {
+    console.error('Error completing subtask with confidence:', error);
+    res.status(500).json({ error: 'Failed to complete subtask with confidence' });
+  }
+});
+
 // Toggle subtask completion
 router.patch('/:taskId/subtasks/:subtaskId', async (req: Request, res: Response) => {
   try {

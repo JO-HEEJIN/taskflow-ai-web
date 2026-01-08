@@ -10,7 +10,8 @@ import { ChildSubtaskSkeleton } from './SubtaskSkeleton';
 import { ProgressBar } from './ProgressBar';
 import { AIBreakdownModal } from './AIBreakdownModal';
 import { NoSubtasksEmptyState } from './onboarding/NoSubtasksEmptyState';
-import { X, GripVertical, Link2, Unlink, Archive, Map, List as ListIcon, Sparkles, ChevronDown, ChevronRight, ChevronUp, Loader2 } from 'lucide-react';
+import { CoachChat } from './CoachChat';
+import { X, GripVertical, Link2, Unlink, Archive, Map, List as ListIcon, Sparkles, ChevronDown, ChevronRight, ChevronUp, Loader2, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect, useTransition } from 'react';
 import dynamic from 'next/dynamic';
 import ReactMarkdown from 'react-markdown';
@@ -29,7 +30,7 @@ interface TaskDetailProps {
 }
 
 export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps) {
-  const { tasks, toggleSubtask, addSubtasks, deleteSubtask, reorderSubtasks, archiveSubtask, createLinkedTask, approveBreakdown, deepDiveBreakdown } = useTaskStore();
+  const { tasks, toggleSubtask, addSubtasks, deleteSubtask, deleteTask, reorderSubtasks, archiveSubtask, createLinkedTask, approveBreakdown, deepDiveBreakdown } = useTaskStore();
   const toast = useToast();
   const [showAIModal, setShowAIModal] = useState(false);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -44,6 +45,7 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
   const [breakingDownSubtaskId, setBreakingDownSubtaskId] = useState<string | null>(null);
   const [showOptimisticChildren, setShowOptimisticChildren] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isGuest = typeof window !== 'undefined' && !localStorage.getItem('userId');
@@ -134,6 +136,20 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
     } catch (error) {
       console.error('Failed to delete subtask:', error);
       toast.error('Failed to delete subtask. Please try again.');
+    }
+  };
+
+  const handleDeleteTask = async () => {
+    if (!confirm('Delete this task and all its subtasks? This cannot be undone.')) return;
+    setIsDeletingTask(true);
+    try {
+      await deleteTask(task.id);
+      toast.success('Task deleted successfully');
+      onClose();
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      toast.error('Failed to delete task. Please try again.');
+      setIsDeletingTask(false);
     }
   };
 
@@ -385,12 +401,26 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
                   </div>
                 )}
               </div>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 text-2xl ml-4 p-3 min-w-[48px] min-h-[48px] flex items-center justify-center"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2 ml-4">
+                <button
+                  onClick={handleDeleteTask}
+                  disabled={isDeletingTask}
+                  className="text-gray-400 hover:text-red-600 p-3 min-w-[48px] min-h-[48px] flex items-center justify-center transition-colors disabled:opacity-50"
+                  title="Delete task"
+                >
+                  {isDeletingTask ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-5 h-5" />
+                  )}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="text-gray-400 hover:text-gray-600 text-2xl p-3 min-w-[48px] min-h-[48px] flex items-center justify-center"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Progress Section */}
@@ -403,6 +433,15 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
               <div className="mt-2 text-xs text-gray-500">
                 {task.subtasks.filter((st) => st.isCompleted).length} of {task.subtasks.length} subtasks completed
               </div>
+            </div>
+
+            {/* AI Coach Chat - Available outside Focus Mode */}
+            <div className="mb-6">
+              <CoachChat
+                taskId={task.id}
+                taskTitle={task.title}
+                subtaskTitle={activeSubtasks[0]?.title}
+              />
             </div>
 
             {/* Active Subtasks */}
@@ -550,9 +589,9 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
                           {/* ✅ ALWAYS show estimated time */}
                           {subtask.estimatedMinutes && (
                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                              subtask.isComposite && !subtask.children?.length
-                                ? 'bg-orange-100 text-orange-800'  // Composite: orange (needs breakdown)
-                                : 'bg-gray-100 text-gray-600'      // Atomic: gray (ready to do)
+                              (subtask.estimatedMinutes >= 10) && !subtask.children?.length
+                                ? 'bg-orange-100 text-orange-800'  // >=10min without children: orange (needs breakdown)
+                                : 'bg-gray-100 text-gray-600'      // <10min or has children: gray (ready to do)
                             }`}>
                               {subtask.estimatedMinutes}min
                             </span>
@@ -620,8 +659,9 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
                           </div>
                         )}
 
-                      {/* Break Down Further Button */}
-                      {subtask.isComposite && !subtask.children?.length && (
+                      {/* Break Down Further Button - Show if >=10min and no children */}
+                      {/* Use estimatedMinutes check (not just isComposite) to handle cases where flag isn't set */}
+                      {((subtask.estimatedMinutes ?? 0) >= 10) && !subtask.children?.length && (
                         <div className="ml-14 mt-2">
                           <button
                             onClick={() => handleDeepDive(subtask.id)}

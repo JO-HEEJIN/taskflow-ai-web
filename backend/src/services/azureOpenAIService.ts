@@ -69,6 +69,15 @@ const ADHD_MULTIPLIER = 1.5; // Accounts for transition costs and time blindness
 const ATOMIC_THRESHOLD_MINUTES = 10; // JIT recursive breakdown threshold
 const PRIMITIVE_THRESHOLD_MINUTES = 5; // Below this, task is primitive (cannot be further broken down)
 
+/**
+ * Study Mode Keywords for Learning Task Detection
+ * When these keywords are detected, use Learning Architect prompt instead of standard breakdown
+ */
+const STUDY_MODE_KEYWORDS = {
+  korean: ['공부', '학습', '복습', '암기', '시험', '챕터', '튜토리얼', '이론', '개념', '강의', '교재', '단어', '문법', '연습문제', '과목'],
+  english: ['study', 'learn', 'review', 'memorize', 'exam', 'chapter', 'tutorial', 'theory', 'concept', 'lecture', 'textbook', 'vocabulary', 'grammar', 'practice problem', 'course']
+};
+
 class AzureOpenAIService {
   private client: OpenAIClient | null = null;
   private models: ModelConfig;
@@ -82,6 +91,24 @@ class AzureOpenAIService {
     // Check for Korean characters (Hangul Unicode range: 0xAC00-0xD7A3)
     const koreanRegex = /[\uAC00-\uD7A3]/;
     return koreanRegex.test(text) ? 'korean' : 'english';
+  }
+
+  /**
+   * [STUDY MODE DETECTION] Detect if task is a learning/study task
+   * Returns true if task title or description contains study-related keywords
+   */
+  private isStudyModeTask(taskTitle: string, taskDescription?: string): boolean {
+    const text = `${taskTitle} ${taskDescription || ''}`.toLowerCase();
+    const language = this.detectLanguage(taskTitle);
+    const keywords = STUDY_MODE_KEYWORDS[language];
+
+    const isStudyTask = keywords.some(kw => text.includes(kw.toLowerCase()));
+
+    if (isStudyTask) {
+      console.log(`📚 [Study Mode] Detected learning task: "${taskTitle}"`);
+    }
+
+    return isStudyTask;
   }
 
   constructor() {
@@ -404,11 +431,14 @@ Respond with JSON only.`;
       const language = this.detectLanguage(taskTitle);
       console.log(`🌐 [Language Detection] Detected: ${language} for task: "${taskTitle}"`);
 
-      // Step 3: Generate breakdown with complexity-aware prompts
-      const systemPrompt = this.getArchitectSystemPrompt(language, complexity);
+      // Step 3: Detect study mode and select appropriate prompt
+      const isStudyMode = this.isStudyModeTask(taskTitle, taskDescription);
+      const systemPrompt = isStudyMode
+        ? this.getLearningArchitectSystemPrompt(language, complexity)
+        : this.getArchitectSystemPrompt(language, complexity);
       const userPrompt = this.buildArchitectUserPrompt(taskTitle, taskDescription, language, existingSubtasks, complexity);
 
-      console.log(`🏗️  [Architect] Breaking down task: "${taskTitle}" with model: ${modelUsed}`);
+      console.log(`🏗️  [${isStudyMode ? 'Learning Architect' : 'Architect'}] Breaking down task: "${taskTitle}" with model: ${modelUsed}`);
 
       const response = await this.client.getChatCompletions(
         modelUsed,
@@ -453,16 +483,20 @@ Respond with JSON only.`;
         subtasks,
       });
 
-      // Step 4A: Chain-of-Verification (CoV) - AI-based verification
-      const verification = await this.verifyBreakdown(taskTitle, taskDescription, subtasks, complexity);
+      // Step 4A: Chain-of-Verification (CoV) - ONLY for L/XL tasks (Skip for S/M to save ~2s)
+      let workingSubtasks = subtasks;
 
-      // Use corrected subtasks if verification failed and corrections provided
-      let workingSubtasks = (!verification.isValid && verification.correctedSubtasks)
-        ? verification.correctedSubtasks
-        : subtasks;
+      if (complexity.tshirtSize === 'L' || complexity.tshirtSize === 'XL') {
+        console.log('🔍 [CoV] Running verification for complex task (L/XL)...');
+        const verification = await this.verifyBreakdown(taskTitle, taskDescription, subtasks, complexity);
 
-      if (!verification.isValid && verification.correctedSubtasks) {
-        console.log('🔧 [CoV] Using AI-corrected breakdown due to verification issues');
+        // Use corrected subtasks if verification failed and corrections provided
+        if (!verification.isValid && verification.correctedSubtasks) {
+          console.log('🔧 [CoV] Using AI-corrected breakdown due to verification issues');
+          workingSubtasks = verification.correctedSubtasks;
+        }
+      } else {
+        console.log('⏭️  [CoV] Skipping verification for simple task (S/M) - saves ~2s');
       }
 
       // Step 4B: Code-level Normalization (Mathematical guarantee)
@@ -476,34 +510,33 @@ Respond with JSON only.`;
         console.log(`🔧 [Code Normalization] Applied ${normResult.originalSum}min → ${normResult.finalSum}min`);
       }
 
-      // Step 5: AUTOMATIC RECURSIVE BREAKDOWN
-      // Any subtask >10 min is automatically broken down until atomic (<10min)
-      console.log('🔄 [Auto Recursive] Starting automatic breakdown for composite tasks...');
+      // Step 5: DEFERRED RECURSIVE BREAKDOWN (On-Demand for speed)
+      // Instead of auto-breaking down all >10min subtasks, just flag them as composite
+      // User can click "Break Down Further" to expand later - saves ~2-4s on initial load
+      console.log('⚡ [Deferred] Returning subtasks with composite flags (no auto-recursion)');
 
-      const recursivelyBrokenDown = await Promise.all(
-        finalSubtasks.map(async (st: any, index: number) => {
-          const estimatedMinutes = st.estimatedMinutes || 5;
+      const subtasksWithFlags = finalSubtasks.map((st: any, index: number) => {
+        const estimatedMinutes = st.estimatedMinutes || 5;
 
-          return {
-            title: st.title || String(st),
-            order: st.order ?? index,
-            estimatedMinutes,
-            stepType: st.stepType || 'mental',
-            status: 'draft' as const,
-            isComposite: estimatedMinutes > 10,
-            depth: 0,
-            // ✅ AUTOMATIC RECURSIVE BREAKDOWN
-            children: estimatedMinutes > 10
-              ? await this.recursiveBreakdownUntilAtomic(st.title, estimatedMinutes, taskTitle, 1)
-              : [],
-          };
-        })
-      );
+        return {
+          title: st.title || String(st),
+          order: st.order ?? index,
+          estimatedMinutes,
+          stepType: st.stepType || 'mental',
+          status: 'draft' as const,
+          isComposite: estimatedMinutes > 10,  // Flag for "Break Down Further" button
+          depth: 0,
+          children: [],  // Empty - populated on-demand when user clicks "Break Down Further"
+          // Learning Engine fields (from Learning Architect prompt)
+          strategyTag: st.strategyTag,  // e.g., 'priming', 'feynman', 'blurting'
+          interactionType: st.interactionType || 'checkbox',  // default to checkbox
+        };
+      });
 
-      console.log('✅ [Auto Recursive] All composite tasks broken down to atomic level');
+      console.log(`✅ [Deferred] ${subtasksWithFlags.filter((s: any) => s.isComposite).length} composite subtasks flagged for on-demand breakdown`);
 
       return {
-        subtasks: recursivelyBrokenDown,
+        subtasks: subtasksWithFlags,
         metadata: {
           model: modelUsed,
           latencyMs,
@@ -555,11 +588,15 @@ Respond with JSON only.`;
       // Step 2: Detect language from task title
       const language = this.detectLanguage(taskTitle);
       console.log(`🌐 [Streaming] Detected: ${language} for task: "${taskTitle}"`);
-      console.log(`🔄 [Architect Streaming] Breaking down: "${taskTitle}"`);
 
-      // Step 3: Generate breakdown with complexity-aware prompts
-      const systemPrompt = this.getArchitectSystemPrompt(language, complexity);
+      // Step 3: Detect study mode and select appropriate prompt
+      const isStudyMode = this.isStudyModeTask(taskTitle, taskDescription);
+      const systemPrompt = isStudyMode
+        ? this.getLearningArchitectSystemPrompt(language, complexity)
+        : this.getArchitectSystemPrompt(language, complexity);
       const userPrompt = this.buildArchitectUserPrompt(taskTitle, taskDescription, language, undefined, complexity);
+
+      console.log(`🔄 [${isStudyMode ? 'Learning Architect' : 'Architect'} Streaming] Breaking down: "${taskTitle}"`);
 
       // Stream chat completions
       const stream = await this.client.streamChatCompletions(
@@ -1110,25 +1147,37 @@ Return ONLY JSON.`;
         contextInfo.push(`Current subtask: "${subtaskTitle}"`);
       }
 
-      const systemPrompt = `You are an ADHD coach helping someone stay focused and productive.
+      const systemPrompt = `You are an ADHD coach with TWO MODES: Socratic mode (default) and Direct mode.
 
 Context:
 ${contextInfo.length > 0 ? contextInfo.join('\n') : 'No active task'}
 
-Your role:
-- Be warm, encouraging, and action-oriented
-- Keep responses brief (2-3 sentences max)
-- Give concrete, specific advice
-- Acknowledge emotions without judgment
-- Help them break through blocks
-- Use ADHD-friendly language (no fluff)
+=== MODE DETECTION ===
+Switch to DIRECT MODE when user says things like:
+- "just tell me" / "그냥 알려줘"
+- "give me the answer" / "답 알려줘" / "답해줘"
+- "summarize" / "정리해줘" / "요약해줘"
+- "stop asking" / "질문 그만"
+- "I give up" / "모르겠어"
+- "help me directly" / "직접 도와줘"
+- Any clear signal they want you to stop questioning
 
-Important:
-- Don't lecture or be preachy
-- Don't give vague advice like "just focus"
-- Do ask clarifying questions if needed
-- Do celebrate small wins
-- Do provide specific next steps`;
+=== SOCRATIC MODE (default) ===
+- Ask 1-2 guiding questions
+- "What do you think would happen if...?"
+- "What's the first tiny step you could take?"
+- Help them discover answers themselves
+
+=== DIRECT MODE (when triggered) ===
+- Acknowledge their request: "Got it, let me help directly."
+- Give a clear, organized answer
+- Provide concrete steps or solutions
+- For code questions: give actual code examples
+- Be helpful and thorough, not questioning
+
+IMPORTANT: Once user signals they want direct help, STOP asking questions and START helping directly. Don't make them ask multiple times.
+
+Keep responses brief (2-4 sentences). Match the user's language (Korean/English).`;
 
       const messages = [
         { role: 'system' as const, content: systemPrompt },
@@ -1172,9 +1221,14 @@ Important:
       const language = this.detectLanguage(taskTitle);
       console.log(`🌐 [Fallback] Detected: ${language} for task: "${taskTitle}"`);
 
-      // Use Architect prompt even with fallback model
-      const systemPrompt = this.getArchitectSystemPrompt(language, complexity);
+      // Detect study mode and select appropriate prompt
+      const isStudyMode = this.isStudyModeTask(taskTitle, taskDescription);
+      const systemPrompt = isStudyMode
+        ? this.getLearningArchitectSystemPrompt(language, complexity)
+        : this.getArchitectSystemPrompt(language, complexity);
       const userPrompt = this.buildArchitectUserPrompt(taskTitle, taskDescription, language, undefined, complexity);
+
+      console.log(`🏗️  [Fallback ${isStudyMode ? 'Learning Architect' : 'Architect'}] Breaking down: "${taskTitle}"`);
 
       const response = await this.client!.getChatCompletions(
         modelUsed,
@@ -1196,16 +1250,19 @@ Important:
 
       console.log(`✅ [Fallback] Used ${modelUsed}: ${latencyMs}ms, ${tokensUsed} tokens`);
 
-      // Chain-of-Verification (CoV) - AI-based verification
-      const verification = await this.verifyBreakdown(taskTitle, taskDescription, subtasks, complexity);
+      // Chain-of-Verification (CoV) - ONLY for L/XL tasks (Skip for S/M to save ~2s)
+      let workingSubtasks = subtasks;
 
-      // Use corrected subtasks if verification failed and corrections provided
-      let workingSubtasks = (!verification.isValid && verification.correctedSubtasks)
-        ? verification.correctedSubtasks
-        : subtasks;
+      if (complexity.tshirtSize === 'L' || complexity.tshirtSize === 'XL') {
+        console.log('🔍 [Fallback CoV] Running verification for complex task (L/XL)...');
+        const verification = await this.verifyBreakdown(taskTitle, taskDescription, subtasks, complexity);
 
-      if (!verification.isValid && verification.correctedSubtasks) {
-        console.log('🔧 [Fallback CoV] Using AI-corrected breakdown due to verification issues');
+        if (!verification.isValid && verification.correctedSubtasks) {
+          console.log('🔧 [Fallback CoV] Using AI-corrected breakdown due to verification issues');
+          workingSubtasks = verification.correctedSubtasks;
+        }
+      } else {
+        console.log('⏭️  [Fallback CoV] Skipping verification for simple task (S/M) - saves ~2s');
       }
 
       // Code-level Normalization (Mathematical guarantee)
@@ -1232,6 +1289,9 @@ Important:
             isComposite, // Flag for "Break Down Further" button
             depth: 0, // Top-level subtask
             children: [], // Initialize empty children array
+            // Learning Engine fields (from Learning Architect prompt)
+            strategyTag: st.strategyTag,
+            interactionType: st.interactionType || 'checkbox',
           };
         }),
         metadata: {
@@ -1361,6 +1421,117 @@ OUTPUT FORMAT:
     }
   ]
 }${languageInstruction}`;
+  }
+
+  /**
+   * [LEARNING ARCHITECT] System prompt for study/learning tasks
+   * Uses Cognitive Action Protocol - bans passive verbs, uses active learning strategies
+   * Based on research: Feynman, Blurting, Active Recall, Priming, Interleaving
+   */
+  private getLearningArchitectSystemPrompt(
+    language: 'korean' | 'english' = 'english',
+    complexity?: { timeScale: 'minutes' | 'hours'; estimatedTotalHours: number }
+  ): string {
+    const languageInstruction = language === 'korean'
+      ? '\n\nIMPORTANT: Generate all subtasks in Korean language.'
+      : '\n\nIMPORTANT: Generate all subtasks in English language.';
+
+    const totalMinutes = complexity ? Math.round(complexity.estimatedTotalHours * 60) : 45;
+
+    return `You are a Learning Architect using the Cognitive Action Protocol for ADHD learners.
+
+CORE PRINCIPLE: BAN PASSIVE LEARNING. Every step must be an ACTIVE cognitive action.
+
+=== BANNED VERBS (PASSIVE LEARNING) ===
+❌ NEVER USE: 읽기(Read), 보기(Watch), 복습(Review), 훑어보기(Skim), 듣기(Listen), 확인(Check)
+These create ILLUSION of progress without actual retention.
+
+=== REQUIRED: ACTIVE LEARNING STRATEGIES ===
+Each subtask MUST use one of these cognitive science-backed strategies:
+
+1. **PRIMING** (strategyTag: "priming")
+   - Quick preview BEFORE deep dive
+   - "Scan headings and write 3 predictions about content"
+   - InteractionType: checkbox
+
+2. **ACTIVE READING** (strategyTag: "active_recall")
+   - Transform reading into question-answering
+   - "Read section X, then close book and write 3 key points"
+   - InteractionType: text_input
+
+3. **FEYNMAN TECHNIQUE** (strategyTag: "feynman")
+   - Explain concept as if teaching a 10-year-old
+   - "Explain [concept] in simple terms without jargon"
+   - InteractionType: text_input
+
+4. **BLURTING** (strategyTag: "blurting")
+   - Brain dump everything you know (no notes!)
+   - "Close all materials, write everything you remember about [topic]"
+   - InteractionType: text_input
+
+5. **CONCRETE ANALOGY** (strategyTag: "concrete_analogy")
+   - Connect abstract concept to real-world example
+   - "Create a real-life analogy for [concept]"
+   - InteractionType: text_input
+
+6. **ELABORATION** (strategyTag: "elaboration")
+   - Connect new info to existing knowledge
+   - "How does [new concept] relate to [prior knowledge]?"
+   - InteractionType: text_input
+
+=== OUTPUT FORMAT ===
+{
+  "subtasks": [
+    {
+      "title": "Active learning action with specific deliverable",
+      "estimatedMinutes": number,
+      "stepType": "mental",
+      "strategyTag": "priming" | "active_recall" | "feynman" | "blurting" | "concrete_analogy" | "elaboration",
+      "interactionType": "checkbox" | "text_input"
+    }
+  ]
+}
+
+=== EXAMPLES ===
+
+Task: "유기화학 챕터 3 공부"
+❌ BAD (PASSIVE):
+[
+  {"title": "챕터 3 읽기", "estimatedMinutes": 30},
+  {"title": "노트 정리하기", "estimatedMinutes": 15},
+  {"title": "문제 풀기", "estimatedMinutes": 20}
+]
+
+✅ GOOD (ACTIVE):
+[
+  {"title": "챕터 3 훑고 핵심 개념 3개 예측하기 (제목/그림만 보고)", "estimatedMinutes": 5, "strategyTag": "priming", "interactionType": "checkbox"},
+  {"title": "첫 번째 개념 읽고 책 덮은 후 핵심 내용 3줄 적기", "estimatedMinutes": 10, "strategyTag": "active_recall", "interactionType": "text_input"},
+  {"title": "그 개념을 초등학생에게 설명하듯 적기 (전문용어 금지)", "estimatedMinutes": 8, "strategyTag": "feynman", "interactionType": "text_input"},
+  {"title": "일상 속 예시로 비유 만들기", "estimatedMinutes": 7, "strategyTag": "concrete_analogy", "interactionType": "text_input"}
+]
+
+Task: "Learn React Hooks"
+❌ BAD (PASSIVE):
+[
+  {"title": "Watch React hooks tutorial", "estimatedMinutes": 30},
+  {"title": "Read documentation", "estimatedMinutes": 20}
+]
+
+✅ GOOD (ACTIVE):
+[
+  {"title": "Scan React docs: predict what useState and useEffect do", "estimatedMinutes": 3, "strategyTag": "priming", "interactionType": "checkbox"},
+  {"title": "Read useState section, then close docs and write how it works", "estimatedMinutes": 10, "strategyTag": "active_recall", "interactionType": "text_input"},
+  {"title": "Explain useState like you're teaching a friend who only knows vanilla JS", "estimatedMinutes": 8, "strategyTag": "feynman", "interactionType": "text_input"},
+  {"title": "Create analogy: useState is like ___ in real life", "estimatedMinutes": 5, "strategyTag": "concrete_analogy", "interactionType": "text_input"},
+  {"title": "Blurt: Close everything, write everything you remember about hooks", "estimatedMinutes": 7, "strategyTag": "blurting", "interactionType": "text_input"}
+]
+
+CONSTRAINTS:
+- Total time ≈ ${totalMinutes} minutes
+- 3-5 subtasks
+- First subtask should be PRIMING (quick preview)
+- At least 2 subtasks MUST have interactionType: "text_input"
+- Mix different strategyTags for variety${languageInstruction}`;
   }
 
   /**
@@ -1537,6 +1708,104 @@ Output JSON only.${languageReminder}`;
       "Stuck? That's totally normal. Let's figure out what's in the way.",
     ];
     return responses[Math.floor(Math.random() * responses.length)];
+  }
+
+  /**
+   * [CLARIFYING QUESTIONS] Generate quick questions to understand task better
+   * Uses gpt-4o-mini for speed (~1-2s response)
+   */
+  async generateClarifyingQuestions(
+    taskTitle: string,
+    taskDescription?: string
+  ): Promise<{ questions: string[] }> {
+    if (!this.client) {
+      // Mock response for guest users
+      return {
+        questions: [
+          'What specific outcome do you want from this task?',
+          'How much time do you have for this?',
+          'What\'s blocking you from starting right now?',
+        ],
+      };
+    }
+
+    const modelUsed = this.models.coach; // gpt-4o-mini for speed
+    const startTime = Date.now();
+
+    try {
+      const language = this.detectLanguage(taskTitle);
+
+      const systemPrompt = language === 'korean'
+        ? `당신은 ADHD 코치입니다. 사용자의 작업을 더 잘 이해하기 위해 2-4개의 명확한 질문을 생성합니다.
+
+질문 목적:
+1. 구체적인 결과물 파악
+2. 시간/마감 제약 확인
+3. 장애물이나 의존성 파악
+4. 사용자의 현재 지식 수준 이해
+
+규칙:
+- 2-4개의 질문만 생성
+- 짧고 구체적인 질문
+- 예/아니오로 답할 수 없는 열린 질문
+- JSON 형식으로만 응답
+
+출력 형식:
+{"questions": ["질문1?", "질문2?", "질문3?"]}`
+        : `You are an ADHD coach. Generate 2-4 clarifying questions to understand the user's task better.
+
+Question purposes:
+1. Identify specific deliverable/outcome
+2. Understand time/deadline constraints
+3. Identify blockers or dependencies
+4. Gauge user's current knowledge level
+
+Rules:
+- Generate exactly 2-4 questions
+- Keep questions short and specific
+- Use open-ended questions (not yes/no)
+- Respond with JSON only
+
+Output format:
+{"questions": ["Question 1?", "Question 2?", "Question 3?"]}`;
+
+      const userPrompt = `Task: "${taskTitle}"${taskDescription ? `\nDescription: ${taskDescription}` : ''}
+
+Generate 2-4 clarifying questions. JSON only.`;
+
+      console.log(`❓ [Clarify] Generating questions for: "${taskTitle}"`);
+
+      const response = await this.client.getChatCompletions(
+        modelUsed,
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        { maxTokens: 200, temperature: 0.7 }
+      );
+
+      const latencyMs = Date.now() - startTime;
+      const content = response.choices[0]?.message?.content || '{}';
+
+      // Parse JSON
+      const cleanedContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const parsed = JSON.parse(cleanedContent);
+
+      console.log(`✅ [Clarify] Generated ${parsed.questions?.length || 0} questions in ${latencyMs}ms`);
+
+      return {
+        questions: parsed.questions || [],
+      };
+    } catch (error) {
+      console.error('❌ [Clarify] Error:', error);
+      // Return default questions on error
+      return {
+        questions: [
+          'What specific outcome do you want from this task?',
+          'How much time do you have for this?',
+        ],
+      };
+    }
   }
 
   /**

@@ -1,6 +1,6 @@
 // API Client for TaskFlow AI Backend
 import { guestStorage } from './guestStorage';
-import { AISubtaskSuggestion, Subtask } from '@/types';
+import { AISubtaskSuggestion, Subtask, ConfidenceLevel, SRS_INTERVALS } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -144,6 +144,58 @@ export const api = {
     return res.json();
   },
 
+  /**
+   * Complete a learning subtask with confidence rating (SRS - Spaced Repetition)
+   * Updates confidence level and calculates next review time
+   */
+  async completeWithConfidence(
+    taskId: string,
+    subtaskId: string,
+    confidenceLevel: ConfidenceLevel
+  ) {
+    const nextReviewAt = new Date(Date.now() + SRS_INTERVALS[confidenceLevel]).toISOString();
+
+    if (isGuestMode()) {
+      const task = guestStorage.getTask(taskId);
+      if (!task) throw new Error('Task not found');
+
+      // Find and update the subtask with confidence data, then mark complete
+      const updatedSubtasks = task.subtasks.map(st => {
+        if (st.id === subtaskId) {
+          return {
+            ...st,
+            isCompleted: true,
+            confidenceLevel,
+            nextReviewAt,
+          };
+        }
+        // Also check children
+        if (st.children && st.children.length > 0) {
+          return {
+            ...st,
+            children: st.children.map(child =>
+              child.id === subtaskId
+                ? { ...child, isCompleted: true, confidenceLevel, nextReviewAt }
+                : child
+            ),
+          };
+        }
+        return st;
+      });
+
+      const updatedTask = guestStorage.updateTask(taskId, { subtasks: updatedSubtasks });
+      return { task: updatedTask };
+    }
+
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/subtasks/${subtaskId}/confidence`, {
+      method: 'PATCH',
+      headers: await getHeaders(),
+      body: JSON.stringify({ confidenceLevel, nextReviewAt }),
+    });
+    if (!res.ok) throw new Error('Failed to complete with confidence');
+    return res.json();
+  },
+
   async deleteSubtask(taskId: string, subtaskId: string) {
     if (isGuestMode()) {
       const task = guestStorage.deleteSubtask(taskId, subtaskId);
@@ -223,10 +275,15 @@ export const api = {
       const atomicTime3 = parentMinutes - atomicTime1 - atomicTime2; // Remaining ~30%
 
       // Create atomic tasks with "Atomic: " prefix - times sum to parent's time
+      // Avoid duplicate "Atomic:" prefix if parent already starts with it
+      const baseTitle = subtask.title.startsWith('Atomic: ')
+        ? subtask.title.replace(/^Atomic:\s*/, '')
+        : subtask.title;
+
       const atomicTasks: Subtask[] = [
-        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 1`, estimatedMinutes: atomicTime1, isCompleted: false, isArchived: false, order: task.subtasks.length, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
-        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 2`, estimatedMinutes: atomicTime2, isCompleted: false, isArchived: false, order: task.subtasks.length + 1, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
-        { id: crypto.randomUUID(), title: `Atomic: ${subtask.title} - Part 3`, estimatedMinutes: atomicTime3, isCompleted: false, isArchived: false, order: task.subtasks.length + 2, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
+        { id: crypto.randomUUID(), title: `Atomic: ${baseTitle} - Part 1`, estimatedMinutes: atomicTime1, isCompleted: false, isArchived: false, order: task.subtasks.length, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
+        { id: crypto.randomUUID(), title: `Atomic: ${baseTitle} - Part 2`, estimatedMinutes: atomicTime2, isCompleted: false, isArchived: false, order: task.subtasks.length + 1, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
+        { id: crypto.randomUUID(), title: `Atomic: ${baseTitle} - Part 3`, estimatedMinutes: atomicTime3, isCompleted: false, isArchived: false, order: task.subtasks.length + 2, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
       ];
 
       // Mark parent as composite and add atomic tasks to main subtasks array
@@ -320,6 +377,20 @@ export const api = {
       body: JSON.stringify({ taskId, subtaskId, subtaskTitle, estimatedMinutes }),
     });
     if (!res.ok) throw new Error('Failed to break down subtask');
+    return res.json();
+  },
+
+  // Get clarifying questions for a task (before breakdown)
+  async getClarifyingQuestions(
+    title: string,
+    description?: string
+  ): Promise<{ questions: string[] }> {
+    const res = await fetch(`${API_BASE_URL}/api/ai/clarify`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify({ title, description }),
+    });
+    if (!res.ok) throw new Error('Failed to get clarifying questions');
     return res.json();
   },
 

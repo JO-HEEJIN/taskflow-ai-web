@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Subtask, NodeContext } from '@/types';
+import { Subtask, NodeContext, LearningStrategy } from '@/types';
 import { useGamificationStore } from './useGamificationStore'; // ✅ NEW: Import gamification store
+import { loadChatHistory, saveChatHistory, clearChatHistory as clearStoredChat, pruneOldChats } from '@/utils/chatStorage';
 
 interface Message {
   role: 'ai' | 'user';
@@ -31,6 +32,15 @@ const findAtomicChildren = (subtasks: Subtask[], parentSubtaskId: string): Subta
 // ✅ NEW: Helper to find first incomplete subtask respecting order
 // CRITICAL: Process subtasks in order, only drill into atomic children when parent is composite
 const findFirstIncompleteAtomicOrSubtask = (subtasks: Subtask[]): number => {
+  // Special case: If queue only contains atomic tasks (from direct click), return first incomplete
+  const hasOnlyAtomics = subtasks.every(st => st.parentSubtaskId || st.title.startsWith('Atomic:'));
+  if (hasOnlyAtomics) {
+    const firstIncomplete = subtasks.findIndex(st => !st.isCompleted);
+    if (firstIncomplete !== -1) {
+      return firstIncomplete;
+    }
+  }
+
   // Process subtasks in order (by order field)
   const sortedSubtasks = [...subtasks].sort((a, b) => a.order - b.order);
 
@@ -38,9 +48,12 @@ const findFirstIncompleteAtomicOrSubtask = (subtasks: Subtask[]): number => {
     if (subtask.isCompleted) continue;
 
     // Skip atomic tasks that are not yet reached (their parent hasn't been encountered)
+    // BUT only if parent is actually in this queue
     if (subtask.parentSubtaskId) {
       const parent = subtasks.find(st => st.id === subtask.parentSubtaskId);
-      if (parent && !parent.isComposite) continue; // Parent not yet processed as composite
+      // Only skip if parent exists in queue AND is not composite
+      if (parent && !parent.isComposite) continue;
+      // If parent is not in queue (direct atomic click), allow this atomic
     }
 
     // If this is a composite subtask with atomic children, start with first incomplete atomic child
@@ -55,8 +68,15 @@ const findFirstIncompleteAtomicOrSubtask = (subtasks: Subtask[]): number => {
       }
     }
 
-    // If this is a regular subtask (not an orphaned atomic task), return it
+    // Return this subtask (either regular subtask or directly clicked atomic)
+    // The condition now allows atomic tasks when clicked directly
     if (!subtask.parentSubtaskId) {
+      return subtasks.indexOf(subtask);
+    }
+
+    // Also return atomic tasks that were directly selected (parent not in queue)
+    const parentInQueue = subtasks.find(st => st.id === subtask.parentSubtaskId);
+    if (!parentInQueue) {
       return subtasks.indexOf(subtask);
     }
   }
@@ -138,6 +158,12 @@ interface CoachState {
   accumulatedFocusTime: number; // ✅ NEW: Total focused minutes (for level up)
   isParentSubtaskView: boolean; // ✅ NEW: True when showing parent after atomic tasks complete
 
+  // Learning Engine state
+  isLearningMode: boolean; // True when current task is a learning task
+  currentLearningStrategy?: LearningStrategy; // Active learning strategy for current subtask
+  interleaveStartTime?: number; // Unix timestamp when user started this topic
+  showInterleavePopup: boolean; // Show popup suggesting topic switch
+
   // Actions
   enterFocusMode: (taskId: string, subtasks: Subtask[], context?: NodeContext) => void;
   exitFocusMode: () => void;
@@ -153,6 +179,11 @@ interface CoachState {
   addMessage: (role: 'ai' | 'user', content: string) => void;
   clearMessages: () => void;
   addFocusTime: (minutes: number) => void; // ✅ NEW: Track accumulated focus time
+
+  // Learning Engine actions
+  setLearningMode: (enabled: boolean, strategy?: LearningStrategy) => void;
+  checkInterleaveBreak: () => boolean; // Returns true if 25+ min elapsed
+  dismissInterleavePopup: () => void;
 }
 
 export const useCoachStore = create<CoachState>((set, get) => ({
@@ -168,6 +199,12 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   messages: [],
   accumulatedFocusTime: 0, // ✅ NEW
   isParentSubtaskView: false, // ✅ NEW
+
+  // Learning Engine initial state
+  isLearningMode: false,
+  currentLearningStrategy: undefined,
+  interleaveStartTime: undefined,
+  showInterleavePopup: false,
 
   enterFocusMode: (taskId: string, subtasks: Subtask[], context?: NodeContext) => {
     // ✅ Filter subtasks based on click context (Orion's Belt Perspective)
@@ -203,6 +240,23 @@ export const useCoachStore = create<CoachState>((set, get) => ({
     console.log(`🎯 [Focus Mode] Starting with: ${firstSubtask.title} (${firstSubtask.estimatedMinutes || 5}min)`);
     console.log(`📍 [Context] Type: ${context?.type || 'full'}, Filtered: ${filteredSubtasks.length}/${subtasks.length} subtasks`);
 
+    // ✅ Load persisted chat history from localStorage
+    const persistedMessages = loadChatHistory(taskId);
+    const messages = persistedMessages.map(m => ({
+      ...m,
+      timestamp: new Date(m.timestamp), // Convert ISO string back to Date
+    }));
+
+    if (messages.length > 0) {
+      console.log(`💬 [Chat] Loaded ${messages.length} persisted messages for task ${taskId}`);
+    }
+
+    // ✅ Detect learning mode based on first subtask's strategyTag
+    const isLearningTask = !!firstSubtask.strategyTag;
+    if (isLearningTask) {
+      console.log(`📚 [Learning Mode] Detected learning task with strategy: ${firstSubtask.strategyTag}`);
+    }
+
     set({
       isFocusMode: true,
       activeTaskId: taskId,
@@ -210,8 +264,13 @@ export const useCoachStore = create<CoachState>((set, get) => ({
       focusQueue: filteredSubtasks, // Store the actual queue (can be children)
       isTimerRunning: false,
       currentTimeLeft: 0,
-      messages: [],
+      messages, // ✅ Load persisted messages instead of empty array
       isParentSubtaskView: false, // Start with atomic/regular task, not parent
+      // Learning Engine state
+      isLearningMode: isLearningTask,
+      currentLearningStrategy: firstSubtask.strategyTag,
+      interleaveStartTime: isLearningTask ? Date.now() : undefined,
+      showInterleavePopup: false,
     });
   },
 
@@ -226,6 +285,11 @@ export const useCoachStore = create<CoachState>((set, get) => ({
       messages: [],
       accumulatedFocusTime: 0, // ✅ Reset on exit
       isParentSubtaskView: false, // ✅ Reset on exit
+      // Learning Engine reset
+      isLearningMode: false,
+      currentLearningStrategy: undefined,
+      interleaveStartTime: undefined,
+      showInterleavePopup: false,
     });
   },
 
@@ -357,18 +421,35 @@ export const useCoachStore = create<CoachState>((set, get) => ({
   },
 
   addMessage: (role: 'ai' | 'user', content: string) => {
+    const { activeTaskId, messages } = get();
     const newMessage: Message = {
       role,
       content,
       timestamp: new Date(),
     };
-    set((state) => ({
-      messages: [...state.messages, newMessage],
-    }));
+
+    const updatedMessages = [...messages, newMessage];
+    set({ messages: updatedMessages });
+
+    // ✅ Persist to localStorage if we have an active task
+    if (activeTaskId) {
+      saveChatHistory(activeTaskId, updatedMessages.map(m => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp.toISOString(),
+      })));
+    }
   },
 
   clearMessages: () => {
+    const { activeTaskId } = get();
     set({ messages: [] });
+
+    // ✅ Also clear from localStorage
+    if (activeTaskId) {
+      clearStoredChat(activeTaskId);
+      console.log(`🗑️  [Chat] Cleared chat history for task ${activeTaskId}`);
+    }
   },
 
   addFocusTime: (minutes: number) => {
@@ -376,5 +457,42 @@ export const useCoachStore = create<CoachState>((set, get) => ({
     const { addFocusTime: gamificationAddFocusTime } = useGamificationStore.getState();
     gamificationAddFocusTime(minutes);
     console.log(`📊 [Coach Store] Added ${minutes} minutes of focus time → Checking for level up`);
+  },
+
+  // Learning Engine actions
+  setLearningMode: (enabled: boolean, strategy?: LearningStrategy) => {
+    set({
+      isLearningMode: enabled,
+      currentLearningStrategy: strategy,
+      interleaveStartTime: enabled ? Date.now() : undefined,
+      showInterleavePopup: false,
+    });
+    console.log(`📚 [Learning Mode] ${enabled ? 'Enabled' : 'Disabled'}${strategy ? ` with strategy: ${strategy}` : ''}`);
+  },
+
+  checkInterleaveBreak: () => {
+    const { interleaveStartTime, isLearningMode } = get();
+
+    if (!isLearningMode || !interleaveStartTime) {
+      return false;
+    }
+
+    const elapsedMinutes = (Date.now() - interleaveStartTime) / (1000 * 60);
+    const shouldInterleave = elapsedMinutes >= 25;
+
+    if (shouldInterleave) {
+      set({ showInterleavePopup: true });
+      console.log(`🔄 [Interleaving] ${Math.round(elapsedMinutes)}min elapsed - suggesting topic switch`);
+    }
+
+    return shouldInterleave;
+  },
+
+  dismissInterleavePopup: () => {
+    set({
+      showInterleavePopup: false,
+      interleaveStartTime: Date.now(), // Reset timer after dismissing
+    });
+    console.log('🔄 [Interleaving] Popup dismissed, timer reset');
   },
 }));

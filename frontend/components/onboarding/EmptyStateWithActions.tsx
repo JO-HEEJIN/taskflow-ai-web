@@ -91,6 +91,23 @@ export function EmptyStateWithActions({
           New here? Watch 20-sec demo
         </button>
       )}
+
+      {/* Product Hunt Badge */}
+      <div className="mt-8 pt-6 border-t border-purple-400/20">
+        <a
+          href="https://www.producthunt.com/products/taskflow-ai?utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-taskflow-ai-for-adhd"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="opacity-80 hover:opacity-100 transition-opacity"
+        >
+          <img
+            src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1058956&theme=dark"
+            alt="TaskFlow AI for ADHD - AI-powered task manager built on neuroscience for ADHD | Product Hunt"
+            width="250"
+            height="54"
+          />
+        </a>
+      </div>
     </motion.div>
   );
 }

@@ -73,29 +73,60 @@ export function LoadingScreen() {
 
   return (
     <motion.div
-      className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-900 via-blue-900 to-black cursor-pointer"
+      className="min-h-screen flex items-center justify-center cursor-pointer"
+      style={{
+        background: 'linear-gradient(180deg, #0a0118 0%, #1a0a2e 50%, #0f0620 100%)',
+      }}
       initial={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
       onClick={unlockAudio}
     >
-      <div className="flex flex-col items-center gap-6">
-        {/* Animated logo or icon */}
+      {/* Subtle stars background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {Array.from({ length: 50 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-0.5 h-0.5 bg-white rounded-full"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              opacity: 0.3 + Math.random() * 0.4,
+              animation: `twinkle ${2 + Math.random() * 3}s infinite ${Math.random() * 2}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      <style jsx>{`
+        @keyframes twinkle {
+          0%, 100% { opacity: 0.2; }
+          50% { opacity: 0.8; }
+        }
+      `}</style>
+
+      <div className="flex flex-col items-center gap-6 relative z-10">
+        {/* Animated tick network icon with glow */}
         <motion.div
-          className="w-20 h-20 rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
+          className="w-28 h-28 md:w-32 md:h-32 relative"
           animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 180, 360],
+            scale: [1, 1.08, 1],
           }}
           transition={{
             duration: 2,
             repeat: Infinity,
             ease: "easeInOut",
           }}
-          style={{
-            boxShadow: '0 0 40px rgba(192, 132, 252, 0.6)',
-          }}
-        />
+        >
+          <img
+            src="/icons/tick_network_icon.png"
+            alt="TaskFlow"
+            className="w-full h-full object-contain"
+            style={{
+              filter: 'drop-shadow(0 0 30px rgba(139, 92, 246, 0.8)) drop-shadow(0 0 60px rgba(167, 139, 250, 0.5))',
+            }}
+          />
+        </motion.div>
 
         {/* Loading text */}
         <motion.div
@@ -141,16 +172,6 @@ export function LoadingScreen() {
           </motion.div>
         )}
 
-        {/* Hint to click - shows when audio not yet unlocked */}
-        {!audioUnlocked && (
-          <motion.p
-            className="text-purple-300/60 text-sm mt-4"
-            animate={{ opacity: [0.4, 0.8, 0.4] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          >
-            Click anywhere to start
-          </motion.p>
-        )}
       </div>
     </motion.div>
   );
