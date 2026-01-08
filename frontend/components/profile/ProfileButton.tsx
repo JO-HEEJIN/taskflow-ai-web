@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, X, LogIn, LogOut, Trophy, Volume2, VolumeX } from 'lucide-react';
+import { User, X, LogIn, LogOut, Trophy, Volume2, VolumeX, FileText, Menu, Star, Trash2 } from 'lucide-react';
+import { useNotesStore, Note } from '@/store/useNotesStore';
+import ReactMarkdown from 'react-markdown';
 import { useGamificationStore, getLevelProgress } from '@/store/useGamificationStore';
 
 interface ProfileButtonProps {
@@ -15,8 +17,11 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
   const { data: session, status } = useSession();
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const { xp, level, streak, getActivityForLast30Days } = useGamificationStore();
+  const { getAllNotes, toggleFavorite, deleteNote } = useNotesStore();
   const [musicEnabled, setMusicEnabled] = useState(true);
   const [continuousMusicEnabled, setContinuousMusicEnabled] = useState(true);
+  const [isNotesExpanded, setIsNotesExpanded] = useState(false);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
 
   // Use external control if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -199,40 +204,81 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
                 </button>
               </div>
 
-              {/* Music Toggle Section */}
-              <div className="mb-6 p-4 rounded-xl space-y-4" style={{ background: 'rgba(167, 139, 250, 0.1)' }}>
-                {/* Loading Screen Music */}
-                <div className="flex items-center justify-between">
+              {/* Notes Section - Yellow theme */}
+              <div className="mb-6 p-4 rounded-xl" style={{ background: 'rgba(234, 179, 8, 0.1)' }}>
+                <div
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => setIsNotesExpanded(!isNotesExpanded)}
+                >
                   <div className="flex items-center gap-3">
-                    {musicEnabled ? (
-                      <Volume2 className="w-5 h-5 text-purple-300" />
-                    ) : (
-                      <VolumeX className="w-5 h-5 text-gray-400" />
-                    )}
+                    <FileText className="w-5 h-5 text-yellow-400" />
                     <div>
-                      <p className="text-white font-medium">Loading Music</p>
-                      <p className="text-xs text-gray-400">Plays during loading</p>
+                      <p className="text-yellow-400 font-medium">Notes</p>
+                      <p className="text-xs text-yellow-200/60">{getAllNotes().length} notes saved</p>
                     </div>
                   </div>
-                  <button
-                    onClick={toggleMusic}
-                    className="relative w-12 h-6 rounded-full transition-colors"
-                    style={{
-                      background: musicEnabled
-                        ? 'linear-gradient(135deg, #c084fc 0%, #e879f9 100%)'
-                        : 'rgba(100, 100, 100, 0.5)',
-                    }}
+                  <motion.div
+                    animate={{ rotate: isNotesExpanded ? 90 : 0 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    <motion.div
-                      className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md"
-                      animate={{ x: musicEnabled ? 26 : 2 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                    />
-                  </button>
+                    <Menu className="w-5 h-5 text-yellow-400" />
+                  </motion.div>
                 </div>
 
+                {/* Expandable Notes List */}
+                <AnimatePresence>
+                  {isNotesExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 pt-4 border-t space-y-2 max-h-60 overflow-y-auto" style={{ borderColor: 'rgba(234, 179, 8, 0.2)' }}>
+                        {getAllNotes().length === 0 ? (
+                          <p className="text-yellow-200/50 text-sm text-center py-4">
+                            No notes yet. Create notes in Focus Mode!
+                          </p>
+                        ) : (
+                          getAllNotes().map((note) => (
+                            <motion.div
+                              key={note.id}
+                              className="p-3 rounded-lg cursor-pointer transition-all hover:bg-yellow-500/10"
+                              style={{ background: 'rgba(0, 0, 0, 0.2)' }}
+                              onClick={() => setSelectedNote(note)}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white font-medium text-sm truncate">
+                                    {note.taskTitle}
+                                  </p>
+                                  <p className="text-yellow-200/60 text-xs mt-1 line-clamp-2">
+                                    {note.content || 'Empty note'}
+                                  </p>
+                                </div>
+                                {note.isFavorite && (
+                                  <Star className="w-4 h-4 text-yellow-400 fill-yellow-400 flex-shrink-0" />
+                                )}
+                              </div>
+                              <p className="text-yellow-200/40 text-xs mt-2">
+                                {new Date(note.updatedAt).toLocaleDateString()}
+                              </p>
+                            </motion.div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Music Toggle Section */}
+              <div className="mb-6 p-4 rounded-xl" style={{ background: 'rgba(167, 139, 250, 0.1)' }}>
                 {/* Continuous Background Music */}
-                <div className="flex items-center justify-between pt-4 border-t" style={{ borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     {continuousMusicEnabled ? (
                       <Volume2 className="w-5 h-5 text-purple-300" />
@@ -349,6 +395,123 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
                   </div>
                   <span>More</span>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Note View Modal */}
+      <AnimatePresence>
+        {selectedNote && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10001] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setSelectedNote(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="w-full max-w-lg max-h-[80vh] rounded-2xl overflow-hidden flex flex-col"
+              style={{ background: '#ffffff' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                {/* Left - Favorite Star */}
+                <button
+                  onClick={() => {
+                    toggleFavorite(selectedNote.id);
+                    setSelectedNote({
+                      ...selectedNote,
+                      isFavorite: !selectedNote.isFavorite,
+                    });
+                  }}
+                  className="p-2 rounded-lg hover:bg-yellow-50 transition-colors"
+                  title={selectedNote.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  <Star
+                    className={`w-5 h-5 ${
+                      selectedNote.isFavorite
+                        ? 'text-yellow-500 fill-yellow-500'
+                        : 'text-gray-400'
+                    }`}
+                  />
+                </button>
+
+                {/* Title */}
+                <h3 className="text-gray-900 font-semibold text-lg flex-1 text-center truncate px-2">
+                  {selectedNote.taskTitle}
+                </h3>
+
+                {/* Right - Delete & Close */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      if (confirm('Delete this note?')) {
+                        deleteNote(selectedNote.id);
+                        setSelectedNote(null);
+                      }
+                    }}
+                    className="p-2 rounded-lg hover:bg-red-50 transition-colors"
+                    title="Delete note"
+                  >
+                    <Trash2 className="w-5 h-5 text-gray-400 hover:text-red-500" />
+                  </button>
+                  <button
+                    onClick={() => setSelectedNote(null)}
+                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                    title="Close"
+                  >
+                    <X className="w-5 h-5 text-gray-600" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body - Markdown Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {selectedNote.content ? (
+                  <div className="prose prose-sm max-w-none text-gray-900">
+                    <ReactMarkdown
+                      components={{
+                        h1: ({ children }) => <h1 className="text-gray-900 text-xl font-bold mb-3">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-gray-800 text-lg font-semibold mb-2">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-gray-700 text-base font-medium mb-2">{children}</h3>,
+                        p: ({ children }) => <p className="text-gray-700 mb-3 leading-relaxed">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc list-inside text-gray-700 mb-3 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal list-inside text-gray-700 mb-3 space-y-1">{children}</ol>,
+                        li: ({ children }) => <li className="text-gray-700">{children}</li>,
+                        code: ({ children }) => (
+                          <code className="bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
+                        ),
+                        pre: ({ children }) => (
+                          <pre className="bg-gray-100 p-4 rounded-lg overflow-x-auto mb-3 text-sm">{children}</pre>
+                        ),
+                        blockquote: ({ children }) => (
+                          <blockquote className="border-l-4 border-yellow-400 pl-4 italic text-gray-600 my-3">{children}</blockquote>
+                        ),
+                        strong: ({ children }) => <strong className="text-gray-900 font-semibold">{children}</strong>,
+                        em: ({ children }) => <em className="text-gray-700">{children}</em>,
+                      }}
+                    >
+                      {selectedNote.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-center py-8">This note is empty.</p>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-3 border-t border-gray-200 text-center">
+                <p className="text-xs text-gray-400">
+                  Last updated: {new Date(selectedNote.updatedAt).toLocaleString()}
+                </p>
               </div>
             </motion.div>
           </motion.div>

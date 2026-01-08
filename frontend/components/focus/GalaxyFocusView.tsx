@@ -12,7 +12,8 @@ import { useReliableTimer } from '@/hooks/useReliableTimer';
 import { useVideoPictureInPicture } from '@/hooks/useVideoPictureInPicture';
 import { useEffect, useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { X, ChevronRight, SkipForward, MessageCircle, Maximize, Sparkles, AlertCircle } from 'lucide-react';
+import { X, ChevronRight, SkipForward, MessageCircle, Maximize, Sparkles, AlertCircle, FileText } from 'lucide-react';
+import { NotePanel } from './NotePanel';
 import { api } from '@/lib/api';
 import { soundManager } from '@/lib/SoundManager';
 import { showTimerCompletedNotification } from '@/lib/notifications';
@@ -59,6 +60,7 @@ export function GalaxyFocusView({
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
   const [showEncouragement, setShowEncouragement] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [isBreakingDown, setIsBreakingDown] = useState(false);
 
   // Emergency popup state for 100+ min tasks
@@ -577,41 +579,88 @@ export function GalaxyFocusView({
           </motion.div>
         )}
 
-        {/* AI Coaching Button */}
+        {/* AI Coaching + Note Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
-          className="mb-6"
+          className="mb-6 flex items-center gap-3"
         >
+          {/* AI Coach Button - Icon only */}
           <motion.button
             animate={{
-              scale: [1, 1.08, 1],
+              scale: isChatOpen ? [1] : [1, 1.08, 1],
             }}
             transition={{
               duration: 1.5,
-              repeat: Infinity,
+              repeat: isChatOpen ? 0 : Infinity,
               ease: "easeInOut",
             }}
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            className="px-6 py-3 rounded-full transition-all transform hover:scale-105 active:scale-95 flex items-center gap-3"
+            onClick={() => {
+              if (isChatOpen) {
+                setIsChatOpen(false);
+              } else {
+                setIsChatOpen(true);
+                // On mobile, close note panel when opening chat
+                if (window.innerWidth < 768) {
+                  setIsNoteOpen(false);
+                }
+              }
+            }}
+            className="p-3 rounded-full transition-all transform hover:scale-105 active:scale-95"
             style={{
               background: isChatOpen
                 ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
                 : 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
-              boxShadow: '0 0 20px rgba(59, 130, 246, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+              boxShadow: isChatOpen
+                ? '0 0 20px rgba(239, 68, 68, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)'
+                : '0 0 20px rgba(59, 130, 246, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)',
             }}
+            title={isChatOpen ? 'Close AI Coach' : 'AI Coaching'}
           >
             {isChatOpen ? (
-              <>
-                <X className="w-5 h-5 text-white" />
-                <span className="text-white text-sm font-medium">Close AI Coach</span>
-              </>
+              <X className="w-5 h-5 text-white" />
             ) : (
-              <>
-                <MessageCircle className="w-5 h-5 text-white" />
-                <span className="text-white text-sm font-medium">AI Coaching</span>
-              </>
+              <MessageCircle className="w-5 h-5 text-white" />
+            )}
+          </motion.button>
+
+          {/* Note Button - Yellow */}
+          <motion.button
+            animate={{
+              scale: isNoteOpen ? [1] : [1, 1.05, 1],
+            }}
+            transition={{
+              duration: 2,
+              repeat: isNoteOpen ? 0 : Infinity,
+              ease: "easeInOut",
+            }}
+            onClick={() => {
+              if (isNoteOpen) {
+                setIsNoteOpen(false);
+              } else {
+                setIsNoteOpen(true);
+                // On mobile, close chat panel when opening note
+                if (window.innerWidth < 768) {
+                  setIsChatOpen(false);
+                }
+              }
+            }}
+            className="p-3 rounded-full transition-all transform hover:scale-105 active:scale-95"
+            style={{
+              background: isNoteOpen
+                ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'
+                : 'linear-gradient(135deg, #eab308 0%, #ca8a04 100%)',
+              boxShadow: isNoteOpen
+                ? '0 0 20px rgba(220, 38, 38, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)'
+                : '0 0 20px rgba(234, 179, 8, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.1)',
+            }}
+            title={isNoteOpen ? 'Close Note' : 'Note'}
+          >
+            {isNoteOpen ? (
+              <X className="w-5 h-5 text-white" />
+            ) : (
+              <FileText className="w-5 h-5 text-white" />
             )}
           </motion.button>
         </motion.div>
@@ -910,6 +959,13 @@ export function GalaxyFocusView({
         onClose={() => setIsChatOpen(false)}
         currentTask={task}
         currentSubtask={currentSubtask}
+      />
+
+      {/* Note Panel */}
+      <NotePanel
+        isOpen={isNoteOpen}
+        onClose={() => setIsNoteOpen(false)}
+        currentTask={task}
       />
 
       {/* Break Screen */}

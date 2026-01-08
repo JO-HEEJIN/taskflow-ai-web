@@ -568,3 +568,131 @@ All atomic tasks now display as separate constellation nodes (like follow-up tas
 ---
 
 **FINAL STATUS:** ALL 5 PRIORITIES + CONSTELLATION ARCHITECTURE COMPLETED ✅
+
+---
+
+# Notes Feature Implementation Plan
+
+**Date:** January 8, 2026
+**Request:** Add persistent Notes feature in Focus Mode + Profile integration
+
+## Overview
+Add a Note panel in Focus Mode (like AI Coach but on right side). Notes persist per task in localStorage and are accessible from Profile modal.
+
+---
+
+## To-Do Items
+
+### Phase 1: Notes Store & Types
+- [ ] Create `useNotesStore.ts` with localStorage persistence
+  - Store structure: `{ notes: Note[], addNote, updateNote, deleteNote, toggleFavorite, getNotesByTaskId }`
+  - Note type: `{ id, taskId, taskTitle, content, isFavorite, createdAt, updatedAt }`
+
+### Phase 2: Focus Mode - Note Panel
+- [ ] Create `NotePanel.tsx` component
+  - Similar to CoachView but slides from right
+  - Yellow theme header
+  - Markdown editor (textarea with live preview)
+  - Auto-save to localStorage on content change
+- [ ] Update `GalaxyFocusView.tsx`
+  - Shrink AI Coach button (icon only, smaller size)
+  - Add yellow "Note" button next to it
+  - Add `isNoteOpen` state
+  - Render NotePanel on right side when open
+
+### Phase 3: Profile Modal - Notes Section
+- [ ] Update `ProfileButton.tsx`
+  - Replace "Loading Music" section with "Notes" section
+  - Yellow styling with FileText icon
+  - Hamburger menu icon (replaces toggle)
+  - Click hamburger → show notes list
+- [ ] Create `NoteListPanel.tsx`
+  - Expandable list showing notes organized by task name
+  - Each note item: task title, date, favorite star
+  - Click item → open NoteViewModal
+- [ ] Create `NoteViewModal.tsx`
+  - White background, black text
+  - Top left: Star icon (favorite toggle)
+  - Top right: Trash icon + Close (X) button
+  - Body: Markdown rendered content
+
+---
+
+## File Changes Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| `frontend/store/useNotesStore.ts` | CREATE | Zustand store with localStorage |
+| `frontend/components/focus/NotePanel.tsx` | CREATE | Note editor panel for focus mode |
+| `frontend/components/focus/GalaxyFocusView.tsx` | MODIFY | Add Note button + NotePanel |
+| `frontend/components/profile/ProfileButton.tsx` | MODIFY | Replace Loading Music with Notes |
+| `frontend/components/profile/NoteListPanel.tsx` | CREATE | Notes list in profile |
+| `frontend/components/profile/NoteViewModal.tsx` | CREATE | Single note view modal |
+
+---
+
+## Design Specs
+
+### Note Button (Focus Mode)
+- Position: Next to AI Coach button
+- Size: Half size of current AI Coach button (icon only)
+- Color: Yellow gradient (#eab308 → #ca8a04)
+- Icon: FileText (lucide-react)
+
+### Note Panel (Focus Mode)
+- Position: Fixed right side (like CoachView on left)
+- Width: Same as CoachView (w-full md:w-96)
+- Header: Yellow theme, "Note" title
+- Body: Textarea for markdown input
+- Auto-save: Debounced 500ms to localStorage
+
+### Notes Section (Profile)
+- Replace "Loading Music" row
+- Icon: FileText (yellow)
+- Label: "Notes" (yellow text)
+- Right side: Menu icon (hamburger)
+- Expandable list when clicked
+
+### Note View Modal
+- Background: White (#ffffff)
+- Text: Black (#000000)
+- Top left: Star icon (yellow when favorite)
+- Top right: Trash + X buttons
+- Content: Markdown rendered
+
+---
+
+## Review
+
+### Implementation Complete - January 8, 2026
+
+**Files Created:**
+1. `frontend/store/useNotesStore.ts` - Zustand store with localStorage persistence
+2. `frontend/components/focus/NotePanel.tsx` - Yellow-themed note editor panel
+
+**Files Modified:**
+1. `frontend/components/focus/GalaxyFocusView.tsx`
+   - Added NotePanel import
+   - Added isNoteOpen state
+   - Shrunk AI Coach button to icon-only
+   - Added yellow Note button next to it
+   - Mobile: mutual exclusivity (one panel at a time)
+   - Rendered NotePanel on right side
+
+2. `frontend/components/profile/ProfileButton.tsx`
+   - Added Notes section (yellow theme)
+   - Replaced "Loading Music" with "Notes"
+   - Hamburger menu expands notes list
+   - NoteViewModal inline (white bg, black text)
+   - Star (favorite), Trash (delete), X (close) buttons
+
+**Features Delivered:**
+- Persistent notes per task (localStorage)
+- Markdown editor with live preview
+- Auto-save with 500ms debounce
+- Notes accessible from Profile modal
+- Favorite/delete functionality
+- Mobile-responsive (full-width panels)
+- Mutual exclusivity on mobile (AI Coach vs Note)
+
+**Build Status:** PASS
