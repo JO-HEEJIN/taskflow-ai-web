@@ -15,6 +15,7 @@ dist/
 *.pem
 .env
 .env*.local
+.env.backup
 
 # debug logs
 npm-debug.log*
@@ -30,3 +31,18 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Internal development files (not for public repo)
+tasks/
+HANDOFF_TO_KUSH.md
+learning_log.md
+plan_producthunt.rtf
+PRODUCTION_TEST.md
+TECH_PITCH.md
+icons.png
+.claude/
+backend/tasks/
+frontend/tasks/
+
+# Large/unnecessary files
+*.rtf
