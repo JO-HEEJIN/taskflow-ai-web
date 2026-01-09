@@ -92,14 +92,14 @@ export function generateHierarchyGraph(
   const nodes: GraphNode[] = [];
   const links: GraphLink[] = [];
 
-  // Base layout constants
-  const BASE_SUBTASK_ORBIT = 160;
-  const BASE_ATOMIC_ORBIT = 55;
+  // Base layout constants - increased for better clickability
+  const BASE_SUBTASK_ORBIT = 180;
+  const BASE_ATOMIC_ORBIT = 80; // Increased from 55 for better spacing
 
-  // Size hierarchy
+  // Size hierarchy - increased atomic size for easier clicking
   const TASK_SIZE = 14;
-  const SUBTASK_SIZE = 8;
-  const ATOMIC_SIZE = 4;
+  const SUBTASK_SIZE = 10; // Increased from 8
+  const ATOMIC_SIZE = 6;   // Increased from 4
 
   // Filter tasks to render
   const tasksToRender = tasks.filter(t => t.status !== 'draft' || t.subtasks.length > 0);
@@ -216,121 +216,94 @@ export function generateHierarchyGraph(
         type: 'task-subtask',
       });
 
-      // 3. ATOMIC NODES (Moons) - from subtask.children OR via parentSubtaskId
-      // Combine both sources of children:
-      // 1. subtask.children (from modal breakdown)
-      // 2. task.subtasks filtered by parentSubtaskId (from focus mode breakdown)
-      const childrenFromArray = subtask.children || [];
-      const childrenFromParentId = task.subtasks.filter(
-        st => st.parentSubtaskId === subtask.id && !st.isArchived
-      );
-
-      // Combine and deduplicate by id
-      const allChildrenMap = new Map<string, Subtask>();
-      childrenFromArray.forEach(c => allChildrenMap.set(c.id, c));
-      childrenFromParentId.forEach(c => allChildrenMap.set(c.id, c));
-      const atomicChildren = Array.from(allChildrenMap.values());
-
-      if (atomicChildren.length === 0) return;
-
-      const atomicAngleStep = (Math.PI * 2) / atomicChildren.length;
-
-      atomicChildren.forEach((atomic, atIndex) => {
-        // Calculate orbital position with organic randomness
-        const atomicSeed = baseSeed * 100 + atIndex;
-        const atomicAngleJitter = (seededRandom(atomicSeed) - 0.5) * 0.6; // More jitter for variety
-        const atomicAngle = angle + Math.PI + atIndex * atomicAngleStep + atomicAngleJitter;
-
-        // Vary orbit radius for organic feel (±30%)
-        const atomicOrbitJitter = 0.7 + seededRandom(atomicSeed + 1) * 0.6;
-        const atomicOrbit = BASE_ATOMIC_ORBIT * atomicOrbitJitter;
-
-        const atX = stX + Math.cos(atomicAngle) * atomicOrbit;
-        const atY = stY + Math.sin(atomicAngle) * atomicOrbit;
-
-        const atomicColors = atomic.isCompleted
-          ? COLORS.atomic.completed
-          : COLORS.atomic.pending;
-
-        const atomicConnectedIds: string[] = [subtask.id]; // Connected to parent subtask
-
-        nodes.push({
-          id: atomic.id,
-          type: 'atomic',
-          title: atomic.title,
-          status: atomic.isCompleted ? 'completed' : 'pending',
-          data: atomic,
-          x: atX,
-          y: atY,
-          size: ATOMIC_SIZE,
-          color: atomicColors.fill,
-          glowColor: atomicColors.glow,
-          parentId: subtask.id,
-          estimatedMinutes: atomic.estimatedMinutes,
-          isCompleted: atomic.isCompleted,
-          connectedNodeIds: atomicConnectedIds,
-        });
-
-        // Track connection in subtask
-        subtaskConnectedIds.push(atomic.id);
-
-        // Link subtask to atomic
-        links.push({
-          source: subtask.id,
-          target: atomic.id,
-          type: 'subtask-atomic',
-        });
-
-        // 4. NESTED CHILDREN (when atomic is broken down further)
-        // Check for children of this atomic task via parentSubtaskId
-        const nestedChildren = task.subtasks.filter(
-          st => st.parentSubtaskId === atomic.id && !st.isArchived
+      // 3. RECURSIVE CHILDREN - Infinite depth support
+      // Helper function to recursively add children at any depth
+      const addChildrenRecursively = (
+        parentSubtask: Subtask,
+        parentX: number,
+        parentY: number,
+        parentAngle: number,
+        parentConnectedIds: string[],
+        depth: number,
+        baseSeedOffset: number
+      ) => {
+        // Get children from both sources and deduplicate
+        const childrenFromArray = parentSubtask.children || [];
+        const childrenFromParentId = task.subtasks.filter(
+          st => st.parentSubtaskId === parentSubtask.id && !st.isArchived
         );
+        const allChildrenMap = new Map<string, Subtask>();
+        childrenFromArray.forEach(c => allChildrenMap.set(c.id, c));
+        childrenFromParentId.forEach(c => allChildrenMap.set(c.id, c));
+        const children = Array.from(allChildrenMap.values());
 
-        if (nestedChildren.length > 0) {
-          const nestedAngleStep = (Math.PI * 2) / nestedChildren.length;
-          const nestedOrbit = BASE_ATOMIC_ORBIT * 0.6; // Smaller orbit for nested
+        if (children.length === 0) return;
 
-          nestedChildren.forEach((nested, nIndex) => {
-            const nestedSeed = atomicSeed * 100 + nIndex;
-            const nestedAngleJitter = (seededRandom(nestedSeed) - 0.5) * 0.8;
-            const nestedAngle = atomicAngle + Math.PI + nIndex * nestedAngleStep + nestedAngleJitter;
+        // Calculate orbit and size based on depth (shrinks with each level)
+        // Use gentler shrinking (75%) for better visibility at deep levels
+        const depthFactor = Math.pow(0.75, depth); // Each level is 75% of previous (was 65%)
+        const orbitRadius = BASE_ATOMIC_ORBIT * depthFactor;
+        const nodeSize = Math.max(ATOMIC_SIZE * depthFactor, 4); // Min size 4 for clickability
 
-            const nestedOrbitJitter = 0.7 + seededRandom(nestedSeed + 1) * 0.6;
-            const nX = atX + Math.cos(nestedAngle) * nestedOrbit * nestedOrbitJitter;
-            const nY = atY + Math.sin(nestedAngle) * nestedOrbit * nestedOrbitJitter;
+        const angleStep = (Math.PI * 2) / children.length;
 
-            const nestedColors = nested.isCompleted
-              ? COLORS.atomic.completed
-              : COLORS.atomic.pending;
+        children.forEach((child, childIndex) => {
+          const seed = baseSeedOffset * 100 + childIndex + depth * 1000;
+          // Reduced jitter for better clickability (was 0.6, now 0.3)
+          const angleJitter = (seededRandom(seed) - 0.5) * 0.3;
+          const childAngle = parentAngle + Math.PI + childIndex * angleStep + angleJitter;
 
-            nodes.push({
-              id: nested.id,
-              type: 'atomic',
-              title: nested.title,
-              status: nested.isCompleted ? 'completed' : 'pending',
-              data: nested,
-              x: nX,
-              y: nY,
-              size: ATOMIC_SIZE, // Same size as atomic
-              color: nestedColors.fill,
-              glowColor: nestedColors.glow,
-              parentId: atomic.id,
-              estimatedMinutes: nested.estimatedMinutes,
-              isCompleted: nested.isCompleted,
-              connectedNodeIds: [atomic.id],
-            });
+          // More consistent orbit radius (was 0.7-1.3, now 0.85-1.15)
+          const orbitJitter = 0.85 + seededRandom(seed + 1) * 0.3;
+          const childX = parentX + Math.cos(childAngle) * orbitRadius * orbitJitter;
+          const childY = parentY + Math.sin(childAngle) * orbitRadius * orbitJitter;
 
-            atomicConnectedIds.push(nested.id);
+          const childColors = child.isCompleted
+            ? COLORS.atomic.completed
+            : COLORS.atomic.pending;
 
-            links.push({
-              source: atomic.id,
-              target: nested.id,
-              type: 'subtask-atomic',
-            });
+          const childConnectedIds: string[] = [parentSubtask.id];
+
+          nodes.push({
+            id: child.id,
+            type: 'atomic',
+            title: child.title,
+            status: child.isCompleted ? 'completed' : 'pending',
+            data: child,
+            x: childX,
+            y: childY,
+            size: nodeSize,
+            color: childColors.fill,
+            glowColor: childColors.glow,
+            parentId: parentSubtask.id,
+            estimatedMinutes: child.estimatedMinutes,
+            isCompleted: child.isCompleted,
+            connectedNodeIds: childConnectedIds,
           });
-        }
-      });
+
+          parentConnectedIds.push(child.id);
+
+          links.push({
+            source: parentSubtask.id,
+            target: child.id,
+            type: 'subtask-atomic',
+          });
+
+          // Recursively add children of this child (infinite depth)
+          addChildrenRecursively(
+            child,
+            childX,
+            childY,
+            childAngle,
+            childConnectedIds,
+            depth + 1,
+            seed
+          );
+        });
+      };
+
+      // Start recursive children from subtask
+      addChildrenRecursively(subtask, stX, stY, angle, subtaskConnectedIds, 0, baseSeed);
     });
   });
 
@@ -358,13 +331,13 @@ export function generateMobileHierarchyGraph(
   const links: GraphLink[] = [];
 
   // Mobile-optimized sizes (touch-friendly but subtle like desktop stars)
-  const TASK_SIZE = 18;    // Task as bright star (not giant circle)
-  const SUBTASK_SIZE = 10; // Subtask as dimmer star
-  const ATOMIC_SIZE = 5;   // Atomic as distant faint star
+  const TASK_SIZE = 20;    // Task as bright star (not giant circle)
+  const SUBTASK_SIZE = 12; // Subtask as dimmer star - increased for touch
+  const ATOMIC_SIZE = 8;   // Atomic - increased for touch (was 5)
 
   // Mobile-optimized orbit radii (fit in small screen)
   const SUBTASK_ORBIT_RADIUS = Math.min(width, height) * 0.3;
-  const ATOMIC_ORBIT_RADIUS = Math.min(width, height) * 0.12;
+  const ATOMIC_ORBIT_RADIUS = Math.min(width, height) * 0.15; // Increased from 0.12
 
   // Center task in viewport
   const centerX = width / 2;
@@ -437,103 +410,84 @@ export function generateMobileHierarchyGraph(
       type: 'task-subtask',
     });
 
-    // Atomic nodes (Moons) - from subtask.children OR via parentSubtaskId
-    const childrenFromArray = subtask.children || [];
-    const childrenFromParentId = task.subtasks.filter(
-      st => st.parentSubtaskId === subtask.id && !st.isArchived
-    );
-
-    // Combine and deduplicate by id
-    const allChildrenMap = new Map<string, Subtask>();
-    childrenFromArray.forEach(c => allChildrenMap.set(c.id, c));
-    childrenFromParentId.forEach(c => allChildrenMap.set(c.id, c));
-    const atomicChildren = Array.from(allChildrenMap.values());
-
-    if (atomicChildren.length === 0) return;
-
-    const atomicAngleStep = (Math.PI * 2) / atomicChildren.length;
-
-    atomicChildren.forEach((atomic, atIndex) => {
-      const atomicAngle = angle + Math.PI + atIndex * atomicAngleStep;
-      const atX = stX + Math.cos(atomicAngle) * ATOMIC_ORBIT_RADIUS;
-      const atY = stY + Math.sin(atomicAngle) * ATOMIC_ORBIT_RADIUS;
-
-      const atomicColors = atomic.isCompleted
-        ? COLORS.atomic.completed
-        : COLORS.atomic.pending;
-
-      const atomicConnectedIds: string[] = [subtask.id];
-
-      nodes.push({
-        id: atomic.id,
-        type: 'atomic',
-        title: atomic.title,
-        status: atomic.isCompleted ? 'completed' : 'pending',
-        data: atomic,
-        x: atX,
-        y: atY,
-        size: ATOMIC_SIZE,
-        color: atomicColors.fill,
-        glowColor: atomicColors.glow,
-        parentId: subtask.id,
-        estimatedMinutes: atomic.estimatedMinutes,
-        isCompleted: atomic.isCompleted,
-        connectedNodeIds: atomicConnectedIds,
-      });
-
-      subtaskConnectedIds.push(atomic.id);
-
-      links.push({
-        source: subtask.id,
-        target: atomic.id,
-        type: 'subtask-atomic',
-      });
-
-      // Nested children (when atomic is broken down further)
-      const nestedChildren = task.subtasks.filter(
-        st => st.parentSubtaskId === atomic.id && !st.isArchived
+    // RECURSIVE CHILDREN - Infinite depth support for mobile
+    const addChildrenRecursivelyMobile = (
+      parentSubtask: Subtask,
+      parentX: number,
+      parentY: number,
+      parentAngle: number,
+      parentConnectedIds: string[],
+      depth: number
+    ) => {
+      // Get children from both sources and deduplicate
+      const childrenFromArray = parentSubtask.children || [];
+      const childrenFromParentId = task.subtasks.filter(
+        st => st.parentSubtaskId === parentSubtask.id && !st.isArchived
       );
+      const allChildrenMap = new Map<string, Subtask>();
+      childrenFromArray.forEach(c => allChildrenMap.set(c.id, c));
+      childrenFromParentId.forEach(c => allChildrenMap.set(c.id, c));
+      const children = Array.from(allChildrenMap.values());
 
-      if (nestedChildren.length > 0) {
-        const nestedAngleStep = (Math.PI * 2) / nestedChildren.length;
-        const nestedOrbit = ATOMIC_ORBIT_RADIUS * 0.6;
+      if (children.length === 0) return;
 
-        nestedChildren.forEach((nested, nIndex) => {
-          const nestedAngle = atomicAngle + Math.PI + nIndex * nestedAngleStep;
-          const nX = atX + Math.cos(nestedAngle) * nestedOrbit;
-          const nY = atY + Math.sin(nestedAngle) * nestedOrbit;
+      // Calculate orbit and size based on depth (shrinks with each level)
+      const depthFactor = Math.pow(0.75, depth); // Each level is 75% of previous (gentler shrinking)
+      const orbitRadius = ATOMIC_ORBIT_RADIUS * depthFactor;
+      const nodeSize = Math.max(ATOMIC_SIZE * depthFactor, 5); // Min size 5 for touch
 
-          const nestedColors = nested.isCompleted
-            ? COLORS.atomic.completed
-            : COLORS.atomic.pending;
+      const angleStep = (Math.PI * 2) / children.length;
 
-          nodes.push({
-            id: nested.id,
-            type: 'atomic',
-            title: nested.title,
-            status: nested.isCompleted ? 'completed' : 'pending',
-            data: nested,
-            x: nX,
-            y: nY,
-            size: ATOMIC_SIZE,
-            color: nestedColors.fill,
-            glowColor: nestedColors.glow,
-            parentId: atomic.id,
-            estimatedMinutes: nested.estimatedMinutes,
-            isCompleted: nested.isCompleted,
-            connectedNodeIds: [atomic.id],
-          });
+      children.forEach((child, childIndex) => {
+        const childAngle = parentAngle + Math.PI + childIndex * angleStep;
+        const childX = parentX + Math.cos(childAngle) * orbitRadius;
+        const childY = parentY + Math.sin(childAngle) * orbitRadius;
 
-          atomicConnectedIds.push(nested.id);
+        const childColors = child.isCompleted
+          ? COLORS.atomic.completed
+          : COLORS.atomic.pending;
 
-          links.push({
-            source: atomic.id,
-            target: nested.id,
-            type: 'subtask-atomic',
-          });
+        const childConnectedIds: string[] = [parentSubtask.id];
+
+        nodes.push({
+          id: child.id,
+          type: 'atomic',
+          title: child.title,
+          status: child.isCompleted ? 'completed' : 'pending',
+          data: child,
+          x: childX,
+          y: childY,
+          size: nodeSize,
+          color: childColors.fill,
+          glowColor: childColors.glow,
+          parentId: parentSubtask.id,
+          estimatedMinutes: child.estimatedMinutes,
+          isCompleted: child.isCompleted,
+          connectedNodeIds: childConnectedIds,
         });
-      }
-    });
+
+        parentConnectedIds.push(child.id);
+
+        links.push({
+          source: parentSubtask.id,
+          target: child.id,
+          type: 'subtask-atomic',
+        });
+
+        // Recursively add children of this child (infinite depth)
+        addChildrenRecursivelyMobile(
+          child,
+          childX,
+          childY,
+          childAngle,
+          childConnectedIds,
+          depth + 1
+        );
+      });
+    };
+
+    // Start recursive children from subtask
+    addChildrenRecursivelyMobile(subtask, stX, stY, angle, subtaskConnectedIds, 0);
   });
 
   return { nodes, links };

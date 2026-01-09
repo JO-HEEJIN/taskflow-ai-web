@@ -146,20 +146,6 @@ export function OrbitTimer({
           {Math.round(percentage)}%
         </div>
       </div>
-
-      {/* Hover hint (only when not playing) */}
-      {!isPlaying && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0.3, 0.6, 0.3] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-full backdrop-blur-sm pointer-events-none"
-        >
-          <span className="text-white text-sm font-medium" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
-            TAP TO START
-          </span>
-        </motion.div>
-      )}
     </div>
   );
 }

@@ -73,26 +73,27 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
   const getVisibleSubtasks = (): typeof allActiveSubtasks => {
     if (!initialContext) return allActiveSubtasks; // Show all (backward compatible)
 
+    // Helper to recursively get all descendants of a subtask
+    const getAllDescendants = (parentId: string): typeof allActiveSubtasks => {
+      const directChildren = allActiveSubtasks.filter(st => st.parentSubtaskId === parentId);
+      return directChildren.flatMap(child => [child, ...getAllDescendants(child.id)]);
+    };
+
     switch (initialContext.type) {
       case 'task':
         // Clicked task itself → Show full hierarchy
         return allActiveSubtasks;
 
       case 'subtask':
-        const targetSubtask = allActiveSubtasks.find((st) => st.id === initialContext.subtaskId);
-        if (!targetSubtask) return [];
-
-        // Show clicked subtask + its children (if any)
-        const childrenOfTarget = allActiveSubtasks.filter(
-          (st) => st.parentSubtaskId === targetSubtask.id
-        );
-        return [targetSubtask, ...childrenOfTarget];
-
       case 'atomic':
-        // Clicked atomic → Show only that atomic
-        const atomic = allActiveSubtasks.find((st) => st.id === initialContext.atomicId);
-        if (!atomic) return [];
-        return [atomic];
+        // For both subtask and atomic: show clicked item + all its descendants
+        const targetId = initialContext.subtaskId || initialContext.atomicId;
+        const targetItem = allActiveSubtasks.find((st) => st.id === targetId);
+        if (!targetItem) return [];
+
+        // Get all descendants recursively
+        const descendants = getAllDescendants(targetItem.id);
+        return [targetItem, ...descendants];
 
       default:
         return allActiveSubtasks;
@@ -110,8 +111,8 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
 
     setIsAddingSubtask(true);
     try {
-      // If viewing a specific subtask, add as child of that subtask
-      if (initialContext?.type === 'subtask' && initialContext.subtaskId) {
+      // If viewing a specific subtask/atomic, add as child of that item
+      if (initialContext?.subtaskId) {
         const { addChildrenToSubtask } = useTaskStore.getState();
         await addChildrenToSubtask(task.id, initialContext.subtaskId, [
           { title: newSubtaskTitle.trim(), estimatedMinutes: 5 }
@@ -392,8 +393,24 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
               <div className="flex-1">
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">{task.title}</h2>
-                {task.description && (
+                {/* Show context-aware title */}
+                {(() => {
+                  // If viewing a specific subtask/atomic, show its title
+                  if (initialContext?.subtaskId) {
+                    const clickedItem = task.subtasks.find(st => st.id === initialContext.subtaskId);
+                    if (clickedItem) {
+                      return (
+                        <>
+                          <p className="text-sm text-gray-500 mb-1">{task.title}</p>
+                          <h2 className="text-2xl font-bold text-gray-800 mb-2">{clickedItem.title}</h2>
+                        </>
+                      );
+                    }
+                  }
+                  // Default: show task title
+                  return <h2 className="text-2xl font-bold text-gray-800 mb-2">{task.title}</h2>;
+                })()}
+                {task.description && !initialContext?.subtaskId && (
                   <div className="prose prose-sm max-w-none text-gray-600">
                     <ReactMarkdown rehypePlugins={[rehypeSanitize]}>
                       {task.description}
@@ -506,196 +523,247 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
                 <TaskMindMap taskId={task.id} />
               ) : (
                 <div className="space-y-2">
-                  {activeSubtasks
-                    .sort((a, b) => a.order - b.order)
-                    .map((subtask, index) => (
-                      <div
-                        key={subtask.id}
-                        draggable
-                        onDragStart={() => handleDragStart(subtask.id)}
-                        onDragOver={handleDragOver}
-                        onDrop={() => handleDrop(subtask.id)}
-                        onMouseEnter={() => handleSubtaskMouseEnter(subtask.id)}
-                        onMouseLeave={handleSubtaskMouseLeave}
-                        onTouchStart={() => handleSubtaskTouchStart(subtask.id)}
-                        onTouchEnd={handleSubtaskTouchEnd}
-                        className={`relative flex items-start gap-2 p-3 rounded-lg hover:bg-gray-100 transition-colors group ${
-                          draggedSubtaskId === subtask.id ? 'opacity-50' : ''
-                        } ${
-                          subtask.title.startsWith('Atomic: ')
-                            ? 'ml-6 bg-purple-50 border-l-4 border-purple-400'
-                            : 'bg-gray-50'
-                        }`}
-                      >
-                        {/* Desktop: Drag handle */}
-                        <GripVertical className="hidden md:block text-gray-400 cursor-grab active:cursor-grabbing mt-1 w-5 h-5" />
+                  {/* Recursive hierarchical list rendering */}
+                  {(() => {
+                    // 1. Get "root" subtasks for rendering
+                    // If viewing a specific subtask/atomic, treat it as the root
+                    let topLevelSubtasks: typeof activeSubtasks;
 
-                        {/* Mobile: Up/Down buttons */}
-                        <div className="flex flex-col gap-1 md:hidden">
-                          <button
-                            onClick={() => handleMoveSubtask(subtask.id, 'up')}
-                            disabled={index === 0}
-                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-3 text-sm min-w-[40px] min-h-[40px] flex items-center justify-center"
-                            title="Move up"
-                          >
-                            <ChevronUp className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleMoveSubtask(subtask.id, 'down')}
-                            disabled={index === activeSubtasks.length - 1}
-                            className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-3 text-sm min-w-[40px] min-h-[40px] flex items-center justify-center"
-                            title="Move down"
-                          >
-                            <ChevronDown className="w-4 h-4" />
-                          </button>
-                        </div>
+                    if (initialContext?.subtaskId) {
+                      // Viewing a specific subtask/atomic - show it as root
+                      const clickedItem = activeSubtasks.find(st => st.id === initialContext.subtaskId);
+                      if (clickedItem) {
+                        topLevelSubtasks = [clickedItem];
+                      } else {
+                        topLevelSubtasks = activeSubtasks
+                          .filter(st => !st.parentSubtaskId)
+                          .sort((a, b) => a.order - b.order);
+                      }
+                    } else {
+                      // Normal view - show top-level subtasks
+                      topLevelSubtasks = activeSubtasks
+                        .filter(st => !st.parentSubtaskId)
+                        .sort((a, b) => a.order - b.order);
+                    }
 
-                        <input
-                          type="checkbox"
-                          checked={subtask.isCompleted}
-                          onChange={() => handleToggleSubtask(subtask.id)}
-                          className="mt-1 h-6 w-6 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer flex-shrink-0"
-                        />
-                        <span
-                          className={`flex-1 flex items-center gap-2 ${
-                            subtask.isCompleted
-                              ? 'line-through text-gray-400'
-                              : 'text-gray-700'
-                          }`}
-                        >
-                          {/* ✅ CONSTELLATION: Atomic tasks show atom icon */}
-                          {subtask.title.startsWith('Atomic: ') && (
-                            <span className="text-purple-500" title="Atomic constellation node">⚛️</span>
-                          )}
-                          <span className={subtask.title.startsWith('Atomic: ') ? 'text-purple-700' : ''}>
-                            {subtask.title}
-                          </span>
-                          {/* Show parent relationship for atomic tasks */}
-                          {subtask.parentSubtaskId && (() => {
-                            const parentSubtask = activeSubtasks.find(s => s.id === subtask.parentSubtaskId);
-                            if (parentSubtask) {
-                              return (
-                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium" title={`Child of: ${parentSubtask.title}`}>
-                                  ↳ {parentSubtask.title.substring(0, 20)}{parentSubtask.title.length > 20 ? '...' : ''}
-                                </span>
-                              );
-                            }
-                          })()}
-                          {subtask.status === 'draft' && (
-                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-medium">
-                              Draft
-                            </span>
-                          )}
-                          {/* ✅ ALWAYS show estimated time */}
-                          {subtask.estimatedMinutes && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                              (subtask.estimatedMinutes >= 10) && !subtask.children?.length
-                                ? 'bg-orange-100 text-orange-800'  // >=10min without children: orange (needs breakdown)
-                                : 'bg-gray-100 text-gray-600'      // <10min or has children: gray (ready to do)
-                            }`}>
-                              {subtask.estimatedMinutes}min
-                            </span>
-                          )}
-                          {subtask.linkedTaskId && (() => {
-                            const linkedTask = tasks.find(t => t.id === subtask.linkedTaskId);
-                            if (linkedTask) {
-                              return (
-                                <span className="text-xs text-blue-600" title={`Linked to: ${linkedTask.title}`}>
-                                  <Link2 className="w-3.5 h-3.5 inline" />
-                                </span>
-                              );
-                            } else {
-                              return (
+                    // 2. Helper to find children of a subtask
+                    const getChildren = (parentId: string) =>
+                      activeSubtasks
+                        .filter(st => st.parentSubtaskId === parentId)
+                        .sort((a, b) => a.order - b.order);
+
+                    // 3. Recursive render function
+                    const renderSubtaskWithChildren = (subtask: typeof activeSubtasks[0], depth: number = 0, index: number = 0, siblings: typeof activeSubtasks = topLevelSubtasks): React.ReactNode => {
+                      const isChild = depth > 0;
+                      const children = getChildren(subtask.id);
+                      const hasChildrenViaParentId = children.length > 0;
+
+                      return (
+                        <div key={subtask.id}>
+                          {/* Subtask Row */}
+                          <div
+                            draggable={!isChild} // Only top-level can be dragged
+                            onDragStart={!isChild ? () => handleDragStart(subtask.id) : undefined}
+                            onDragOver={!isChild ? handleDragOver : undefined}
+                            onDrop={!isChild ? () => handleDrop(subtask.id) : undefined}
+                            onMouseEnter={() => handleSubtaskMouseEnter(subtask.id)}
+                            onMouseLeave={handleSubtaskMouseLeave}
+                            onTouchStart={() => handleSubtaskTouchStart(subtask.id)}
+                            onTouchEnd={handleSubtaskTouchEnd}
+                            style={{ marginLeft: `${depth * 24}px` }}
+                            className={`relative flex items-start gap-2 p-3 rounded-lg hover:bg-gray-100 transition-colors group ${
+                              draggedSubtaskId === subtask.id ? 'opacity-50' : ''
+                            } ${
+                              isChild
+                                ? 'border-l-4 border-purple-400 bg-purple-50/50'
+                                : 'bg-gray-50'
+                            }`}
+                          >
+                            {/* Desktop: Drag handle (only for top-level) */}
+                            {!isChild && (
+                              <GripVertical className="hidden md:block text-gray-400 cursor-grab active:cursor-grabbing mt-1 w-5 h-5" />
+                            )}
+                            {/* Indent placeholder for children to align */}
+                            {isChild && (
+                              <div className="hidden md:block w-5 h-5" />
+                            )}
+
+                            {/* Mobile: Up/Down buttons (only for top-level) */}
+                            {!isChild && (
+                              <div className="flex flex-col gap-1 md:hidden">
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleClearBrokenLink(subtask.id);
-                                  }}
-                                  className="text-xs text-red-600 hover:text-red-800"
-                                  title="Broken link - click to clear"
+                                  onClick={() => handleMoveSubtask(subtask.id, 'up')}
+                                  disabled={index === 0}
+                                  className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-3 text-sm min-w-[40px] min-h-[40px] flex items-center justify-center"
+                                  title="Move up"
                                 >
-                                  <Unlink className="w-3.5 h-3.5" />
+                                  <ChevronUp className="w-4 h-4" />
                                 </button>
-                              );
-                            }
-                          })()}
-                        </span>
-                        <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => handleArchiveSubtask(subtask.id, true)}
-                            className="text-gray-400 hover:text-blue-600 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center"
-                            title="Archive subtask"
-                          >
-                            <Archive className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSubtask(subtask.id)}
-                            className="text-gray-400 hover:text-red-600 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center"
-                            title="Delete subtask"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
+                                <button
+                                  onClick={() => handleMoveSubtask(subtask.id, 'down')}
+                                  disabled={index === siblings.length - 1}
+                                  className="text-gray-400 hover:text-gray-700 disabled:opacity-30 disabled:cursor-not-allowed p-3 text-sm min-w-[40px] min-h-[40px] flex items-center justify-center"
+                                  title="Move down"
+                                >
+                                  <ChevronDown className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                            {/* Indent placeholder for children on mobile */}
+                            {isChild && (
+                              <div className="w-10 md:hidden" />
+                            )}
 
-                        {/* Hover Prompt */}
-                        {showPrompt === subtask.id && !subtask.linkedTaskId && (
-                          <div className="absolute right-2 top-2 z-[100] bg-primary-600 text-white px-3 py-1.5 rounded-lg shadow-lg text-xs font-medium flex items-center gap-2 animate-fadeIn">
-                            <button
-                              onClick={() => handleCreateLinkedTask(subtask.id)}
-                              disabled={creatingLinkedTask}
-                              className="hover:underline flex items-center gap-1 disabled:opacity-50 disabled:cursor-wait"
+                            <input
+                              type="checkbox"
+                              checked={subtask.isCompleted}
+                              onChange={() => handleToggleSubtask(subtask.id)}
+                              className="mt-1 h-6 w-6 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer flex-shrink-0"
+                            />
+                            <span
+                              className={`flex-1 flex items-center gap-2 flex-wrap ${
+                                subtask.isCompleted
+                                  ? 'line-through text-gray-400'
+                                  : 'text-gray-700'
+                              }`}
                             >
-                              {creatingLinkedTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                              <span>{creatingLinkedTask ? 'Creating...' : 'New task from this?'}</span>
-                            </button>
-                            {!creatingLinkedTask && (
+                              {/* Child indicator icon */}
+                              {isChild && (
+                                <span className="text-purple-500" title="Child subtask">↳</span>
+                              )}
+                              <span className={isChild ? 'text-purple-700' : ''}>
+                                {subtask.title}
+                              </span>
+                              {subtask.status === 'draft' && (
+                                <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full font-medium">
+                                  Draft
+                                </span>
+                              )}
+                              {/* Show estimated time */}
+                              {subtask.estimatedMinutes && (
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                  (subtask.estimatedMinutes >= 10) && !subtask.children?.length && !hasChildrenViaParentId
+                                    ? 'bg-orange-100 text-orange-800'  // >=10min without children: orange (needs breakdown)
+                                    : 'bg-gray-100 text-gray-600'      // <10min or has children: gray (ready to do)
+                                }`}>
+                                  {subtask.estimatedMinutes}min
+                                </span>
+                              )}
+                              {subtask.linkedTaskId && (() => {
+                                const linkedTask = tasks.find(t => t.id === subtask.linkedTaskId);
+                                if (linkedTask) {
+                                  return (
+                                    <span className="text-xs text-blue-600" title={`Linked to: ${linkedTask.title}`}>
+                                      <Link2 className="w-3.5 h-3.5 inline" />
+                                    </span>
+                                  );
+                                } else {
+                                  return (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleClearBrokenLink(subtask.id);
+                                      }}
+                                      className="text-xs text-red-600 hover:text-red-800"
+                                      title="Broken link - click to clear"
+                                    >
+                                      <Unlink className="w-3.5 h-3.5" />
+                                    </button>
+                                  );
+                                }
+                              })()}
+                            </span>
+                            <div className="flex gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                              {/* Archive button only for top-level */}
+                              {!isChild && (
+                                <button
+                                  onClick={() => handleArchiveSubtask(subtask.id, true)}
+                                  className="text-gray-400 hover:text-blue-600 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                  title="Archive subtask"
+                                >
+                                  <Archive className="w-4 h-4" />
+                                </button>
+                              )}
+                              {/* Delete button for all */}
                               <button
-                                onClick={() => setShowPrompt(null)}
-                                className="text-white/80 hover:text-white"
+                                onClick={() => handleDeleteSubtask(subtask.id)}
+                                className="text-gray-400 hover:text-red-600 p-3 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                title="Delete subtask"
                               >
                                 <X className="w-4 h-4" />
                               </button>
+                            </div>
+
+                            {/* Hover Prompt - Bottom right */}
+                            {showPrompt === subtask.id && !subtask.linkedTaskId && (
+                              <div className="absolute bottom-2 right-2 z-[100] bg-primary-600 text-white px-3 py-1.5 rounded-lg shadow-lg text-xs font-medium flex items-center gap-2 animate-fadeIn">
+                                <button
+                                  onClick={() => handleCreateLinkedTask(subtask.id)}
+                                  disabled={creatingLinkedTask}
+                                  className="hover:underline flex items-center gap-1 disabled:opacity-50 disabled:cursor-wait"
+                                >
+                                  {creatingLinkedTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                                  <span>{creatingLinkedTask ? 'Creating...' : 'New task from this?'}</span>
+                                </button>
+                                {!creatingLinkedTask && (
+                                  <button
+                                    onClick={() => setShowPrompt(null)}
+                                    className="text-white/80 hover:text-white"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Break Down Further Button - Show if >=10min and no children */}
+                            {((subtask.estimatedMinutes ?? 0) >= 10) &&
+                             !subtask.children?.length &&
+                             !hasChildrenViaParentId && (
+                              <div className="absolute bottom-2 left-14">
+                                <button
+                                  onClick={() => handleDeepDive(subtask.id)}
+                                  disabled={breakingDownSubtaskId === subtask.id}
+                                  className="text-xs px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-wait"
+                                >
+                                  {breakingDownSubtaskId === subtask.id ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      <span>Breaking down...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span>🔍</span>
+                                      <span>Break Down Further</span>
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Optimistic Skeleton for Deep Dive */}
+                            {showOptimisticChildren === subtask.id && (
+                              <div className="absolute bottom-[-80px] left-6 space-y-2 z-10">
+                                <ChildSubtaskSkeleton />
+                                <ChildSubtaskSkeleton />
+                                <ChildSubtaskSkeleton />
+                              </div>
                             )}
                           </div>
-                        )}
 
-                      {/* Break Down Further Button - Show if >=10min and no children */}
-                      {/* Use estimatedMinutes check (not just isComposite) to handle cases where flag isn't set */}
-                      {((subtask.estimatedMinutes ?? 0) >= 10) && !subtask.children?.length && (
-                        <div className="ml-14 mt-2">
-                          <button
-                            onClick={() => handleDeepDive(subtask.id)}
-                            disabled={breakingDownSubtaskId === subtask.id}
-                            className="text-xs px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-wait"
-                          >
-                            {breakingDownSubtaskId === subtask.id ? (
-                              <>
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                <span>Breaking down...</span>
-                              </>
-                            ) : (
-                              <>
-                                <span>🔍</span>
-                                <span>Break Down Further</span>
-                              </>
-                            )}
-                          </button>
+                          {/* Render children recursively */}
+                          {children.map((child, childIndex) =>
+                            renderSubtaskWithChildren(child, depth + 1, childIndex, children)
+                          )}
                         </div>
-                      )}
+                      );
+                    };
 
-                      {/* Optimistic Skeleton for Deep Dive */}
-                      {showOptimisticChildren === subtask.id && (
-                        <div className="ml-14 mt-2 space-y-2">
-                          <ChildSubtaskSkeleton />
-                          <ChildSubtaskSkeleton />
-                          <ChildSubtaskSkeleton />
-                        </div>
-                      )}
-
-                      {/* ✅ CONSTELLATION: Children are flattened into main subtasks array with "Atomic: " prefix */}
-                      {/* No nested rendering - atomic tasks appear as constellation nodes */}
-                    </div>
-                  ))}
+                    // 4. Render top-level subtasks with their children
+                    return topLevelSubtasks.map((subtask, index) =>
+                      renderSubtaskWithChildren(subtask, 0, index, topLevelSubtasks)
+                    );
+                  })()}
                 </div>
               )}
 
@@ -788,7 +856,7 @@ export function TaskDetail({ taskId, onClose, initialContext }: TaskDetailProps)
       {showAIModal && (
         <AIBreakdownModal
           taskId={task.id}
-          parentSubtaskId={initialContext?.type === 'subtask' ? initialContext.subtaskId : undefined}
+          parentSubtaskId={initialContext?.subtaskId}
           onClose={() => {
             setShowAIModal(false);
             onClose(); // Also close TaskDetail modal when entering Focus Mode

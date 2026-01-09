@@ -204,7 +204,7 @@ export const guestStorage = {
           children: [],
         });
       } else {
-        // ✅ PRESERVE ALL RECAP-ADHD FIELDS
+        // ✅ PRESERVE ALL RECAP-ADHD FIELDS + LEARNING ENGINE FIELDS
         const subtaskId = uuidv4();
         const subtask: Subtask = {
           id: subtaskId,
@@ -219,6 +219,9 @@ export const guestStorage = {
           status: (data as any).status || 'active',
           depth: (data as any).depth || 0,
           children: [],
+          // ✅ Learning Engine fields (for study mode)
+          strategyTag: data.strategyTag,
+          interactionType: data.interactionType || 'checkbox',
           // ✅ Link to parent subtask - accept UUID directly or look up from title map
           parentSubtaskId: (() => {
             const passedId = (data as any).parentSubtaskId;

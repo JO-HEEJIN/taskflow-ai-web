@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskFlow Timer</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+      user-select: none;
+    }
+
+    #timer-container {
+      width: 200px;
+      height: 120px;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+      -webkit-app-region: drag;
+    }
+
+    #timer-container:active {
+      cursor: grabbing;
+    }
+
+    /* Night sky background */
+    #background {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg,
+        #0a0118 0%,
+        #12082a 40%,
+        #0d1a2d 70%,
+        #0a0118 100%
+      );
+    }
+
+    /* Stars canvas */
+    #stars-canvas {
+      position: absolute;
+      inset: 0;
+    }
+
+    /* Content */
+    #content {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      padding: 12px;
+    }
+
+    /* Timer text */
+    #time {
+      font-size: 36px;
+      font-weight: 700;
+      color: #60a5fa;
+      text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+      transition: color 0.3s, text-shadow 0.3s;
+    }
+
+    #time.warning {
+      color: #a78bfa;
+    }
+
+    #time.critical {
+      color: #fb7185;
+      animation: pulse 0.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.6; }
+      to { opacity: 1; }
+    }
+
+    /* Progress bar container */
+    #progress-container {
+      width: 100%;
+      height: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      margin-top: 8px;
+      overflow: visible;
+      position: relative;
+    }
+
+    /* Progress bar fill */
+    #progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #60a5fa, #818cf8);
+      border-radius: 6px;
+      transition: width 0.3s ease, background 0.3s;
+      box-shadow: 0 0 15px #60a5fa, 0 0 30px #60a5fa;
+      position: relative;
+    }
+
+    #progress-bar.warning {
+      background: linear-gradient(90deg, #a78bfa, #c084fc);
+      box-shadow: 0 0 15px #a78bfa, 0 0 30px #a78bfa;
+    }
+
+    #progress-bar.critical {
+      background: linear-gradient(90deg, #fb7185, #f472b6);
+      box-shadow: 0 0 15px #fb7185, 0 0 30px #fb7185;
+    }
+
+    /* Bloom effect overlay */
+    #progress-bar::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      background: inherit;
+      border-radius: 10px;
+      filter: blur(8px);
+      opacity: 0.6;
+      z-index: -1;
+      animation: bloom 2s ease-in-out infinite;
+    }
+
+    @keyframes bloom {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+
+    /* Subtask title */
+    #subtask {
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 8px;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Pause indicator */
+    #pause-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      display: none;
+    }
+
+    #pause-indicator.visible {
+      display: block;
+    }
+
+    /* Control buttons (no-drag zone) */
+    #controls {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      display: flex;
+      gap: 4px;
+      -webkit-app-region: no-drag;
+      z-index: 100;
+      pointer-events: auto;
+    }
+
+    .control-btn {
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.1s;
+      -webkit-app-region: no-drag;
+      pointer-events: auto;
+    }
+
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(1.1);
+    }
+
+    .control-btn:active {
+      transform: scale(0.95);
+    }
+  </style>
+</head>
+<body>
+  <div id="timer-container">
+    <div id="background"></div>
+    <canvas id="stars-canvas"></canvas>
+
+    <div id="content">
+      <div id="time">5:00</div>
+      <div id="progress-container">
+        <div id="progress-bar" style="width: 100%"></div>
+      </div>
+      <div id="subtask">Working on task...</div>
+      <div id="pause-indicator">PAUSED</div>
+    </div>
+
+    <div id="controls">
+      <button class="control-btn" id="toggle-btn" title="Play/Pause">▶</button>
+      <button class="control-btn" id="close-btn" title="Hide">×</button>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -251,7 +251,7 @@ class TaskService {
     const newSubtasks: Subtask[] = subtaskData.map((data, index) => {
       const isString = typeof data === 'string';
 
-      // Preserve all fields from AI response (isComposite, status, depth, children)
+      // Preserve all fields from AI response (isComposite, status, depth, children, learning engine fields)
       if (!isString && typeof data === 'object') {
         return {
           id: uuidv4(),
@@ -267,6 +267,9 @@ class TaskService {
           status: (data as any).status || 'active',
           depth: (data as any).depth || 0,
           children: (data as any).children || [],
+          // ✅ Learning Engine fields (for study mode)
+          strategyTag: (data as any).strategyTag,
+          interactionType: (data as any).interactionType || 'checkbox',
         };
       }
 

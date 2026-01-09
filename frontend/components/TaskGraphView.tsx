@@ -572,21 +572,28 @@ export function TaskGraphView({
           if (node.type === 'task') {
             onTaskClick((node.data as Task).id);
           } else if (onNodeClick) {
-            const context: NodeContext = {
-              type: node.type,
-              taskId: node.parentId || '',
+            // Helper to find root task ID by traversing up the parent chain
+            const findRootTaskId = (nodeId: string): string => {
+              const currentNode = nodes.find(n => n.id === nodeId);
+              if (!currentNode) return '';
+              if (currentNode.type === 'task') return currentNode.id;
+              if (currentNode.parentId) return findRootTaskId(currentNode.parentId);
+              return '';
             };
-            if (node.type === 'subtask') {
-              context.subtaskId = node.id;
-            } else if (node.type === 'atomic') {
-              context.atomicId = node.id;
-              // Find parent subtask
-              const parentSubtask = nodes.find(n => n.id === node.parentId);
-              if (parentSubtask) {
-                context.subtaskId = parentSubtask.id;
-                context.taskId = parentSubtask.parentId || '';
-              }
-            }
+
+            const rootTaskId = findRootTaskId(node.id);
+
+            // Create context based on actual node type
+            // All children are stored in task.subtasks[] array
+            // For atomic nodes, set both subtaskId (for adding children) and atomicId (for display)
+            const context: NodeContext = {
+              type: node.type as 'subtask' | 'atomic', // Use actual type
+              taskId: rootTaskId,
+              subtaskId: node.id, // Always set - needed for adding children to this node
+              atomicId: node.type === 'atomic' ? node.id : undefined,
+            };
+
+            console.log(`🎯 Node click: ${node.title} (type: ${node.type}) → taskId: ${rootTaskId}, subtaskId: ${context.subtaskId}, atomicId: ${context.atomicId}`);
             onNodeClick(context);
           }
         } else if (onBackgroundClick) {

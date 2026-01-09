@@ -280,10 +280,11 @@ export const api = {
         ? subtask.title.replace(/^Atomic:\s*/, '')
         : subtask.title;
 
+      // Create atomic tasks with inherited learning fields from parent (Traffic Light SRS)
       const atomicTasks: Subtask[] = [
-        { id: crypto.randomUUID(), title: `Atomic: ${baseTitle} - Part 1`, estimatedMinutes: atomicTime1, isCompleted: false, isArchived: false, order: task.subtasks.length, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
-        { id: crypto.randomUUID(), title: `Atomic: ${baseTitle} - Part 2`, estimatedMinutes: atomicTime2, isCompleted: false, isArchived: false, order: task.subtasks.length + 1, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
-        { id: crypto.randomUUID(), title: `Atomic: ${baseTitle} - Part 3`, estimatedMinutes: atomicTime3, isCompleted: false, isArchived: false, order: task.subtasks.length + 2, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const },
+        { id: crypto.randomUUID(), title: `Atomic: ${baseTitle} - Part 1`, estimatedMinutes: atomicTime1, isCompleted: false, isArchived: false, order: task.subtasks.length, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const, strategyTag: subtask.strategyTag, interactionType: subtask.interactionType },
+        { id: crypto.randomUUID(), title: `Atomic: ${baseTitle} - Part 2`, estimatedMinutes: atomicTime2, isCompleted: false, isArchived: false, order: task.subtasks.length + 1, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const, strategyTag: subtask.strategyTag, interactionType: subtask.interactionType },
+        { id: crypto.randomUUID(), title: `Atomic: ${baseTitle} - Part 3`, estimatedMinutes: atomicTime3, isCompleted: false, isArchived: false, order: task.subtasks.length + 2, parentTaskId: taskId, parentSubtaskId: subtaskId, depth: 1, isComposite: false, children: [], status: 'draft' as const, strategyTag: subtask.strategyTag, interactionType: subtask.interactionType },
       ];
 
       // Mark parent as composite and add atomic tasks to main subtasks array

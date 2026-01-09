@@ -182,6 +182,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         : Math.max(...task.subtasks.map(st => st.order), 0);
 
       // Format children as real subtasks with proper order (git-flow style: appear right after parent)
+      // Inherit strategyTag from parent for learning tasks (Traffic Light SRS)
       const formattedChildren = children.map((child, index) => ({
         id: `${subtaskId}-child-${index}-${ts}`,
         title: child.title,
@@ -192,6 +193,9 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         stepType: child.stepType || 'mental',
         order: baseOrder + 0.01 * (index + 1), // Insert right after parent
         parentSubtaskId: subtaskId,
+        // Inherit learning-related fields from parent
+        strategyTag: parentSubtask?.strategyTag,
+        interactionType: parentSubtask?.interactionType || child.interactionType || 'checkbox',
       }));
 
       // Build new subtasks array: insert children right after parent

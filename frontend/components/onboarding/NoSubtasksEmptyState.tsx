@@ -40,8 +40,8 @@ export function NoSubtasksEmptyState({ onAIBreakdown }: NoSubtasksEmptyStateProp
 
       {/* Description */}
       <p className="text-gray-600 text-sm md:text-base mb-6 max-w-sm mx-auto leading-relaxed">
-        AI will analyze your task and create bite-sized steps optimized for focus.
-        Each step takes 5-15 minutes—perfect for ADHD attention spans.
+        AI will create a big-picture breakdown first. If any step is over 10 minutes,
+        you can break it down further at your own pace—giving you full control.
       </p>
 
       {/* Example Box */}
@@ -53,11 +53,11 @@ export function NoSubtasksEmptyState({ onAIBreakdown }: NoSubtasksEmptyStateProp
       >
         <p className="text-sm text-purple-800 text-left">
           <strong className="block mb-2">Example breakdown:</strong>
-          <span className="block mb-1">Write blog post becomes:</span>
-          <span className="block ml-4 mb-1">1. Choose topic <span className="text-purple-600 font-medium">(5 min)</span></span>
-          <span className="block ml-4 mb-1">2. Create outline <span className="text-purple-600 font-medium">(10 min)</span></span>
-          <span className="block ml-4 mb-1">3. Write intro <span className="text-purple-600 font-medium">(15 min)</span></span>
-          <span className="block ml-4">...and so on!</span>
+          <span className="block mb-1">Learning TensorRT becomes:</span>
+          <span className="block ml-4 mb-1">1. Setup environment <span className="text-purple-600 font-medium">(15 min)</span></span>
+          <span className="block ml-4 mb-1">2. Understand optimization basics <span className="text-purple-600 font-medium">(30 min)</span></span>
+          <span className="block ml-4 mb-1">3. Build first model <span className="text-purple-600 font-medium">(45 min)</span></span>
+          <span className="block ml-4 text-purple-500 italic">→ Break down large steps further!</span>
         </p>
       </motion.div>
 

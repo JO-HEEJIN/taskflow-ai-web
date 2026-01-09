@@ -183,11 +183,47 @@ export function AIBreakdownModal({ taskId, parentSubtaskId, onClose }: AIBreakdo
     return flattened;
   };
 
+  /**
+   * Detect if task is a learning task based on title keywords
+   * Returns a learning strategy if detected, undefined otherwise
+   */
+  const detectLearningStrategy = (taskTitle: string): 'active_recall' | 'spaced_repetition' | 'interleaving' | undefined => {
+    const lowerTitle = taskTitle.toLowerCase();
+    const learningKeywords = [
+      'learn', 'learning', 'study', 'studying', 'memorize', 'memorizing',
+      'understand', 'understanding', 'master', 'mastering', 'practice',
+      'review', 'revise', 'revision', 'exam', 'test', 'quiz',
+      'course', 'lesson', 'tutorial', 'education', 'train', 'training',
+      'how to', 'basics', 'fundamentals', 'introduction', 'intro to',
+      '공부', '학습', '암기', '복습', '시험', '배우'
+    ];
+
+    if (learningKeywords.some(keyword => lowerTitle.includes(keyword))) {
+      console.log(`📚 [AIBreakdownModal] Detected learning task: "${taskTitle}" → applying Traffic Light SRS`);
+      return 'active_recall'; // Default learning strategy
+    }
+    return undefined;
+  };
+
   const handleAccept = async () => {
     setIsAccepting(true);
     try {
+      // ✅ Detect learning task and get strategy
+      const task = tasks.find((t) => t.id === taskId);
+      const learningStrategy = task ? detectLearningStrategy(task.title) : undefined;
+
       // ✅ Flatten children into atomic constellation nodes
-      const flattenedSubtasks = flattenChildrenToAtomicTasks(suggestions);
+      let flattenedSubtasks = flattenChildrenToAtomicTasks(suggestions);
+
+      // ✅ Apply learning strategy to ALL subtasks if this is a learning task
+      if (learningStrategy) {
+        flattenedSubtasks = flattenedSubtasks.map(st => ({
+          ...st,
+          strategyTag: learningStrategy,
+          interactionType: 'confidence_rating' as const, // Traffic Light SRS
+        }));
+        console.log(`📚 [AIBreakdownModal] Applied strategyTag='${learningStrategy}' to ${flattenedSubtasks.length} subtasks`);
+      }
 
       console.log(`📊 [AIBreakdownModal] Flattened ${suggestions.length} suggestions into ${flattenedSubtasks.length} total subtasks (including atomic)`);
 

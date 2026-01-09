@@ -10,9 +10,10 @@ import { useCoachStore } from '@/store/useCoachStore';
 import { useGamificationStore } from '@/store/useGamificationStore';
 import { useReliableTimer } from '@/hooks/useReliableTimer';
 import { useVideoPictureInPicture } from '@/hooks/useVideoPictureInPicture';
+import { useElectronTimer } from '@/hooks/useElectronTimer';
 import { useEffect, useState, useCallback } from 'react';
 import confetti from 'canvas-confetti';
-import { X, ChevronRight, SkipForward, MessageCircle, Maximize, Sparkles, AlertCircle, FileText } from 'lucide-react';
+import { X, ChevronRight, SkipForward, MessageCircle, Sparkles, AlertCircle, FileText, Monitor } from 'lucide-react';
 import { NotePanel } from './NotePanel';
 import { api } from '@/lib/api';
 import { soundManager } from '@/lib/SoundManager';
@@ -57,6 +58,7 @@ export function GalaxyFocusView({
   } = useCoachStore();
   const { addXp } = useGamificationStore();
   const { isSupported: isPiPSupported, isPiPOpen, openPiP, updatePiP, closePiP } = useVideoPictureInPicture();
+  const { isElectronAvailable, launchElectronTimer } = useElectronTimer();
   const [encouragementMessage, setEncouragementMessage] = useState<string>('');
   const [showEncouragement, setShowEncouragement] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -70,7 +72,10 @@ export function GalaxyFocusView({
 
   // Note: We use api.addSubtasks directly for server persistence
   const estimatedMinutes = currentSubtask.estimatedMinutes || 5;
-  const canBreakDown = estimatedMinutes >= 10 && !currentSubtask.children?.length;
+  // Check children via both children array AND parentSubtaskId in task.subtasks
+  // This enables infinite depth breakdown for large subtasks
+  const hasChildrenViaParentId = task.subtasks.some(st => st.parentSubtaskId === currentSubtask.id);
+  const canBreakDown = estimatedMinutes >= 10 && !currentSubtask.children?.length && !hasChildrenViaParentId;
 
   // Auto-show emergency popup when timer >= 100 minutes
   useEffect(() => {
@@ -146,15 +151,10 @@ export function GalaxyFocusView({
     onComplete: handleTimerComplete
   });
 
-  // Handle timer toggle with PiP auto-open
+  // Handle timer toggle (PiP auto-open removed - user can use Desktop Timer button instead)
   const handleToggleTimer = useCallback(() => {
     toggleTimer(); // Use the hook's toggle function
-
-    // PiP Auto-Open when starting timer (Desktop only, valid user gesture)
-    if (!isRunning && isPiPSupported && !isPiPOpen) {
-      handleOpenPiP();
-    }
-  }, [toggleTimer, isRunning, isPiPSupported, isPiPOpen]);
+  }, [toggleTimer]);
 
   // Handle closing Picture-in-Picture (defined before use)
   const handleClosePiP = useCallback(() => {
@@ -179,6 +179,16 @@ export function GalaxyFocusView({
 
     setIsPiPActive(true);
   }, [isPiPSupported, openPiP, task.title, currentSubtask.title, timeLeft, isRunning, estimatedMinutes]);
+
+  // Handle launching Electron desktop timer (stays on top of fullscreen apps)
+  const handleLaunchElectronTimer = useCallback(() => {
+    launchElectronTimer({
+      taskTitle: task.title,
+      subtaskTitle: currentSubtask.title,
+      duration: timeLeft,
+      autostart: isRunning,
+    });
+  }, [launchElectronTimer, task.title, currentSubtask.title, timeLeft, isRunning]);
 
   // Update PiP when timer state changes
   useEffect(() => {
@@ -703,19 +713,23 @@ export function GalaxyFocusView({
           </motion.div>
         )}
 
-        {/* Pop Out to Window button - Only show if PiP is supported and not already open */}
-        {isPiPSupported && !isPiPOpen && (
-          <motion.button
+        {/* Desktop Timer button - Only show on desktop (Mac/Windows) */}
+        {isElectronAvailable && (
+          <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            onClick={handleOpenPiP}
-            className="mb-4 flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/80 hover:text-white rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 transition-all"
-            title="Open timer in always-on-top window"
+            className="mb-4"
           >
-            <Maximize className="w-4 h-4" />
-            <span>Pop Out Timer</span>
-          </motion.button>
+            <button
+              onClick={handleLaunchElectronTimer}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/80 hover:text-white rounded-lg bg-gradient-to-r from-purple-500/20 to-blue-500/20 hover:from-purple-500/30 hover:to-blue-500/30 border border-purple-400/30 transition-all"
+              title="Launch desktop timer (works over fullscreen apps)"
+            >
+              <Monitor className="w-4 h-4" />
+              <span>Desktop Timer</span>
+            </button>
+          </motion.div>
         )}
 
         {/* Mission Control panel */}
