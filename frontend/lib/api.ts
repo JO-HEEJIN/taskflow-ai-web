@@ -445,4 +445,149 @@ export const api = {
     if (!res.ok) throw new Error('Failed to delete tasks');
     return res.json();
   },
+
+  // Notes
+  async getNotes() {
+    if (isGuestMode()) {
+      const notes = localStorage.getItem('taskflow-notes');
+      return { notes: notes ? JSON.parse(notes) : [] };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/notes`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch notes');
+    return res.json();
+  },
+
+  async getTaskNotes(taskId: string) {
+    if (isGuestMode()) {
+      const notes = localStorage.getItem('taskflow-notes');
+      const allNotes = notes ? JSON.parse(notes) : [];
+      return { notes: allNotes.filter((n: any) => n.taskId === taskId) };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/notes/task/${taskId}`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch task notes');
+    return res.json();
+  },
+
+  async saveNote(note: { id?: string; taskId?: string; subtaskId?: string; content: string }) {
+    if (isGuestMode()) {
+      const notes = localStorage.getItem('taskflow-notes');
+      const allNotes = notes ? JSON.parse(notes) : [];
+      const now = new Date().toISOString();
+      const newNote = {
+        id: note.id || crypto.randomUUID(),
+        ...note,
+        createdAt: note.id ? allNotes.find((n: any) => n.id === note.id)?.createdAt : now,
+        updatedAt: now,
+      };
+      const updatedNotes = note.id
+        ? allNotes.map((n: any) => n.id === note.id ? newNote : n)
+        : [...allNotes, newNote];
+      localStorage.setItem('taskflow-notes', JSON.stringify(updatedNotes));
+      return { note: newNote };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/notes`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify(note),
+    });
+    if (!res.ok) throw new Error('Failed to save note');
+    return res.json();
+  },
+
+  async deleteNote(noteId: string) {
+    if (isGuestMode()) {
+      const notes = localStorage.getItem('taskflow-notes');
+      const allNotes = notes ? JSON.parse(notes) : [];
+      localStorage.setItem('taskflow-notes', JSON.stringify(allNotes.filter((n: any) => n.id !== noteId)));
+      return { success: true };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/notes/${noteId}`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete note');
+    return res.json();
+  },
+
+  // Coach Conversations
+  async getCoachConversations() {
+    if (isGuestMode()) {
+      const convs = localStorage.getItem('taskflow-coach-conversations');
+      return { conversations: convs ? JSON.parse(convs) : [] };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/coach-conversations`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch conversations');
+    return res.json();
+  },
+
+  async getTaskConversation(taskId: string, subtaskId?: string) {
+    if (isGuestMode()) {
+      const convs = localStorage.getItem('taskflow-coach-conversations');
+      const allConvs = convs ? JSON.parse(convs) : [];
+      const conv = allConvs.find((c: any) =>
+        c.taskId === taskId && (subtaskId ? c.subtaskId === subtaskId : !c.subtaskId)
+      );
+      return { conversation: conv || null };
+    }
+    const url = subtaskId
+      ? `${API_BASE_URL}/api/coach-conversations/task/${taskId}?subtaskId=${subtaskId}`
+      : `${API_BASE_URL}/api/coach-conversations/task/${taskId}`;
+    const res = await fetch(url, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch conversation');
+    return res.json();
+  },
+
+  async saveCoachConversation(conversation: {
+    id?: string;
+    taskId?: string;
+    subtaskId?: string;
+    messages: Array<{ role: 'user' | 'ai'; content: string }>
+  }) {
+    if (isGuestMode()) {
+      const convs = localStorage.getItem('taskflow-coach-conversations');
+      const allConvs = convs ? JSON.parse(convs) : [];
+      const now = new Date().toISOString();
+      const newConv = {
+        id: conversation.id || crypto.randomUUID(),
+        ...conversation,
+        createdAt: conversation.id ? allConvs.find((c: any) => c.id === conversation.id)?.createdAt : now,
+        updatedAt: now,
+      };
+      const updatedConvs = conversation.id
+        ? allConvs.map((c: any) => c.id === conversation.id ? newConv : c)
+        : [...allConvs, newConv];
+      localStorage.setItem('taskflow-coach-conversations', JSON.stringify(updatedConvs));
+      return { conversation: newConv };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/coach-conversations`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify(conversation),
+    });
+    if (!res.ok) throw new Error('Failed to save conversation');
+    return res.json();
+  },
+
+  async deleteCoachConversation(conversationId: string) {
+    if (isGuestMode()) {
+      const convs = localStorage.getItem('taskflow-coach-conversations');
+      const allConvs = convs ? JSON.parse(convs) : [];
+      localStorage.setItem('taskflow-coach-conversations', JSON.stringify(allConvs.filter((c: any) => c.id !== conversationId)));
+      return { success: true };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/coach-conversations/${conversationId}`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete conversation');
+    return res.json();
+  },
 };

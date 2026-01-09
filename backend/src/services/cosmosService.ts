@@ -11,6 +11,8 @@ class CosmosService {
   private usersContainer: Container | null = null;
   private pushSubscriptionsContainer: Container | null = null;
   private timersContainer: Container | null = null;
+  private notesContainer: Container | null = null;
+  private coachConversationsContainer: Container | null = null;
 
   constructor() {
     const endpoint = process.env.COSMOS_ENDPOINT || '';
@@ -74,6 +76,20 @@ class CosmosService {
       });
       this.timersContainer = timersContainer;
 
+      // Create notes container
+      const { container: notesContainer } = await database.containers.createIfNotExists({
+        id: 'notes',
+        partitionKey: { paths: ['/userId'] },
+      });
+      this.notesContainer = notesContainer;
+
+      // Create coach conversations container
+      const { container: coachConversationsContainer } = await database.containers.createIfNotExists({
+        id: 'coachConversations',
+        partitionKey: { paths: ['/userId'] },
+      });
+      this.coachConversationsContainer = coachConversationsContainer;
+
       console.log('✅ Cosmos DB initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize Cosmos DB:', error);
@@ -101,6 +117,14 @@ class CosmosService {
     return this.timersContainer;
   }
 
+  getNotesContainer(): Container | null {
+    return this.notesContainer;
+  }
+
+  getCoachConversationsContainer(): Container | null {
+    return this.coachConversationsContainer;
+  }
+
   // Generic method to get any container by name
   getContainer(containerName: string): Container {
     switch (containerName) {
@@ -119,6 +143,12 @@ class CosmosService {
       case 'timers':
         if (!this.timersContainer) throw new Error('Timers container not initialized');
         return this.timersContainer;
+      case 'notes':
+        if (!this.notesContainer) throw new Error('Notes container not initialized');
+        return this.notesContainer;
+      case 'coachConversations':
+        if (!this.coachConversationsContainer) throw new Error('Coach conversations container not initialized');
+        return this.coachConversationsContainer;
       default:
         throw new Error(`Unknown container: ${containerName}`);
     }

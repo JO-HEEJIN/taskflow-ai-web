@@ -11,6 +11,8 @@ import syncRouter from './routes/sync';
 import notificationsRouter from './routes/notifications';
 import authRouter from './routes/auth';
 import imagesRouter from './routes/images';
+import notesRouter from './routes/notes';
+import coachConversationsRouter from './routes/coachConversations';
 
 dotenv.config();
 
@@ -78,6 +80,8 @@ app.use('/api/sync', syncRouter);
 app.use('/api/notifications', notificationsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/images', imagesRouter);
+app.use('/api/notes', notesRouter);
+app.use('/api/coach-conversations', coachConversationsRouter);
 
 // Initialize services and start server
 async function startServer() {
