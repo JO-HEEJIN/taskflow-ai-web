@@ -166,8 +166,16 @@ class SoundManager {
    * @param volume 볼륨 (0.0 ~ 1.0)
    */
   public async play(key: string, loop: boolean = false, volume: number = 1.0): Promise<AudioBufferSourceNode | undefined> {
+    // Auto-initialize if not done
     if (!this.context || !this.masterGain) {
-      console.warn('AudioContext not initialized. Call init() first.');
+      console.log('🔧 AudioContext not initialized, initializing now...');
+      this.init();
+    }
+
+    if (!this.context || !this.masterGain) {
+      console.error('❌ Failed to initialize AudioContext');
+      // Fallback to HTMLAudioElement
+      await this.playFallback(key, volume);
       return;
     }
 
@@ -180,31 +188,79 @@ class SoundManager {
         console.log('✅ AudioContext resumed, state:', this.context.state);
       } catch (e) {
         console.error('❌ Failed to resume AudioContext:', e);
+        // Try fallback
+        await this.playFallback(key, volume);
         return;
       }
     }
 
-    const buffer = this.buffers.get(key);
+    let buffer = this.buffers.get(key);
+
+    // If buffer not loaded, try to load it now
     if (!buffer) {
-      console.warn(`Sound ${key} not loaded yet.`);
+      console.log(`⏳ Sound ${key} not preloaded, loading now...`);
+      const url = this.soundManifest[key as keyof typeof this.soundManifest];
+      if (url) {
+        try {
+          const response = await fetch(url);
+          const arrayBuffer = await response.arrayBuffer();
+          buffer = await this.context.decodeAudioData(arrayBuffer);
+          this.buffers.set(key, buffer);
+          console.log(`✅ Sound ${key} loaded on-demand`);
+        } catch (e) {
+          console.error(`❌ Failed to load sound ${key} on-demand:`, e);
+          // Fallback to HTMLAudioElement
+          await this.playFallback(key, volume);
+          return;
+        }
+      } else {
+        console.warn(`❌ Unknown sound key: ${key}`);
+        return;
+      }
+    }
+
+    try {
+      const source = this.context.createBufferSource();
+      source.buffer = buffer;
+      source.loop = loop;
+
+      // 개별 볼륨 조절을 위한 GainNode
+      const gainNode = this.context.createGain();
+      gainNode.gain.value = volume;
+
+      source.connect(gainNode);
+      gainNode.connect(this.masterGain);
+
+      source.start(0);
+      console.log(`🔊 Playing sound: ${key} (loop: ${loop}, volume: ${volume})`);
+
+      return source; // 제어(중지 등)를 위해 소스 반환
+    } catch (e) {
+      console.error(`❌ Failed to play sound via Web Audio API:`, e);
+      await this.playFallback(key, volume);
+      return;
+    }
+  }
+
+  /**
+   * Fallback to HTMLAudioElement when Web Audio API fails
+   */
+  private async playFallback(key: string, volume: number = 1.0): Promise<void> {
+    const url = this.soundManifest[key as keyof typeof this.soundManifest];
+    if (!url) {
+      console.warn(`❌ Unknown sound key for fallback: ${key}`);
       return;
     }
 
-    const source = this.context.createBufferSource();
-    source.buffer = buffer;
-    source.loop = loop;
-
-    // 개별 볼륨 조절을 위한 GainNode
-    const gainNode = this.context.createGain();
-    gainNode.gain.value = volume;
-
-    source.connect(gainNode);
-    gainNode.connect(this.masterGain);
-
-    source.start(0);
-    console.log(`🔊 Playing sound: ${key} (loop: ${loop}, volume: ${volume})`);
-
-    return source; // 제어(중지 등)를 위해 소스 반환
+    console.log(`🔄 Using HTMLAudioElement fallback for ${key}`);
+    try {
+      const audio = new Audio(url);
+      audio.volume = volume;
+      await audio.play();
+      console.log(`✅ Fallback sound played: ${key}`);
+    } catch (e) {
+      console.error(`❌ Fallback playback also failed:`, e);
+    }
   }
 
   /**

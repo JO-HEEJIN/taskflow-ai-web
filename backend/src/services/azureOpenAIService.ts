@@ -458,7 +458,32 @@ Respond with JSON only.`;
 
       // Parse JSON response
       const parsed = JSON.parse(content);
-      const subtasks = parsed.subtasks || parsed;
+      const rawSubtasks = parsed.subtasks || parsed;
+
+      // Normalize field names (handle snake_case, camelCase, and other variations)
+      const subtasks = Array.isArray(rawSubtasks) ? rawSubtasks.map((st: any) => {
+        // Get estimated minutes from various possible field names
+        const minutes =
+          st.estimatedMinutes ??
+          st.estimated_minutes ??
+          st.duration ??
+          st.time ??
+          st.minutes ??
+          null;
+
+        // Convert string to number if needed
+        const estimatedMinutes = typeof minutes === 'string' ? parseInt(minutes, 10) : minutes;
+
+        // Log if we found an alternative field name
+        if (!st.estimatedMinutes && minutes !== null) {
+          console.log(`🔄 [Field Normalization] Found time in alternative field for "${st.title}": ${minutes} min`);
+        }
+
+        return {
+          ...st,
+          estimatedMinutes: estimatedMinutes || 5,  // Default to 5 if nothing found
+        };
+      }) : rawSubtasks;
 
       // Calculate tokens and cost
       const usage = response.usage;
@@ -1093,7 +1118,20 @@ Return ONLY JSON.`;
       }
 
       const parsed = JSON.parse(content);
-      const subtasks = parsed.subtasks || parsed;
+      const rawSubtasks = parsed.subtasks || parsed;
+
+      // Normalize field names (handle snake_case, camelCase, and other variations)
+      const subtasks = Array.isArray(rawSubtasks) ? rawSubtasks.map((st: any) => {
+        const minutes =
+          st.estimatedMinutes ??
+          st.estimated_minutes ??
+          st.duration ??
+          st.time ??
+          st.minutes ??
+          null;
+        const estimatedMinutes = typeof minutes === 'string' ? parseInt(minutes, 10) : minutes;
+        return { ...st, estimatedMinutes: estimatedMinutes || 5 };
+      }) : rawSubtasks;
 
       const usage = response.usage;
       const tokensUsed = usage?.totalTokens || 0;
@@ -1106,7 +1144,7 @@ Return ONLY JSON.`;
         subtasks: subtasks.map((st: any, index: number) => ({
           title: st.title || String(st),
           order: index,
-          estimatedMinutes: st.estimatedMinutes || 5,
+          estimatedMinutes: st.estimatedMinutes,
           stepType: 'mental',
         })),
         metadata: {
@@ -1242,7 +1280,20 @@ Keep responses brief (2-4 sentences). Match the user's language (Korean/English)
       const latencyMs = Date.now() - startTime;
       const content = response.choices[0]?.message?.content;
       const parsed = JSON.parse(content || '{"subtasks":[]}');
-      const subtasks = parsed.subtasks || parsed;
+      const rawSubtasks = parsed.subtasks || parsed;
+
+      // Normalize field names (handle snake_case, camelCase, and other variations)
+      const subtasks = Array.isArray(rawSubtasks) ? rawSubtasks.map((st: any) => {
+        const minutes =
+          st.estimatedMinutes ??
+          st.estimated_minutes ??
+          st.duration ??
+          st.time ??
+          st.minutes ??
+          null;
+        const estimatedMinutes = typeof minutes === 'string' ? parseInt(minutes, 10) : minutes;
+        return { ...st, estimatedMinutes: estimatedMinutes || 5 };
+      }) : rawSubtasks;
 
       const usage = response.usage;
       const tokensUsed = usage?.totalTokens || 0;

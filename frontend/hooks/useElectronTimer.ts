@@ -41,7 +41,16 @@ export function useElectronTimer(): UseElectronTimerReturn {
     const userAgent = navigator.userAgent.toLowerCase();
     const platform = navigator.platform.toLowerCase();
 
-    if (platform.includes('mac') || userAgent.includes('mac')) {
+    // Check if mobile device (iPhone, iPad, Android, etc.)
+    const isMobile =
+      /iphone|ipad|ipod|android|webos|blackberry|windows phone|opera mini|iemobile/i.test(userAgent) ||
+      (userAgent.includes('mac') && 'ontouchend' in document); // iPad with desktop mode
+
+    // Desktop Timer is only available on desktop Mac/Windows, NOT on mobile
+    if (isMobile) {
+      setDetectedOS('other');
+      setIsElectronAvailable(false);
+    } else if (platform.includes('mac') || userAgent.includes('mac')) {
       setDetectedOS('mac');
       setIsElectronAvailable(true);
     } else if (platform.includes('win') || userAgent.includes('win')) {
