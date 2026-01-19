@@ -13,6 +13,7 @@ class CosmosService {
   private timersContainer: Container | null = null;
   private notesContainer: Container | null = null;
   private coachConversationsContainer: Container | null = null;
+  private textbooksContainer: Container | null = null;
 
   constructor() {
     const endpoint = process.env.COSMOS_ENDPOINT || '';
@@ -90,6 +91,13 @@ class CosmosService {
       });
       this.coachConversationsContainer = coachConversationsContainer;
 
+      // Create textbooks container
+      const { container: textbooksContainer } = await database.containers.createIfNotExists({
+        id: 'textbooks',
+        partitionKey: { paths: ['/syncCode'] },
+      });
+      this.textbooksContainer = textbooksContainer;
+
       console.log('✅ Cosmos DB initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize Cosmos DB:', error);
@@ -125,6 +133,10 @@ class CosmosService {
     return this.coachConversationsContainer;
   }
 
+  getTextbooksContainer(): Container | null {
+    return this.textbooksContainer;
+  }
+
   // Generic method to get any container by name
   getContainer(containerName: string): Container {
     switch (containerName) {
@@ -149,6 +161,9 @@ class CosmosService {
       case 'coachConversations':
         if (!this.coachConversationsContainer) throw new Error('Coach conversations container not initialized');
         return this.coachConversationsContainer;
+      case 'textbooks':
+        if (!this.textbooksContainer) throw new Error('Textbooks container not initialized');
+        return this.textbooksContainer;
       default:
         throw new Error(`Unknown container: ${containerName}`);
     }

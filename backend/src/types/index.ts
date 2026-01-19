@@ -13,6 +13,9 @@ export interface Task {
   // Soft delete fields
   isDeleted?: boolean;
   deletedAt?: string;
+  // Textbook integration
+  textbookId?: string;
+  chapterId?: string;
 }
 
 export enum TaskStatus {
@@ -91,4 +94,27 @@ export interface AIBreakdownResponse {
     strategyTag?: LearningStrategy;
     interactionType?: InteractionType;
   }[];
+}
+
+// Textbook Types
+export interface Chapter {
+  id: string;
+  title: string;
+  description?: string;
+  order: number;
+  linkedTaskId?: string; // Task created from this chapter
+  isCompleted: boolean;
+}
+
+export interface Textbook {
+  id: string;
+  title: string;
+  author?: string;
+  coverImage?: string;
+  description?: string;
+  chapters: Chapter[];
+  syncCode: string; // userId
+  progress: number; // 0-100, calculated from chapters
+  createdAt: Date;
+  updatedAt: Date;
 }

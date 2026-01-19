@@ -13,6 +13,9 @@ export interface Task {
   // Soft delete fields
   isDeleted?: boolean;
   deletedAt?: string;
+  // Textbook integration
+  textbookId?: string;
+  chapterId?: string;
 }
 
 export enum TaskStatus {
@@ -115,3 +118,26 @@ export const SRS_INTERVALS: Record<ConfidenceLevel, number> = {
   yellow: 24 * 60 * 60 * 1000,   // 1 day
   green: 3 * 24 * 60 * 60 * 1000 // 3 days
 };
+
+// Textbook Types
+export interface Chapter {
+  id: string;
+  title: string;
+  description?: string;
+  order: number;
+  linkedTaskId?: string; // Task created from this chapter
+  isCompleted: boolean;
+}
+
+export interface Textbook {
+  id: string;
+  title: string;
+  author?: string;
+  coverImage?: string;
+  description?: string;
+  chapters: Chapter[];
+  syncCode: string; // userId
+  progress: number; // 0-100, calculated from chapters
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}

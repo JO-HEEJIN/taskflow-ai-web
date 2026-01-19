@@ -1860,6 +1860,102 @@ Generate 2-4 clarifying questions. JSON only.`;
   }
 
   /**
+   * Generate study plan subtasks for a textbook chapter
+   * Creates focused learning subtasks based on chapter title
+   */
+  async generateStudyPlan(
+    chapterTitle: string,
+    textbookTitle: string,
+    chapterDescription?: string
+  ): Promise<AIBreakdownResponse> {
+    if (!this.client) {
+      // Mock response for development
+      return {
+        subtasks: [
+          { title: `Read and highlight key concepts in "${chapterTitle}"`, order: 0, estimatedMinutes: 15, stepType: 'mental' },
+          { title: `Summarize main points in your own words`, order: 1, estimatedMinutes: 10, stepType: 'mental' },
+          { title: `Create flashcards for key terms`, order: 2, estimatedMinutes: 10, stepType: 'mental' },
+          { title: `Practice recall without looking at notes`, order: 3, estimatedMinutes: 10, stepType: 'mental' },
+          { title: `Review and identify weak areas`, order: 4, estimatedMinutes: 5, stepType: 'mental' },
+        ],
+      };
+    }
+
+    try {
+      const systemPrompt = `You are a study planning assistant that creates effective learning subtasks.
+Your goal is to break down textbook chapters into actionable study steps using evidence-based learning strategies.
+
+LEARNING STRATEGIES TO USE:
+- Active Recall: Quiz yourself without looking at materials
+- Feynman Technique: Explain concepts in simple terms
+- Spaced Repetition: Review at increasing intervals
+- Elaboration: Connect new concepts to existing knowledge
+
+OUTPUT FORMAT (JSON):
+{
+  "subtasks": [
+    {"title": "...", "order": 0, "estimatedMinutes": 10, "stepType": "mental", "strategyTag": "active_recall"},
+    ...
+  ]
+}
+
+RULES:
+- Each subtask should be completable in 5-20 minutes
+- Use variety of learning strategies
+- Include both reading and active practice
+- Total study time should be 45-90 minutes per chapter
+- Use the same language as the chapter title`;
+
+      const userPrompt = `Create a study plan for this chapter:
+Textbook: ${textbookTitle}
+Chapter: ${chapterTitle}
+${chapterDescription ? `Description: ${chapterDescription}` : ''}
+
+Generate 4-7 study subtasks.`;
+
+      const response = await this.client.getChatCompletions(
+        this.models.architect,
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        {
+          temperature: 0.7,
+          maxTokens: 1000,
+          responseFormat: { type: 'json_object' },
+        }
+      );
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No response from AI');
+      }
+
+      const parsed = JSON.parse(content);
+      return {
+        subtasks: parsed.subtasks.map((st: any, idx: number) => ({
+          title: st.title,
+          order: st.order ?? idx,
+          estimatedMinutes: st.estimatedMinutes || 10,
+          stepType: st.stepType || 'mental',
+          strategyTag: st.strategyTag,
+          interactionType: st.interactionType || 'checkbox',
+        })),
+      };
+    } catch (error) {
+      console.error('Error generating study plan:', error);
+      // Fallback to mock response
+      return {
+        subtasks: [
+          { title: `Read and understand "${chapterTitle}"`, order: 0, estimatedMinutes: 20, stepType: 'mental' },
+          { title: `Take notes on key concepts`, order: 1, estimatedMinutes: 15, stepType: 'mental' },
+          { title: `Review and practice recall`, order: 2, estimatedMinutes: 10, stepType: 'mental' },
+        ],
+      };
+    }
+  }
+
+  /**
    * Check if service is connected
    */
   isConnected(): boolean {

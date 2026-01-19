@@ -3,12 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, X, LogIn, LogOut, Trophy, Volume2, VolumeX, FileText, Menu, Star, Trash2, Database, ChevronRight } from 'lucide-react';
+import { User, X, LogIn, LogOut, Trophy, Volume2, VolumeX, FileText, Menu, Star, Trash2, Database, ChevronRight, BookOpen } from 'lucide-react';
 import { useNotesStore, Note } from '@/store/useNotesStore';
 import ReactMarkdown from 'react-markdown';
 import { useGamificationStore, getLevelProgress } from '@/store/useGamificationStore';
 import { useTaskStore } from '@/store/taskStore';
 import { TaskHistory } from '@/components/TaskHistory';
+import { TextbookLibrary } from '@/components/textbooks';
 
 interface ProfileButtonProps {
   isOpen?: boolean;
@@ -27,6 +28,7 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [showTaskHistory, setShowTaskHistory] = useState(false);
   const [isDataManagementExpanded, setIsDataManagementExpanded] = useState(false);
+  const [showTextbookLibrary, setShowTextbookLibrary] = useState(false);
 
   // Use external control if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -229,6 +231,26 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
                       <span>Logout</span>
                     </>
                   )}
+                </button>
+              </div>
+
+              {/* Textbook Library Section - Blue theme */}
+              <div className="mb-6 p-4 rounded-xl" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>
+                <button
+                  onClick={() => {
+                    setShowTextbookLibrary(true);
+                    setIsOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <BookOpen className="w-5 h-5 text-blue-400" />
+                    <div className="text-left">
+                      <p className="text-blue-400 font-medium">Textbook Library</p>
+                      <p className="text-xs text-blue-200/60">Manage your study materials</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-blue-400" />
                 </button>
               </div>
 
@@ -623,6 +645,11 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
       {/* Task History Modal */}
       {showTaskHistory && (
         <TaskHistory onClose={() => setShowTaskHistory(false)} />
+      )}
+
+      {/* Textbook Library Modal */}
+      {showTextbookLibrary && (
+        <TextbookLibrary onClose={() => setShowTextbookLibrary(false)} />
       )}
     </>
   );

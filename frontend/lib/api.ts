@@ -662,4 +662,115 @@ export const api = {
     if (!res.ok) throw new Error('Failed to delete conversation');
     return res.json();
   },
+
+  // Textbooks
+  async getTextbooks() {
+    if (isGuestMode()) {
+      const textbooks = localStorage.getItem('taskflow-textbooks');
+      return { textbooks: textbooks ? JSON.parse(textbooks) : [] };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/textbooks`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch textbooks');
+    return res.json();
+  },
+
+  async getTextbookById(id: string) {
+    if (isGuestMode()) {
+      const textbooks = localStorage.getItem('taskflow-textbooks');
+      const allTextbooks = textbooks ? JSON.parse(textbooks) : [];
+      const textbook = allTextbooks.find((t: any) => t.id === id);
+      return { textbook: textbook || null };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/textbooks/${id}`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch textbook');
+    return res.json();
+  },
+
+  async createTextbook(data: {
+    title: string;
+    author?: string;
+    description?: string;
+    chapters: { title: string; description?: string }[];
+  }) {
+    if (isGuestMode()) {
+      const textbooks = localStorage.getItem('taskflow-textbooks');
+      const allTextbooks = textbooks ? JSON.parse(textbooks) : [];
+      const now = new Date().toISOString();
+      const newTextbook = {
+        id: crypto.randomUUID(),
+        ...data,
+        chapters: data.chapters.map((ch, index) => ({
+          id: crypto.randomUUID(),
+          title: ch.title,
+          description: ch.description,
+          order: index,
+          isCompleted: false,
+        })),
+        syncCode: 'guest',
+        progress: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+      localStorage.setItem('taskflow-textbooks', JSON.stringify([...allTextbooks, newTextbook]));
+      return { textbook: newTextbook };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/textbooks`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error('Failed to create textbook');
+    return res.json();
+  },
+
+  async updateTextbook(id: string, updates: any) {
+    if (isGuestMode()) {
+      const textbooks = localStorage.getItem('taskflow-textbooks');
+      const allTextbooks = textbooks ? JSON.parse(textbooks) : [];
+      const updatedTextbooks = allTextbooks.map((t: any) =>
+        t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t
+      );
+      localStorage.setItem('taskflow-textbooks', JSON.stringify(updatedTextbooks));
+      const textbook = updatedTextbooks.find((t: any) => t.id === id);
+      return { textbook };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/textbooks/${id}`, {
+      method: 'PUT',
+      headers: await getHeaders(),
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error('Failed to update textbook');
+    return res.json();
+  },
+
+  async deleteTextbook(id: string) {
+    if (isGuestMode()) {
+      const textbooks = localStorage.getItem('taskflow-textbooks');
+      const allTextbooks = textbooks ? JSON.parse(textbooks) : [];
+      localStorage.setItem('taskflow-textbooks', JSON.stringify(allTextbooks.filter((t: any) => t.id !== id)));
+      return { message: 'Textbook deleted successfully' };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/textbooks/${id}`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete textbook');
+    return res.json();
+  },
+
+  async generateTasksFromTextbook(id: string) {
+    if (isGuestMode()) {
+      throw new Error('AI task generation requires login');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/textbooks/${id}/generate-tasks`, {
+      method: 'POST',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to generate tasks from textbook');
+    return res.json();
+  },
 };
