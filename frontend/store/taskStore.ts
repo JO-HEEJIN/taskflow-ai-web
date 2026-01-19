@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 
 interface TaskStore {
   tasks: Task[];
+  deletedTasks: Task[];
   isLoading: boolean;
   error: string | null;
 
@@ -15,6 +16,10 @@ interface TaskStore {
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   updateTaskStatus: (id: string, status: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  deleteAllTasks: () => Promise<void>;
+  fetchDeletedTasks: () => Promise<void>;
+  restoreTask: (id: string) => Promise<void>;
+  permanentDeleteTask: (id: string) => Promise<void>;
   addSubtasks: (taskId: string, subtasks: (string | AISubtaskSuggestion)[]) => Promise<void>;
   addChildrenToSubtask: (taskId: string, subtaskId: string, children: any[], timestamp?: number) => Promise<void>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
@@ -29,6 +34,7 @@ interface TaskStore {
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
+  deletedTasks: [],
   isLoading: false,
   error: null,
 
@@ -145,6 +151,53 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       await api.deleteTask(id);
       set((state) => ({
         tasks: state.tasks.filter((t) => t.id !== id),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  deleteAllTasks: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.deleteAllTasks();
+      set({ tasks: [], isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  fetchDeletedTasks: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { tasks } = await api.getDeletedTasks();
+      set({ deletedTasks: tasks, isLoading: false });
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  restoreTask: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const { task } = await api.restoreTask(id);
+      set((state) => ({
+        tasks: [...state.tasks, task],
+        deletedTasks: state.deletedTasks.filter((t) => t.id !== id),
+        isLoading: false,
+      }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  permanentDeleteTask: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.permanentDeleteTask(id);
+      set((state) => ({
+        deletedTasks: state.deletedTasks.filter((t) => t.id !== id),
         isLoading: false,
       }));
     } catch (error: any) {

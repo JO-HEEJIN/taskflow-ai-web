@@ -10,6 +10,9 @@ export interface Task {
   sourceSubtaskId?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Soft delete fields
+  isDeleted?: boolean;
+  deletedAt?: string;
 }
 
 export enum TaskStatus {

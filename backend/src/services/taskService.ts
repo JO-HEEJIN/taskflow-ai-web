@@ -143,11 +143,11 @@ class TaskService {
     }
   }
 
-  // Get all tasks for a sync code
+  // Get all tasks for a sync code (excludes soft-deleted tasks)
   async getTasksBySyncCode(syncCode: string): Promise<Task[]> {
-    // Just return all tasks without auto-cleanup
-    // Orphaned tasks will be handled by frontend prompt
-    return this.getAllTasksRaw(syncCode);
+    const allTasks = await this.getAllTasksRaw(syncCode);
+    // Filter out soft-deleted tasks
+    return allTasks.filter((task) => !task.isDeleted);
   }
 
   // Get task by ID
@@ -206,23 +206,90 @@ class TaskService {
     }
   }
 
-  // Delete task
+  // Delete task (soft delete)
   async deleteTask(id: string, syncCode: string): Promise<boolean> {
     // First, get the task to find linked tasks
     const task = await this.getTaskById(id, syncCode);
     if (!task) return false;
 
-    // Find and delete all linked tasks (tasks created from this task's subtasks)
+    // Find and soft-delete all linked tasks (tasks created from this task's subtasks)
     const linkedTaskIds = task.subtasks
       .filter((st) => st.linkedTaskId)
       .map((st) => st.linkedTaskId!);
 
-    // Delete all linked tasks first
+    // Soft-delete all linked tasks first
     for (const linkedTaskId of linkedTaskIds) {
       await this.deleteTask(linkedTaskId, syncCode);
     }
 
-    // Now delete the parent task
+    // Soft delete: set isDeleted flag and deletedAt timestamp
+    const result = await this.updateTask(id, syncCode, {
+      isDeleted: true,
+      deletedAt: new Date().toISOString(),
+    });
+
+    return result !== null;
+  }
+
+  // Delete all tasks for a user (soft delete)
+  async deleteAllTasks(syncCode: string): Promise<{ deletedCount: number }> {
+    const tasks = await this.getTasksBySyncCode(syncCode);
+    let deletedCount = 0;
+
+    for (const task of tasks) {
+      const success = await this.deleteTask(task.id, syncCode);
+      if (success) deletedCount++;
+    }
+
+    return { deletedCount };
+  }
+
+  // Get deleted tasks (for history/trash view)
+  async getDeletedTasks(syncCode: string): Promise<Task[]> {
+    const allTasks = await this.getAllTasksRaw(syncCode);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    // Filter to only deleted tasks that are within 30 days
+    const deletedTasks = allTasks.filter((task) => {
+      if (!task.isDeleted || !task.deletedAt) return false;
+      const deletedAt = new Date(task.deletedAt);
+      return deletedAt > thirtyDaysAgo;
+    });
+
+    // Auto-cleanup: permanently delete tasks older than 30 days
+    const expiredTasks = allTasks.filter((task) => {
+      if (!task.isDeleted || !task.deletedAt) return false;
+      const deletedAt = new Date(task.deletedAt);
+      return deletedAt <= thirtyDaysAgo;
+    });
+
+    // Permanently delete expired tasks in background
+    for (const expiredTask of expiredTasks) {
+      await this.permanentDeleteTask(expiredTask.id, syncCode);
+    }
+
+    // Sort by deletedAt descending (most recent first)
+    return deletedTasks.sort((a, b) => {
+      const dateA = new Date(a.deletedAt!).getTime();
+      const dateB = new Date(b.deletedAt!).getTime();
+      return dateB - dateA;
+    });
+  }
+
+  // Restore a deleted task
+  async restoreTask(id: string, syncCode: string): Promise<Task | null> {
+    const task = await this.getTaskById(id, syncCode);
+    if (!task || !task.isDeleted) return null;
+
+    return this.updateTask(id, syncCode, {
+      isDeleted: false,
+      deletedAt: undefined,
+    });
+  }
+
+  // Permanently delete a task (hard delete)
+  async permanentDeleteTask(id: string, syncCode: string): Promise<boolean> {
     const container = cosmosService.getTasksContainer();
 
     if (container) {

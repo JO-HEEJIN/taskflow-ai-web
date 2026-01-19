@@ -446,6 +446,61 @@ export const api = {
     return res.json();
   },
 
+  // Delete all tasks (soft delete - moves to trash)
+  async deleteAllTasks() {
+    if (isGuestMode()) {
+      const tasks = guestStorage.getAllTasks();
+      tasks.forEach((task) => guestStorage.deleteTask(task.id));
+      return { message: 'All tasks deleted', deletedCount: tasks.length };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/tasks`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete all tasks');
+    return res.json();
+  },
+
+  // Get deleted tasks (trash/history)
+  async getDeletedTasks() {
+    if (isGuestMode()) {
+      // Guest mode doesn't support trash (hard delete)
+      return { tasks: [] };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/tasks/deleted`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch deleted tasks');
+    return res.json();
+  },
+
+  // Restore a deleted task
+  async restoreTask(id: string) {
+    if (isGuestMode()) {
+      throw new Error('Restore not supported in guest mode');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${id}/restore`, {
+      method: 'POST',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to restore task');
+    return res.json();
+  },
+
+  // Permanently delete a task (cannot be restored)
+  async permanentDeleteTask(id: string) {
+    if (isGuestMode()) {
+      guestStorage.deleteTask(id);
+      return { message: 'Task permanently deleted' };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${id}/permanent`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to permanently delete task');
+    return res.json();
+  },
+
   // Notes
   async getNotes() {
     if (isGuestMode()) {

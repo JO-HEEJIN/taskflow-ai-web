@@ -7,6 +7,7 @@ import { TaskGraphView } from './TaskGraphView';
 import { TaskDetail } from './TaskDetail';
 import { KanbanView } from './KanbanView';
 import { OrphanedTasksModal } from './OrphanedTasksModal';
+import { TaskHistory } from './TaskHistory';
 import { EmptyStateWithActions } from './onboarding/EmptyStateWithActions';
 import { useEffect, useState, useMemo } from 'react';
 import { Task, TaskStatus, NodeContext } from '@/types';
@@ -19,7 +20,7 @@ interface TaskListProps {
 }
 
 export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
-  const { tasks, fetchTasks, isLoading, error, createTask, createTaskWithAutoFocus } = useTaskStore();
+  const { tasks, fetchTasks, isLoading, error, createTask, createTaskWithAutoFocus, deleteAllTasks } = useTaskStore();
   const { enterFocusMode } = useCoachStore();
   const toast = useToast();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -29,6 +30,7 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
   const [orphanedTasks, setOrphanedTasks] = useState<Task[]>([]);
   const [showOrphanedModal, setShowOrphanedModal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
     console.log('🔍 TaskList mounted, fetching tasks...');
@@ -85,6 +87,23 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
   const handleKeepOrphaned = () => {
     setShowOrphanedModal(false);
     setOrphanedTasks([]);
+  };
+
+  const handleDeleteAllTasks = async () => {
+    if (tasks.length === 0) {
+      toast.info('No tasks to delete');
+      return;
+    }
+
+    if (confirm(`Delete all ${tasks.length} tasks? They will be moved to trash and can be restored within 30 days.`)) {
+      try {
+        await deleteAllTasks();
+        toast.success('All tasks moved to trash');
+      } catch (error) {
+        console.error('Failed to delete all tasks:', error);
+        toast.error('Failed to delete tasks. Please try again.');
+      }
+    }
   };
 
   const handleNodeClick = (context: NodeContext) => {
@@ -298,6 +317,46 @@ export function TaskList({ onBackgroundClick, onEditTask }: TaskListProps) {
           onDelete={handleDeleteOrphaned}
         />
       )}
+
+      {/* Task History Modal */}
+      {showHistory && (
+        <TaskHistory onClose={() => setShowHistory(false)} />
+      )}
+
+      {/* Trash & Delete All Buttons */}
+      <div className="fixed top-4 right-4 z-40 flex items-center gap-2">
+        {/* Trash/History Button */}
+        <button
+          onClick={() => setShowHistory(true)}
+          className="backdrop-blur-md rounded-lg px-4 py-3 text-sm font-medium text-white transition-all flex items-center gap-2 min-h-[48px]"
+          style={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            border: '1px solid rgba(167, 139, 250, 0.3)',
+          }}
+          title="View deleted tasks"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span className="hidden md:inline">Trash</span>
+        </button>
+
+        {/* Delete All Button */}
+        <button
+          onClick={handleDeleteAllTasks}
+          className="backdrop-blur-md rounded-lg px-4 py-3 text-sm font-medium text-white transition-all flex items-center gap-2 min-h-[48px]"
+          style={{
+            background: 'rgba(239, 68, 68, 0.3)',
+            border: '1px solid rgba(239, 68, 68, 0.5)',
+          }}
+          title="Delete all tasks"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span className="hidden md:inline">Delete All</span>
+        </button>
+      </div>
     </>
   );
 }

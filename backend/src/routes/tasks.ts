@@ -24,6 +24,40 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Delete ALL tasks for a user (soft delete) - must be before /:id routes
+router.delete('/', async (req: Request, res: Response) => {
+  try {
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing x-user-id header' });
+    }
+
+    const result = await taskService.deleteAllTasks(userId);
+    res.json({ message: 'All tasks deleted successfully', deletedCount: result.deletedCount });
+  } catch (error) {
+    console.error('Error deleting all tasks:', error);
+    res.status(500).json({ error: 'Failed to delete all tasks' });
+  }
+});
+
+// Get deleted tasks (trash/history) - must be before /:id routes
+router.get('/deleted', async (req: Request, res: Response) => {
+  try {
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing x-user-id header' });
+    }
+
+    const deletedTasks = await taskService.getDeletedTasks(userId);
+    res.json({ tasks: deletedTasks });
+  } catch (error) {
+    console.error('Error fetching deleted tasks:', error);
+    res.status(500).json({ error: 'Failed to fetch deleted tasks' });
+  }
+});
+
 // Get task by ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -176,7 +210,7 @@ router.post('/:id/approve-breakdown', async (req: Request, res: Response) => {
   }
 });
 
-// Delete task
+// Delete task (soft delete - moves to trash)
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -186,33 +220,69 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Missing x-user-id header' });
     }
 
-    // Check task status before deletion (guard rail for data protection)
     const task = await taskService.getTaskById(id, userId);
 
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    // Only DRAFT tasks can be deleted via API
-    // ACTIVE tasks (PENDING, IN_PROGRESS, COMPLETED) require user confirmation via UI
-    if (task.status !== TaskStatus.DRAFT) {
-      return res.status(403).json({
-        error: 'Cannot delete ACTIVE task via API. User must confirm via UI.',
-        currentStatus: task.status,
-        taskTitle: task.title
-      });
-    }
-
+    // Soft delete - task will be moved to trash and can be restored
     const success = await taskService.deleteTask(id, userId);
 
     if (!success) {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    res.json({ message: 'Task deleted successfully' });
+    res.json({ message: 'Task moved to trash', taskId: id });
   } catch (error) {
     console.error('Error deleting task:', error);
     res.status(500).json({ error: 'Failed to delete task' });
+  }
+});
+
+// Restore a deleted task from trash
+router.post('/:id/restore', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing x-user-id header' });
+    }
+
+    const task = await taskService.restoreTask(id, userId);
+
+    if (!task) {
+      return res.status(404).json({ error: 'Task not found or not deleted' });
+    }
+
+    res.json({ message: 'Task restored successfully', task });
+  } catch (error) {
+    console.error('Error restoring task:', error);
+    res.status(500).json({ error: 'Failed to restore task' });
+  }
+});
+
+// Permanently delete a task (cannot be restored)
+router.delete('/:id/permanent', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing x-user-id header' });
+    }
+
+    const success = await taskService.permanentDeleteTask(id, userId);
+
+    if (!success) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    res.json({ message: 'Task permanently deleted', taskId: id });
+  } catch (error) {
+    console.error('Error permanently deleting task:', error);
+    res.status(500).json({ error: 'Failed to permanently delete task' });
   }
 });
 
