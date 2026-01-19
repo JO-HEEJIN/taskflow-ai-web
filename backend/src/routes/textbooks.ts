@@ -3,8 +3,7 @@ import multer from 'multer';
 import { textbookService } from '../services/textbookService';
 import { claudeService } from '../services/claudeService';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pdfParse = require('pdf-parse');
+import { PDFParse } from 'pdf-parse';
 
 const router = Router();
 
@@ -173,8 +172,9 @@ router.post('/parse/pdf', upload.single('pdf'), async (req: Request, res: Respon
 
     console.log(`📄 Parsing PDF: ${req.file.originalname} (${req.file.size} bytes)`);
 
-    // Extract text from PDF
-    const pdfData = await pdfParse(req.file.buffer);
+    // Extract text from PDF using pdf-parse v2 API
+    const parser = new PDFParse({ data: req.file.buffer });
+    const pdfData = await parser.getText();
     const pdfText = pdfData.text;
 
     console.log(`📝 Extracted ${pdfText.length} characters from PDF`);
