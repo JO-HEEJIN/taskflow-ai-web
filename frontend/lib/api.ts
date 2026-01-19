@@ -773,4 +773,61 @@ export const api = {
     if (!res.ok) throw new Error('Failed to generate tasks from textbook');
     return res.json();
   },
+
+  // Parse PDF to extract chapters using Claude AI
+  async parseTextbookPDF(file: File) {
+    if (isGuestMode()) {
+      throw new Error('PDF parsing requires login');
+    }
+    const formData = new FormData();
+    formData.append('pdf', file);
+
+    const res = await fetch(`${API_BASE_URL}/api/textbooks/parse/pdf`, {
+      method: 'POST',
+      headers: {
+        'x-device-token': getDeviceToken(),
+        'x-user-id': getUserId(),
+      },
+      body: formData,
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to parse PDF');
+    }
+    return res.json();
+  },
+
+  // Parse URL to extract chapters using Claude AI
+  async parseTextbookURL(url: string) {
+    if (isGuestMode()) {
+      throw new Error('URL parsing requires login');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/textbooks/parse/url`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to parse URL');
+    }
+    return res.json();
+  },
+
+  // Parse text (table of contents) to extract chapters using Claude AI
+  async parseTextbookText(text: string) {
+    if (isGuestMode()) {
+      throw new Error('Text parsing requires login');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/textbooks/parse/text`, {
+      method: 'POST',
+      headers: await getHeaders(),
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Failed to parse text');
+    }
+    return res.json();
+  },
 };

@@ -1,0 +1,143 @@
+{
+  "project": "Textbook Integration MVP",
+  "branchName": "ralph/textbook-integration",
+  "description": "교재 연동 기능 MVP - 사용자가 교재를 등록하면 AI가 챕터별 학습 Task를 자동 생성 (Phase 1 + 3)",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Textbook & Chapter 타입 정의",
+      "description": "As a developer, I want Textbook and Chapter types defined so that I can store textbook data.",
+      "acceptanceCriteria": [
+        "Textbook interface in backend/src/types/index.ts",
+        "Chapter interface in backend/src/types/index.ts",
+        "Frontend types mirror backend types",
+        "TypeScript compiles without errors"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Added Textbook, Chapter interfaces + textbookId/chapterId to Task"
+    },
+    {
+      "id": "US-002",
+      "title": "TextbookService CRUD 구현",
+      "description": "As a developer, I want textbook CRUD operations so that users can manage their textbooks.",
+      "acceptanceCriteria": [
+        "createTextbook() creates textbook in Cosmos DB",
+        "getTextbooks() returns all textbooks for a user",
+        "getTextbookById() returns single textbook",
+        "deleteTextbook() removes textbook",
+        "TypeScript compiles without errors"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Created textbookService with CRUD + linkChapterToTask, markChapterCompleted"
+    },
+    {
+      "id": "US-003",
+      "title": "Textbook API 엔드포인트",
+      "description": "As a developer, I want REST API endpoints for textbooks so that frontend can interact with textbook data.",
+      "acceptanceCriteria": [
+        "POST /api/textbooks - create textbook",
+        "GET /api/textbooks - list textbooks",
+        "GET /api/textbooks/:id - get single textbook",
+        "DELETE /api/textbooks/:id - delete textbook",
+        "Routes registered in server.ts",
+        "TypeScript compiles without errors"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Created routes/textbooks.ts with CRUD endpoints, registered in server.ts"
+    },
+    {
+      "id": "US-004",
+      "title": "AI 학습 계획 생성 기능",
+      "description": "As a user, I want AI to generate study tasks from my textbook chapters so that I have a structured learning plan.",
+      "acceptanceCriteria": [
+        "generateStudyPlan() in azureOpenAIService",
+        "createTasksFromTextbook() converts chapters to Tasks",
+        "POST /api/textbooks/:id/generate-tasks endpoint",
+        "Generated Tasks link back to textbook/chapter",
+        "TypeScript compiles without errors"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Added generateStudyPlan to azureOpenAIService, createTasksFromTextbook to textbookService"
+    },
+    {
+      "id": "US-005",
+      "title": "Frontend Textbook Store",
+      "description": "As a developer, I want a Zustand store for textbooks so that frontend can manage textbook state.",
+      "acceptanceCriteria": [
+        "textbookStore.ts with textbooks state",
+        "fetchTextbooks, createTextbook, deleteTextbook actions",
+        "generateTasksFromTextbook action",
+        "TypeScript compiles without errors"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Created textbookStore.ts with full state management"
+    },
+    {
+      "id": "US-006",
+      "title": "Frontend API 함수",
+      "description": "As a developer, I want API client functions for textbooks so that store can call backend.",
+      "acceptanceCriteria": [
+        "api.getTextbooks() function",
+        "api.createTextbook() function",
+        "api.deleteTextbook() function",
+        "api.generateTasksFromTextbook() function",
+        "TypeScript compiles without errors"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Added all textbook API functions to api.ts with guest mode support"
+    },
+    {
+      "id": "US-007",
+      "title": "교재 라이브러리 UI",
+      "description": "As a user, I want to see my textbook library so that I can manage my learning materials.",
+      "acceptanceCriteria": [
+        "TextbookLibrary.tsx component",
+        "Grid view showing textbooks with progress",
+        "Add textbook button",
+        "Delete textbook option",
+        "Accessible from main navigation",
+        "TypeScript compiles without errors"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Created TextbookLibrary.tsx with grid view, accessible from Profile > Textbook Library"
+    },
+    {
+      "id": "US-008",
+      "title": "교재 등록 모달",
+      "description": "As a user, I want to add a new textbook with chapters so that AI can create study tasks.",
+      "acceptanceCriteria": [
+        "AddTextbookModal.tsx component",
+        "Form for title, author, chapters input",
+        "Dynamic chapter list (add/remove)",
+        "Submit creates textbook and optionally generates tasks",
+        "TypeScript compiles without errors"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Created AddTextbookModal.tsx with dynamic chapter input and AI task generation option"
+    },
+    {
+      "id": "US-009",
+      "title": "교재 상세 뷰",
+      "description": "As a user, I want to see textbook details with chapter progress so that I can track my learning.",
+      "acceptanceCriteria": [
+        "TextbookDetail.tsx component",
+        "Shows textbook info and chapter list",
+        "Each chapter shows linked Task progress",
+        "Overall progress bar",
+        "Generate tasks button if not generated",
+        "TypeScript compiles without errors"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Created TextbookDetail.tsx with chapter progress tracking and Generate Tasks button"
+    }
+  ]
+}

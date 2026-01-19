@@ -1,0 +1,22 @@
+# Ralph Progress Log
+Started: 2026-01-20T00:30:00Z
+Project: Textbook Integration MVP
+
+## Codebase Patterns
+- Cosmos DB uses syncCode as partition key (userId)
+- Task model has subtasks array with nested structure
+- API routes in backend/src/routes/, services in backend/src/services/
+- Frontend uses Zustand for state management
+- API client in frontend/lib/api.ts
+
+---
+
+## 2026-01-20 - US-001: Textbook & Chapter 타입 정의
+- **Implemented**: Textbook, Chapter interfaces in both backend and frontend
+- **Files changed**:
+  - backend/src/types/index.ts
+  - frontend/types/index.ts
+- **Learnings**:
+  - Task 타입에 textbookId, chapterId 필드 추가하여 역참조 가능
+  - Frontend 타입은 Date | string 으로 유연하게 처리
+

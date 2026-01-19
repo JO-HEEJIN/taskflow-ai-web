@@ -1,7 +1,25 @@
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
 import { textbookService } from '../services/textbookService';
+import { claudeService } from '../services/claudeService';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pdfParse = require('pdf-parse');
 
 const router = Router();
+
+// Configure multer for PDF uploads (memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'));
+    }
+  },
+});
 
 // Get all textbooks for a user
 router.get('/', async (req: Request, res: Response) => {
@@ -143,6 +161,91 @@ router.post('/:id/generate-tasks', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Error generating tasks from textbook:', error);
     res.status(500).json({ error: error.message || 'Failed to generate tasks' });
+  }
+});
+
+// Parse PDF and extract chapters using Claude AI
+router.post('/parse/pdf', upload.single('pdf'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No PDF file uploaded' });
+    }
+
+    console.log(`📄 Parsing PDF: ${req.file.originalname} (${req.file.size} bytes)`);
+
+    // Extract text from PDF
+    const pdfData = await pdfParse(req.file.buffer);
+    const pdfText = pdfData.text;
+
+    console.log(`📝 Extracted ${pdfText.length} characters from PDF`);
+
+    // Use Claude to extract chapters
+    const result = await claudeService.extractChaptersFromPDF(pdfText);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('Error parsing PDF:', error);
+    res.status(500).json({ error: error.message || 'Failed to parse PDF' });
+  }
+});
+
+// Parse URL and extract chapters using Claude AI
+router.post('/parse/url', async (req: Request, res: Response) => {
+  try {
+    const { url } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    console.log(`🔗 Fetching URL: ${url}`);
+
+    // Fetch the webpage content
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch URL: ${response.status}`);
+    }
+
+    const htmlContent = await response.text();
+    console.log(`📝 Fetched ${htmlContent.length} characters from URL`);
+
+    // Use Claude to extract chapters
+    const result = await claudeService.extractChaptersFromURL(url, htmlContent);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('Error parsing URL:', error);
+    res.status(500).json({ error: error.message || 'Failed to parse URL' });
+  }
+});
+
+// Parse text (table of contents) and extract chapters using Claude AI
+router.post('/parse/text', async (req: Request, res: Response) => {
+  try {
+    const { text } = req.body;
+
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ error: 'Text content is required' });
+    }
+
+    console.log(`📋 Parsing text: ${text.length} characters`);
+
+    // Use Claude to extract chapters
+    const result = await claudeService.extractChaptersFromText(text);
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (error: any) {
+    console.error('Error parsing text:', error);
+    res.status(500).json({ error: error.message || 'Failed to parse text' });
   }
 });
 
