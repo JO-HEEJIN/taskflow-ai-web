@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, X, LogIn, LogOut, Trophy, Volume2, VolumeX, FileText, Menu, Star, Trash2 } from 'lucide-react';
+import { User, X, LogIn, LogOut, Trophy, Volume2, VolumeX, FileText, Menu, Star, Trash2, Database, ChevronRight } from 'lucide-react';
 import { useNotesStore, Note } from '@/store/useNotesStore';
 import ReactMarkdown from 'react-markdown';
 import { useGamificationStore, getLevelProgress } from '@/store/useGamificationStore';
+import { useTaskStore } from '@/store/taskStore';
+import { TaskHistory } from '@/components/TaskHistory';
 
 interface ProfileButtonProps {
   isOpen?: boolean;
@@ -18,10 +20,13 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const { xp, level, streak, getActivityForLast30Days } = useGamificationStore();
   const { getAllNotes, toggleFavorite, deleteNote } = useNotesStore();
+  const { tasks, deleteAllTasks, fetchDeletedTasks, deletedTasks } = useTaskStore();
   const [musicEnabled, setMusicEnabled] = useState(true);
   const [continuousMusicEnabled, setContinuousMusicEnabled] = useState(true);
   const [isNotesExpanded, setIsNotesExpanded] = useState(false);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [showTaskHistory, setShowTaskHistory] = useState(false);
+  const [isDataManagementExpanded, setIsDataManagementExpanded] = useState(false);
 
   // Use external control if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -80,6 +85,29 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
     } else {
       await signOut();
     }
+  };
+
+  const handleDeleteAllTasks = async () => {
+    if (tasks.length === 0) {
+      alert('No tasks to delete');
+      return;
+    }
+
+    if (confirm(`Delete all ${tasks.length} tasks? They will be moved to trash and can be restored within 30 days.`)) {
+      try {
+        await deleteAllTasks();
+        alert('All tasks moved to trash');
+      } catch (error) {
+        console.error('Failed to delete all tasks:', error);
+        alert('Failed to delete tasks. Please try again.');
+      }
+    }
+  };
+
+  const handleOpenTrash = async () => {
+    await fetchDeletedTasks();
+    setShowTaskHistory(true);
+    setIsOpen(false); // Close profile modal
   };
 
   return (
@@ -308,6 +336,80 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
                 </div>
               </div>
 
+              {/* Data Management Section - Red theme */}
+              <div className="mb-6 p-4 rounded-xl" style={{ background: 'rgba(239, 68, 68, 0.1)' }}>
+                <div
+                  className="flex items-center justify-between cursor-pointer"
+                  onClick={() => setIsDataManagementExpanded(!isDataManagementExpanded)}
+                >
+                  <div className="flex items-center gap-3">
+                    <Database className="w-5 h-5 text-red-400" />
+                    <div>
+                      <p className="text-red-400 font-medium">Data Management</p>
+                      <p className="text-xs text-red-200/60">{tasks.length} active tasks</p>
+                    </div>
+                  </div>
+                  <motion.div
+                    animate={{ rotate: isDataManagementExpanded ? 90 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <ChevronRight className="w-5 h-5 text-red-400" />
+                  </motion.div>
+                </div>
+
+                {/* Expandable Data Management Actions */}
+                <AnimatePresence>
+                  {isDataManagementExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 pt-4 border-t space-y-3" style={{ borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                        {/* Trash Button */}
+                        <button
+                          onClick={handleOpenTrash}
+                          className="w-full p-3 rounded-lg flex items-center justify-between transition-all hover:bg-red-500/10"
+                          style={{ background: 'rgba(0, 0, 0, 0.2)' }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Trash2 className="w-5 h-5 text-red-300" />
+                            <div className="text-left">
+                              <p className="text-white font-medium text-sm">Trash</p>
+                              <p className="text-red-200/60 text-xs">View and restore deleted tasks</p>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-4 h-4 text-red-300" />
+                        </button>
+
+                        {/* Delete All Tasks Button */}
+                        <button
+                          onClick={handleDeleteAllTasks}
+                          disabled={tasks.length === 0}
+                          className="w-full p-3 rounded-lg flex items-center justify-between transition-all hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <div className="text-left">
+                              <p className="text-red-300 font-medium text-sm">Delete All Tasks</p>
+                              <p className="text-red-200/60 text-xs">Move all tasks to trash</p>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
               {/* Level & XP Section */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
@@ -517,6 +619,11 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Task History Modal */}
+      {showTaskHistory && (
+        <TaskHistory onClose={() => setShowTaskHistory(false)} />
+      )}
     </>
   );
 }

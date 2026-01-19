@@ -58,6 +58,23 @@ router.get('/deleted', async (req: Request, res: Response) => {
   }
 });
 
+// Empty trash (permanently delete all deleted tasks) - must be before /:id routes
+router.delete('/deleted/all', async (req: Request, res: Response) => {
+  try {
+    const userId = req.headers['x-user-id'] as string;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing x-user-id header' });
+    }
+
+    const result = await taskService.emptyTrash(userId);
+    res.json({ message: 'Trash emptied successfully', deletedCount: result.deletedCount });
+  } catch (error) {
+    console.error('Error emptying trash:', error);
+    res.status(500).json({ error: 'Failed to empty trash' });
+  }
+});
+
 // Get task by ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {

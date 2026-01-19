@@ -15,6 +15,7 @@ export function TaskHistory({ onClose }: TaskHistoryProps) {
     fetchDeletedTasks,
     restoreTask,
     permanentDeleteTask,
+    emptyTrash,
   } = useTaskStore();
 
   useEffect(() => {
@@ -54,6 +55,17 @@ export function TaskHistory({ onClose }: TaskHistoryProps) {
     }
   };
 
+  const handleEmptyTrash = async () => {
+    if (deletedTasks.length === 0) {
+      alert('Trash is already empty');
+      return;
+    }
+
+    if (confirm(`Permanently delete all ${deletedTasks.length} tasks in trash? This action cannot be undone.`)) {
+      await emptyTrash();
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[9999] p-4"
@@ -73,14 +85,34 @@ export function TaskHistory({ onClose }: TaskHistoryProps) {
           <h2 className="text-2xl font-semibold text-white" style={{ textShadow: '0 0 20px rgba(167, 139, 250, 0.5)' }}>
             Trash
           </h2>
-          <button
-            onClick={onClose}
-            className="text-purple-300 hover:text-white transition-colors p-2"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Empty Trash Button */}
+            {deletedTasks.length > 0 && (
+              <button
+                onClick={handleEmptyTrash}
+                className="px-3 py-1.5 text-sm text-white rounded-lg transition-all flex items-center gap-1.5"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.3)',
+                  border: '1px solid rgba(239, 68, 68, 0.5)',
+                }}
+                title="Empty trash"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Empty
+              </button>
+            )}
+            {/* Close Button */}
+            <button
+              onClick={onClose}
+              className="text-purple-300 hover:text-white transition-colors p-2"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         <p className="text-purple-200 mb-4 text-sm" style={{ textShadow: '0 0 10px rgba(167, 139, 250, 0.3)' }}>

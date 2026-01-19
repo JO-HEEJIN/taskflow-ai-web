@@ -501,6 +501,23 @@ export const api = {
     return res.json();
   },
 
+  // Empty trash (permanently delete all deleted tasks)
+  async emptyTrash() {
+    if (isGuestMode()) {
+      // Guest mode: delete all tasks with isDeleted flag
+      const allTasks = guestStorage.getAllTasks();
+      const deletedTasks = allTasks.filter((t: any) => t.isDeleted);
+      deletedTasks.forEach((t: any) => guestStorage.deleteTask(t.id));
+      return { message: 'Trash emptied', deletedCount: deletedTasks.length };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/tasks/deleted/all`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to empty trash');
+    return res.json();
+  },
+
   // Notes
   async getNotes() {
     if (isGuestMode()) {

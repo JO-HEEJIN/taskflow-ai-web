@@ -20,6 +20,7 @@ interface TaskStore {
   fetchDeletedTasks: () => Promise<void>;
   restoreTask: (id: string) => Promise<void>;
   permanentDeleteTask: (id: string) => Promise<void>;
+  emptyTrash: () => Promise<void>;
   addSubtasks: (taskId: string, subtasks: (string | AISubtaskSuggestion)[]) => Promise<void>;
   addChildrenToSubtask: (taskId: string, subtaskId: string, children: any[], timestamp?: number) => Promise<void>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
@@ -200,6 +201,16 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         deletedTasks: state.deletedTasks.filter((t) => t.id !== id),
         isLoading: false,
       }));
+    } catch (error: any) {
+      set({ error: error.message, isLoading: false });
+    }
+  },
+
+  emptyTrash: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.emptyTrash();
+      set({ deletedTasks: [], isLoading: false });
     } catch (error: any) {
       set({ error: error.message, isLoading: false });
     }

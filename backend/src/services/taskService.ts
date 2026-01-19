@@ -306,6 +306,19 @@ class TaskService {
     }
   }
 
+  // Empty trash: permanently delete all deleted tasks
+  async emptyTrash(syncCode: string): Promise<{ deletedCount: number }> {
+    const deletedTasks = await this.getDeletedTasks(syncCode);
+    let deletedCount = 0;
+
+    for (const task of deletedTasks) {
+      const success = await this.permanentDeleteTask(task.id, syncCode);
+      if (success) deletedCount++;
+    }
+
+    return { deletedCount };
+  }
+
   // Add subtasks to a task
   async addSubtasks(
     taskId: string,
