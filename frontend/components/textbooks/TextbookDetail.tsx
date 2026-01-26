@@ -148,42 +148,48 @@ export function TextbookDetail({ textbook, onClose, onBack }: TextbookDetailProp
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-280px)]">
-          {/* Generate Tasks Button */}
-          {!hasLinkedTasks && (
-            <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-500/30">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-white font-medium">Generate Study Tasks</h3>
-                  <p className="text-sm text-purple-300/70 mt-1">
-                    Let AI create a structured learning plan for each chapter
-                  </p>
-                </div>
-                <button
-                  onClick={handleGenerateTasks}
-                  disabled={isGenerating || isLoading}
-                  className="px-4 py-2 rounded-lg text-white font-medium transition-all disabled:opacity-50 flex items-center gap-2"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.8) 0%, rgba(99, 102, 241, 0.8) 100%)',
-                    border: '1px solid rgba(167, 139, 250, 0.5)',
-                  }}
-                >
-                  {isGenerating ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Generate Tasks
-                    </>
-                  )}
-                </button>
+          {/* Generate/Regenerate Tasks Button - Always visible */}
+          <div className={`mb-6 p-4 rounded-xl border ${hasLinkedTasks ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-500/30' : 'bg-gradient-to-r from-purple-500/20 to-blue-500/20 border-purple-500/30'}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-medium">
+                  {hasLinkedTasks ? 'Regenerate Study Tasks' : 'Generate Study Tasks'}
+                </h3>
+                <p className="text-sm text-purple-300/70 mt-1">
+                  {hasLinkedTasks
+                    ? 'Create new tasks for all chapters (existing task links will be updated)'
+                    : 'Let AI create a structured learning plan for each chapter'}
+                </p>
               </div>
+              <button
+                onClick={handleGenerateTasks}
+                disabled={isGenerating || isLoading}
+                className="px-4 py-2 rounded-lg text-white font-medium transition-all disabled:opacity-50 flex items-center gap-2"
+                style={{
+                  background: hasLinkedTasks
+                    ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.8) 0%, rgba(6, 182, 212, 0.8) 100%)'
+                    : 'linear-gradient(135deg, rgba(168, 85, 247, 0.8) 0%, rgba(99, 102, 241, 0.8) 100%)',
+                  border: hasLinkedTasks
+                    ? '1px solid rgba(59, 130, 246, 0.5)'
+                    : '1px solid rgba(167, 139, 250, 0.5)',
+                }}
+              >
+                {isGenerating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={hasLinkedTasks ? "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" : "M13 10V3L4 14h7v7l9-11h-7z"} />
+                    </svg>
+                    {hasLinkedTasks ? 'Regenerate Tasks' : 'Generate Tasks'}
+                  </>
+                )}
+              </button>
             </div>
-          )}
+          </div>
 
           {/* Chapters List */}
           <div>
