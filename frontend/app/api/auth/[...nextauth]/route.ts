@@ -15,6 +15,7 @@ const authOptions: NextAuthOptions = {
       console.log("User signed in:", user);
 
       // Send user info to backend to create/update user in Cosmos DB
+      // Use email as the consistent identifier across all devices
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/user`, {
           method: 'POST',
@@ -22,7 +23,7 @@ const authOptions: NextAuthOptions = {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            id: user.id,
+            id: user.email, // Use email as consistent identifier across devices
             email: user.email,
             name: user.name,
             image: user.image,

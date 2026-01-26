@@ -140,13 +140,13 @@ export default function Home() {
 
   // Handle authentication state and guest mode
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.id) {
-      // User is authenticated
-      setUserId(session.user.id);
-      console.log('✅ User ID stored:', session.user.id);
+    if (status === 'authenticated' && session?.user?.email) {
+      // User is authenticated - use email as consistent identifier across devices
+      setUserId(session.user.email);
+      console.log('✅ User ID stored (email):', session.user.email);
 
       // Trigger guest data migration if needed
-      migrateGuestDataIfNeeded(session.user.id).catch((error) => {
+      migrateGuestDataIfNeeded(session.user.email).catch((error) => {
         console.error('Migration error:', error);
       });
     } else if (status === 'unauthenticated') {
@@ -159,8 +159,8 @@ export default function Home() {
   // Initialize push notifications when user is authenticated
   useEffect(() => {
     const initNotifications = async () => {
-      // Use session.user.id directly instead of localStorage to avoid race condition
-      const userId = session?.user?.id;
+      // Use session.user.email directly instead of localStorage to avoid race condition
+      const userId = session?.user?.email;
       if (!userId) {
         console.log('No user ID found, notifications not initialized');
         return;
