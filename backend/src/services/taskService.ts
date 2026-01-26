@@ -505,6 +505,82 @@ class TaskService {
     const completed = subtasks.filter((st) => st.isCompleted).length;
     return Math.round((completed / subtasks.length) * 100);
   }
+
+  // Get all unique syncCodes from the tasks container
+  async getAllSyncCodes(): Promise<{ syncCode: string; taskCount: number }[]> {
+    const container = cosmosService.getTasksContainer();
+
+    if (!container) {
+      // Mock mode
+      const syncCodes = new Map<string, number>();
+      this.mockTasks.forEach((task) => {
+        const count = syncCodes.get(task.syncCode) || 0;
+        syncCodes.set(task.syncCode, count + 1);
+      });
+      return Array.from(syncCodes.entries()).map(([syncCode, taskCount]) => ({ syncCode, taskCount }));
+    }
+
+    // Query all unique syncCodes with count
+    const { resources } = await container.items
+      .query({
+        query: 'SELECT c.syncCode, COUNT(1) as taskCount FROM c GROUP BY c.syncCode',
+      })
+      .fetchAll();
+
+    return resources as { syncCode: string; taskCount: number }[];
+  }
+
+  // Migrate tasks from old syncCode to new syncCode
+  // In Cosmos DB, partition key cannot be updated, so we need to delete and recreate
+  async migrateTasks(oldSyncCode: string, newSyncCode: string): Promise<{ migratedCount: number }> {
+    const container = cosmosService.getTasksContainer();
+
+    if (!container) {
+      // Mock mode - just update in memory
+      let migratedCount = 0;
+      this.mockTasks.forEach((task, id) => {
+        if (task.syncCode === oldSyncCode) {
+          task.syncCode = newSyncCode;
+          migratedCount++;
+        }
+      });
+      return { migratedCount };
+    }
+
+    // Get all tasks with old syncCode
+    const { resources: oldTasks } = await container.items
+      .query({
+        query: 'SELECT * FROM c WHERE c.syncCode = @syncCode',
+        parameters: [{ name: '@syncCode', value: oldSyncCode }],
+      })
+      .fetchAll();
+
+    let migratedCount = 0;
+
+    for (const task of oldTasks) {
+      try {
+        // Create new task with new syncCode
+        const newTask = {
+          ...task,
+          syncCode: newSyncCode,
+        };
+
+        // Delete the old task
+        await container.item(task.id, oldSyncCode).delete();
+
+        // Create with new syncCode (new partition)
+        await container.items.create(newTask);
+
+        migratedCount++;
+        console.log(`✅ Migrated task: ${task.title}`);
+      } catch (error) {
+        console.error(`❌ Failed to migrate task ${task.id}:`, error);
+      }
+    }
+
+    console.log(`🎉 Migration complete: ${migratedCount}/${oldTasks.length} tasks migrated`);
+    return { migratedCount };
+  }
 }
 
 export const taskService = new TaskService();

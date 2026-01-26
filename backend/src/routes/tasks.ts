@@ -7,6 +7,39 @@ import { TaskStatus } from '../types';
 
 const router = Router();
 
+// List all unique syncCodes (admin endpoint for migration)
+router.get('/admin/sync-codes', async (req: Request, res: Response) => {
+  try {
+    const syncCodes = await taskService.getAllSyncCodes();
+    res.json({ syncCodes });
+  } catch (error) {
+    console.error('Error fetching sync codes:', error);
+    res.status(500).json({ error: 'Failed to fetch sync codes' });
+  }
+});
+
+// Migrate tasks from old syncCode to new syncCode (email)
+router.post('/migrate', async (req: Request, res: Response) => {
+  try {
+    const { oldSyncCode, newSyncCode } = req.body;
+
+    if (!oldSyncCode || !newSyncCode) {
+      return res.status(400).json({ error: 'Both oldSyncCode and newSyncCode are required' });
+    }
+
+    console.log(`🔄 Migrating tasks from ${oldSyncCode} to ${newSyncCode}`);
+
+    const result = await taskService.migrateTasks(oldSyncCode, newSyncCode);
+    res.json({
+      message: `Migrated ${result.migratedCount} tasks`,
+      migratedCount: result.migratedCount
+    });
+  } catch (error) {
+    console.error('Error migrating tasks:', error);
+    res.status(500).json({ error: 'Failed to migrate tasks' });
+  }
+});
+
 // Get all tasks for a user
 router.get('/', async (req: Request, res: Response) => {
   try {
