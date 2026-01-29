@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'TaskFlow AI - AI-Powered Task Management',
-  description: 'Intelligent task management with AI-powered breakdown and progress tracking',
+  description: 'TaskFlow AI is a productivity application that helps users overcome task overwhelm through intelligent AI-powered task decomposition. Break down complex tasks into small, actionable 2-10 minute subtasks. Features include smart scheduling with Google Calendar integration, immersive focus mode, and cross-device synchronization.',
   manifest: '/manifest.json',
   themeColor: '#c084fc',
   appleWebApp: {
@@ -19,6 +19,9 @@ export const metadata: Metadata = {
     width: 'device-width',
     initialScale: 1,
     maximumScale: 1,
+  },
+  verification: {
+    google: 'zcObuid-d5GUc0SwsRV7iy3cPxI6JJYQEo3IugruhKI',
   },
 }
 
