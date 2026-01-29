@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { CalendarSettings } from '@/components/settings/CalendarSettings';
 import Link from 'next/link';
 
-export default function SettingsPage() {
+function SettingsContent() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<'calendar' | 'account'>('calendar');
 
   // Check if redirected from calendar OAuth
@@ -107,5 +106,17 @@ export default function SettingsPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   );
 }
