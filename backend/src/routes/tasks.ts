@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { taskService } from '../services/taskService';
 import { webPushService } from '../services/webPushService';
 import { azureOpenAIService } from '../services/azureOpenAIService';
+import { websocketService } from '../services/websocketService';
 import { TaskStatus } from '../types';
 
 const router = Router();
@@ -146,6 +147,10 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const task = await taskService.createTask(title, description, userId);
+
+    // Broadcast to all user devices for real-time sync
+    websocketService.broadcastTaskCreated(userId, task);
+
     res.status(201).json({ task });
   } catch (error) {
     console.error('Error creating task:', error);
@@ -186,6 +191,12 @@ router.post('/linked', async (req: Request, res: Response) => {
       sourceSubtask?.title || 'a subtask'
     );
 
+    // Broadcast to all user devices for real-time sync
+    websocketService.broadcastTaskCreated(userId, task);
+    if (parentTask) {
+      websocketService.broadcastTaskUpdated(userId, parentTask);
+    }
+
     res.status(201).json({ task, parentTask });
   } catch (error: any) {
     console.error('Error creating linked task:', error);
@@ -209,6 +220,9 @@ router.put('/:id', async (req: Request, res: Response) => {
     if (!task) {
       return res.status(404).json({ error: 'Task not found' });
     }
+
+    // Broadcast to all user devices for real-time sync
+    websocketService.broadcastTaskUpdated(userId, task);
 
     res.json({ task });
   } catch (error) {
@@ -283,6 +297,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Task not found' });
     }
 
+    // Broadcast to all user devices for real-time sync
+    websocketService.broadcastTaskDeleted(userId, id);
+
     res.json({ message: 'Task moved to trash', taskId: id });
   } catch (error) {
     console.error('Error deleting task:', error);
@@ -305,6 +322,9 @@ router.post('/:id/restore', async (req: Request, res: Response) => {
     if (!task) {
       return res.status(404).json({ error: 'Task not found or not deleted' });
     }
+
+    // Broadcast to all user devices for real-time sync
+    websocketService.broadcastTaskCreated(userId, task);
 
     res.json({ message: 'Task restored successfully', task });
   } catch (error) {
@@ -483,6 +503,9 @@ router.patch('/:taskId/subtasks/:subtaskId', async (req: Request, res: Response)
     if (task.progress === 100 && task.status !== 'completed') {
       await webPushService.notifyTaskCompleted(userId, task.title);
     }
+
+    // Broadcast to all user devices for real-time sync
+    websocketService.broadcastSubtaskToggled(userId, taskId, subtaskId, task);
 
     res.json({ task });
   } catch (error) {

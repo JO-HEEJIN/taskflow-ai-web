@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, X, LogIn, LogOut, Trophy, Volume2, VolumeX, FileText, Menu, Star, Trash2, Database, ChevronRight, BookOpen } from 'lucide-react';
+import { User, X, LogIn, LogOut, Trophy, Volume2, VolumeX, FileText, Menu, Star, Trash2, Database, ChevronRight, BookOpen, Calendar } from 'lucide-react';
 import { useNotesStore, Note } from '@/store/useNotesStore';
 import ReactMarkdown from 'react-markdown';
 import { useGamificationStore, getLevelProgress } from '@/store/useGamificationStore';
 import { useTaskStore } from '@/store/taskStore';
 import { TaskHistory } from '@/components/TaskHistory';
 import { TextbookLibrary } from '@/components/textbooks';
+import { CalendarSettings } from '@/components/settings/CalendarSettings';
+import { CalendarView } from '@/components/calendar/CalendarView';
 
 interface ProfileButtonProps {
   isOpen?: boolean;
@@ -29,6 +31,8 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
   const [showTaskHistory, setShowTaskHistory] = useState(false);
   const [isDataManagementExpanded, setIsDataManagementExpanded] = useState(false);
   const [showTextbookLibrary, setShowTextbookLibrary] = useState(false);
+  const [showCalendarSettings, setShowCalendarSettings] = useState(false);
+  const [showCalendarView, setShowCalendarView] = useState(false);
 
   // Use external control if provided, otherwise use internal state
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -252,6 +256,41 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
                   </div>
                   <ChevronRight className="w-5 h-5 text-blue-400" />
                 </button>
+              </div>
+
+              {/* Calendar Section - Cyan theme */}
+              <div className="mb-6 p-4 rounded-xl" style={{ background: 'rgba(6, 182, 212, 0.1)' }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <Calendar className="w-5 h-5 text-cyan-400" />
+                  <div>
+                    <p className="text-cyan-400 font-medium">Smart Scheduling</p>
+                    <p className="text-xs text-cyan-200/60">Auto-schedule with Google Calendar</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      setShowCalendarView(true);
+                      setIsOpen(false);
+                    }}
+                    className="w-full p-2 rounded-lg flex items-center justify-between transition-all hover:bg-cyan-500/10"
+                    style={{ background: 'rgba(0, 0, 0, 0.2)' }}
+                  >
+                    <span className="text-white text-sm">View Calendar</span>
+                    <ChevronRight className="w-4 h-4 text-cyan-300" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCalendarSettings(true);
+                      setIsOpen(false);
+                    }}
+                    className="w-full p-2 rounded-lg flex items-center justify-between transition-all hover:bg-cyan-500/10"
+                    style={{ background: 'rgba(0, 0, 0, 0.2)' }}
+                  >
+                    <span className="text-white text-sm">Calendar Settings</span>
+                    <ChevronRight className="w-4 h-4 text-cyan-300" />
+                  </button>
+                </div>
               </div>
 
               {/* Notes Section - Yellow theme */}
@@ -650,6 +689,74 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
       {/* Textbook Library Modal */}
       {showTextbookLibrary && (
         <TextbookLibrary onClose={() => setShowTextbookLibrary(false)} />
+      )}
+
+      {/* Calendar View Modal */}
+      {showCalendarView && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[10001] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowCalendarView(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="w-full max-w-6xl h-[85vh] rounded-2xl overflow-hidden"
+            style={{ background: '#111827' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
+              <h2 className="text-xl font-semibold text-white">Calendar</h2>
+              <button
+                onClick={() => setShowCalendarView(false)}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="h-[calc(100%-64px)]">
+              <CalendarView />
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Calendar Settings Modal */}
+      {showCalendarSettings && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[10001] flex items-center justify-center p-4"
+          style={{ background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowCalendarSettings(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
+            className="w-full max-w-lg max-h-[85vh] rounded-2xl overflow-auto"
+            style={{ background: '#111827' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700 sticky top-0 bg-gray-900 z-10">
+              <h2 className="text-xl font-semibold text-white">Calendar Settings</h2>
+              <button
+                onClick={() => setShowCalendarSettings(false)}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-6">
+              <CalendarSettings />
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </>
   );

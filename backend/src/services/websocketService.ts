@@ -7,10 +7,11 @@ import {
   TimerResumePayload,
   TimerStopPayload,
 } from '../models/TimerState';
+import { Task } from '../types';
 
 /**
  * WebSocket Service
- * Handles real-time timer synchronization using Socket.io
+ * Handles real-time synchronization for timers and tasks using Socket.io
  */
 class WebSocketService {
   private io: SocketIOServer | null = null;
@@ -155,6 +156,42 @@ class WebSocketService {
   async broadcastTimerCompleted(userId: string, taskId: string, subtaskId: string): Promise<void> {
     this.io?.to(`user:${userId}`).emit('timer:completed', { taskId, subtaskId });
     await timerService.stopTimer(userId);
+  }
+
+  // ============================================
+  // Task Sync Events - Cross-Device Synchronization
+  // ============================================
+
+  /**
+   * Broadcast task created event to all user devices
+   */
+  broadcastTaskCreated(userId: string, task: Task): void {
+    console.log(`📤 Broadcasting task:created to user:${userId}`);
+    this.io?.to(`user:${userId}`).emit('task:created', { task });
+  }
+
+  /**
+   * Broadcast task updated event to all user devices
+   */
+  broadcastTaskUpdated(userId: string, task: Task): void {
+    console.log(`📤 Broadcasting task:updated to user:${userId}`);
+    this.io?.to(`user:${userId}`).emit('task:updated', { task });
+  }
+
+  /**
+   * Broadcast task deleted event to all user devices
+   */
+  broadcastTaskDeleted(userId: string, taskId: string): void {
+    console.log(`📤 Broadcasting task:deleted to user:${userId}`);
+    this.io?.to(`user:${userId}`).emit('task:deleted', { taskId });
+  }
+
+  /**
+   * Broadcast subtask toggled event to all user devices
+   */
+  broadcastSubtaskToggled(userId: string, taskId: string, subtaskId: string, task: Task): void {
+    console.log(`📤 Broadcasting task:subtask:toggled to user:${userId}`);
+    this.io?.to(`user:${userId}`).emit('task:subtask:toggled', { taskId, subtaskId, task });
   }
 
   /**

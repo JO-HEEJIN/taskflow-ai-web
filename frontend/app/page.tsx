@@ -19,6 +19,7 @@ import { subscribeToPushNotifications, getNotificationPermissionStatus } from '@
 import { setUserId } from '@/lib/api';
 import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
 import { unlockAudioForMobile } from '@/lib/sounds';
+import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -32,12 +33,19 @@ export default function Home() {
   const [newLevel, setNewLevel] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  // Track when authentication/guest mode is ready (userId set in localStorage)
+  // This prevents race condition where TaskList fetches before userId is set
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [audioPermissionGranted, setAudioPermissionGranted] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('audioPermissionGranted') === 'true';
     }
     return false;
   });
+
+  // Initialize WebSocket for cross-device task synchronization
+  // This syncs task create/update/delete events in real-time across all logged-in devices
+  useTaskWebSocket();
 
   // Handle audio permission
   const handleAllowAudio = () => {
@@ -139,11 +147,14 @@ export default function Home() {
   };
 
   // Handle authentication state and guest mode
+  // IMPORTANT: This must complete BEFORE TaskList fetches tasks
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.email) {
       // User is authenticated - use email as consistent identifier across devices
       setUserId(session.user.email);
       console.log('✅ User ID stored (email):', session.user.email);
+      // Signal that auth is ready - TaskList can now safely fetch
+      setIsAuthReady(true);
 
       // Trigger guest data migration if needed
       migrateGuestDataIfNeeded(session.user.email).catch((error) => {
@@ -153,6 +164,8 @@ export default function Home() {
       // Initialize guest mode
       initializeGuestMode();
       console.log('👤 Guest mode active');
+      // Signal that guest mode is ready - TaskList can now safely fetch
+      setIsAuthReady(true);
     }
   }, [status, session]);
 
@@ -313,7 +326,8 @@ export default function Home() {
       )}
 
       {/* Conditional rendering: Mobile vs Desktop (hidden when in focus mode) */}
-      {!isFocusMode && (
+      {/* Only render when auth/guest mode is ready to prevent race condition with fetchTasks */}
+      {!isFocusMode && isAuthReady && (
         <>
           {isMobile ? (
             <MobileTaskView
@@ -327,6 +341,13 @@ export default function Home() {
             />
           )}
         </>
+      )}
+
+      {/* Show loading state while auth is being set up */}
+      {!isFocusMode && !isAuthReady && (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-pulse text-purple-300">Loading tasks...</div>
+        </div>
       )}
 
       {/* Level Up Modal */}

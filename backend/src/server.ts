@@ -14,6 +14,7 @@ import imagesRouter from './routes/images';
 import notesRouter from './routes/notes';
 import coachConversationsRouter from './routes/coachConversations';
 import textbooksRouter from './routes/textbooks';
+import calendarRouter from './routes/calendar';
 
 dotenv.config();
 
@@ -84,6 +85,7 @@ app.use('/api/images', imagesRouter);
 app.use('/api/notes', notesRouter);
 app.use('/api/coach-conversations', coachConversationsRouter);
 app.use('/api/textbooks', textbooksRouter);
+app.use('/api/calendar', calendarRouter);
 
 // Initialize services and start server
 async function startServer() {

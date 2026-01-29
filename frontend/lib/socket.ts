@@ -164,6 +164,58 @@ class SocketClient {
     this.socket.on('timer:completed', callback);
   }
 
+  // ============================================
+  // Task Sync Events - Cross-Device Synchronization
+  // ============================================
+
+  /**
+   * Listen for task created event (from other devices)
+   */
+  onTaskCreated(callback: (data: { task: any }) => void): void {
+    if (!this.socket) {
+      console.error('❌ Socket not initialized');
+      return;
+    }
+
+    this.socket.on('task:created', callback);
+  }
+
+  /**
+   * Listen for task updated event (from other devices)
+   */
+  onTaskUpdated(callback: (data: { task: any }) => void): void {
+    if (!this.socket) {
+      console.error('❌ Socket not initialized');
+      return;
+    }
+
+    this.socket.on('task:updated', callback);
+  }
+
+  /**
+   * Listen for task deleted event (from other devices)
+   */
+  onTaskDeleted(callback: (data: { taskId: string }) => void): void {
+    if (!this.socket) {
+      console.error('❌ Socket not initialized');
+      return;
+    }
+
+    this.socket.on('task:deleted', callback);
+  }
+
+  /**
+   * Listen for subtask toggled event (from other devices)
+   */
+  onSubtaskToggled(callback: (data: { taskId: string; subtaskId: string; task: any }) => void): void {
+    if (!this.socket) {
+      console.error('❌ Socket not initialized');
+      return;
+    }
+
+    this.socket.on('task:subtask:toggled', callback);
+  }
+
   /**
    * Remove event listener
    */

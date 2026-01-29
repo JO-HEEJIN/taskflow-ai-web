@@ -14,6 +14,7 @@ class CosmosService {
   private notesContainer: Container | null = null;
   private coachConversationsContainer: Container | null = null;
   private textbooksContainer: Container | null = null;
+  private schedulingPreferencesContainer: Container | null = null;
 
   constructor() {
     const endpoint = process.env.COSMOS_ENDPOINT || '';
@@ -98,6 +99,13 @@ class CosmosService {
       });
       this.textbooksContainer = textbooksContainer;
 
+      // Create scheduling preferences container (for Calendar Integration)
+      const { container: schedulingPreferencesContainer } = await database.containers.createIfNotExists({
+        id: 'schedulingPreferences',
+        partitionKey: { paths: ['/userId'] },
+      });
+      this.schedulingPreferencesContainer = schedulingPreferencesContainer;
+
       console.log('✅ Cosmos DB initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize Cosmos DB:', error);
@@ -137,6 +145,10 @@ class CosmosService {
     return this.textbooksContainer;
   }
 
+  getSchedulingPreferencesContainer(): Container | null {
+    return this.schedulingPreferencesContainer;
+  }
+
   // Generic method to get any container by name
   getContainer(containerName: string): Container {
     switch (containerName) {
@@ -164,6 +176,9 @@ class CosmosService {
       case 'textbooks':
         if (!this.textbooksContainer) throw new Error('Textbooks container not initialized');
         return this.textbooksContainer;
+      case 'schedulingPreferences':
+        if (!this.schedulingPreferencesContainer) throw new Error('Scheduling preferences container not initialized');
+        return this.schedulingPreferencesContainer;
       default:
         throw new Error(`Unknown container: ${containerName}`);
     }

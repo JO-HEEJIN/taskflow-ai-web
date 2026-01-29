@@ -16,6 +16,28 @@ export interface Task {
   // Textbook integration
   textbookId?: string;
   chapterId?: string;
+  // Scheduling fields (Calendar Integration)
+  dueDate?: string;                    // ISO date string (e.g., "2024-01-15")
+  scheduledStartTime?: string;         // ISO datetime string for scheduled start
+  scheduledEndTime?: string;           // ISO datetime string for scheduled end
+  preferredTimeOfDay?: 'morning' | 'afternoon' | 'evening' | 'any';
+  priority?: 'high' | 'medium' | 'low';
+  isAutoScheduled?: boolean;           // True if scheduled by algorithm
+  googleCalendarEventId?: string;      // Link to Google Calendar event
+}
+
+// Scheduling Preferences for Calendar Integration
+export interface UserSchedulingPreferences {
+  userId: string;
+  workingHours: {
+    start: string;    // "09:00"
+    end: string;      // "17:00"
+  };
+  preferredFocusTime: 'morning' | 'afternoon' | 'evening';
+  minBreakBetweenTasks: number;  // minutes
+  maxDailyFocusHours: number;
+  excludedDays: number[];         // 0=Sun, 6=Sat
+  googleCalendarConnected: boolean;
 }
 
 export enum TaskStatus {

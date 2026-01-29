@@ -830,4 +830,138 @@ export const api = {
     }
     return res.json();
   },
+
+  // ============================================
+  // Calendar & Scheduling
+  // ============================================
+
+  // Get Google Calendar OAuth URL
+  async getGoogleAuthUrl() {
+    if (isGuestMode()) {
+      throw new Error('Calendar integration requires login');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/calendar/auth/google`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to get auth URL');
+    return res.json();
+  },
+
+  // Check Google Calendar connection status
+  async getCalendarStatus() {
+    if (isGuestMode()) {
+      return { connected: false, preferences: null };
+    }
+    const res = await fetch(`${API_BASE_URL}/api/calendar/status`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to get calendar status');
+    return res.json();
+  },
+
+  // Disconnect Google Calendar
+  async disconnectGoogleCalendar() {
+    if (isGuestMode()) {
+      throw new Error('Calendar integration requires login');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/calendar/auth/google`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to disconnect calendar');
+    return res.json();
+  },
+
+  // Get calendar events for a date range
+  async getCalendarEvents(start: Date, end: Date) {
+    if (isGuestMode()) {
+      return { events: [] };
+    }
+    const params = new URLSearchParams({
+      start: start.toISOString(),
+      end: end.toISOString(),
+    });
+    const res = await fetch(`${API_BASE_URL}/api/calendar/events?${params}`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to fetch calendar events');
+    return res.json();
+  },
+
+  // Get available time slots for scheduling
+  async getAvailableSlots(duration: number = 30, startDate?: Date, days: number = 7) {
+    if (isGuestMode()) {
+      return { slots: [] };
+    }
+    const params = new URLSearchParams({
+      duration: duration.toString(),
+      days: days.toString(),
+    });
+    if (startDate) {
+      params.append('startDate', startDate.toISOString());
+    }
+    const res = await fetch(`${API_BASE_URL}/api/calendar/slots?${params}`, {
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to get available slots');
+    return res.json();
+  },
+
+  // Auto-schedule a specific task
+  async autoScheduleTask(taskId: string) {
+    if (isGuestMode()) {
+      throw new Error('Scheduling requires login');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/calendar/schedule/${taskId}`, {
+      method: 'POST',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to schedule task');
+    return res.json();
+  },
+
+  // Reschedule all pending tasks
+  async rescheduleAllTasks() {
+    if (isGuestMode()) {
+      throw new Error('Scheduling requires login');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/calendar/reschedule-all`, {
+      method: 'POST',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to reschedule tasks');
+    return res.json();
+  },
+
+  // Clear schedule for a task
+  async clearTaskSchedule(taskId: string) {
+    if (isGuestMode()) {
+      throw new Error('Scheduling requires login');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/calendar/schedule/${taskId}`, {
+      method: 'DELETE',
+      headers: await getHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to clear schedule');
+    return res.json();
+  },
+
+  // Update scheduling preferences
+  async updateSchedulingPreferences(preferences: {
+    workingHours?: { start: string; end: string };
+    preferredFocusTime?: 'morning' | 'afternoon' | 'evening';
+    minBreakBetweenTasks?: number;
+    excludedDays?: number[];
+  }) {
+    if (isGuestMode()) {
+      throw new Error('Preferences require login');
+    }
+    const res = await fetch(`${API_BASE_URL}/api/calendar/preferences`, {
+      method: 'PUT',
+      headers: await getHeaders(),
+      body: JSON.stringify(preferences),
+    });
+    if (!res.ok) throw new Error('Failed to update preferences');
+    return res.json();
+  },
 };
