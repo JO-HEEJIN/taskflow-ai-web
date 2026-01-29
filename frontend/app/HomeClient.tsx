@@ -21,6 +21,7 @@ import { migrateGuestDataIfNeeded, initializeGuestMode } from '@/lib/migration';
 import { unlockAudioForMobile } from '@/lib/sounds';
 import { useTaskWebSocket } from '@/hooks/useTaskWebSocket';
 import { LandingPage } from '@/components/LandingPage';
+import Link from 'next/link';
 
 export default function HomeClient() {
   const { data: session, status } = useSession();
@@ -370,6 +371,23 @@ export default function HomeClient() {
         newLevel={newLevel}
         onClose={() => setShowLevelUp(false)}
       />
+
+      {/* Footer with Privacy Policy - always visible for Google OAuth verification */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-gray-900/90 backdrop-blur-sm border-t border-gray-800 py-3 px-4 z-[100]">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="text-gray-500 text-xs">
+            © 2026 <span className="text-purple-400 font-semibold">TaskFlow AI</span> - AI-powered task management
+          </div>
+          <div className="flex items-center gap-4 text-xs">
+            <Link href="/privacy" className="text-gray-400 hover:text-purple-400 transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="text-gray-400 hover:text-purple-400 transition-colors">
+              Terms of Service
+            </Link>
+          </div>
+        </div>
+      </footer>
     </main>
   );
 }
