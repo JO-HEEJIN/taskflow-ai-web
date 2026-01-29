@@ -186,7 +186,8 @@ class TextbookService {
   // Generate study tasks from textbook chapters using AI
   async createTasksFromTextbook(
     textbookId: string,
-    syncCode: string
+    syncCode: string,
+    regenerate: boolean = true // Default to true to always regenerate
   ): Promise<{ textbook: Textbook; tasks: Task[] }> {
     const textbook = await this.getTextbookById(textbookId, syncCode);
     if (!textbook) {
@@ -197,10 +198,20 @@ class TextbookService {
     const updatedChapters: Chapter[] = [];
 
     for (const chapter of textbook.chapters) {
-      // Skip if chapter already has a linked task
-      if (chapter.linkedTaskId) {
+      // If regenerate is false and chapter already has a linked task, skip
+      if (!regenerate && chapter.linkedTaskId) {
         updatedChapters.push(chapter);
         continue;
+      }
+
+      // If regenerating, delete the old task first
+      if (regenerate && chapter.linkedTaskId) {
+        try {
+          await taskService.deleteTask(chapter.linkedTaskId, syncCode);
+          console.log(`Deleted old task ${chapter.linkedTaskId} for chapter ${chapter.title}`);
+        } catch (e) {
+          console.log(`Could not delete old task ${chapter.linkedTaskId}, may already be deleted`);
+        }
       }
 
       // Generate study plan using AI
