@@ -339,6 +339,7 @@ class TaskService {
           isCompleted: false,
           isArchived: false,
           parentTaskId: taskId,
+          parentSubtaskId: (data as any).parentSubtaskId || undefined, // ✅ For nested children
           order: task.subtasks.length + (data.order ?? index),
           estimatedMinutes: data.estimatedMinutes || 5,
           stepType: data.stepType || 'mental',
