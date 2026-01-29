@@ -15,6 +15,7 @@ export function CalendarSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [preferences, setPreferences] = useState<SchedulingPreferences>({
     workingHours: { start: '09:00', end: '17:00' },
     preferredFocusTime: 'morning',
@@ -45,15 +46,24 @@ export function CalendarSettings() {
     fetchStatus();
   }, []);
 
+  // Clear status message after timeout
+  useEffect(() => {
+    if (statusMessage) {
+      const timer = setTimeout(() => setStatusMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
+
   // Connect Google Calendar
   const handleConnect = async () => {
     setIsConnecting(true);
+    setStatusMessage(null);
     try {
       const { authUrl } = await api.getGoogleAuthUrl();
       window.location.href = authUrl;
     } catch (error) {
       console.error('Failed to get auth URL:', error);
-      alert('Failed to connect Google Calendar');
+      setStatusMessage({ type: 'error', text: 'Failed to connect Google Calendar. Please try again.' });
       setIsConnecting(false);
     }
   };
@@ -62,12 +72,14 @@ export function CalendarSettings() {
   const handleDisconnect = async () => {
     if (!confirm('Are you sure you want to disconnect Google Calendar?')) return;
     setIsLoading(true);
+    setStatusMessage(null);
     try {
       await api.disconnectGoogleCalendar();
       setIsConnected(false);
+      setStatusMessage({ type: 'success', text: 'Google Calendar disconnected.' });
     } catch (error) {
       console.error('Failed to disconnect:', error);
-      alert('Failed to disconnect Google Calendar');
+      setStatusMessage({ type: 'error', text: 'Failed to disconnect Google Calendar. Please try again.' });
     } finally {
       setIsLoading(false);
     }
@@ -76,12 +88,13 @@ export function CalendarSettings() {
   // Save preferences
   const handleSavePreferences = async () => {
     setIsSaving(true);
+    setStatusMessage(null);
     try {
       await api.updateSchedulingPreferences(preferences);
-      alert('Preferences saved!');
+      setStatusMessage({ type: 'success', text: 'Preferences saved successfully!' });
     } catch (error) {
       console.error('Failed to save preferences:', error);
-      alert('Failed to save preferences');
+      setStatusMessage({ type: 'error', text: 'Failed to save preferences. Please try again.' });
     } finally {
       setIsSaving(false);
     }
@@ -111,6 +124,28 @@ export function CalendarSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Status Message */}
+      {statusMessage && (
+        <div className={`p-4 rounded-xl flex items-center gap-3 ${
+          statusMessage.type === 'success'
+            ? 'bg-green-500/10 border border-green-500/30'
+            : 'bg-red-500/10 border border-red-500/30'
+        }`}>
+          {statusMessage.type === 'success' ? (
+            <svg className="w-5 h-5 text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          )}
+          <p className={`text-sm ${statusMessage.type === 'success' ? 'text-green-300' : 'text-red-300'}`}>
+            {statusMessage.text}
+          </p>
+        </div>
+      )}
+
       {/* Google Calendar Connection */}
       <div className="p-6 bg-gray-800 rounded-xl">
         <div className="flex items-center gap-3 mb-4">

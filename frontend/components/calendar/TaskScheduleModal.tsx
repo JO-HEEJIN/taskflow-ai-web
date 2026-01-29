@@ -22,6 +22,8 @@ export function TaskScheduleModal({ task, onClose, onScheduled }: TaskScheduleMo
   const [isAutoScheduling, setIsAutoScheduling] = useState(false);
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>(task.priority || 'medium');
   const [dueDate, setDueDate] = useState(task.dueDate || '');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Calculate task duration
   const totalMinutes = task.subtasks.reduce(
@@ -46,18 +48,26 @@ export function TaskScheduleModal({ task, onClose, onScheduled }: TaskScheduleMo
     fetchSlots();
   }, [totalMinutes]);
 
+  // Clear messages helper
+  const clearMessages = () => {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  };
+
   // Auto-schedule the task
   const handleAutoSchedule = async () => {
     setIsAutoScheduling(true);
+    clearMessages();
     try {
       // First update task with priority and due date
       await api.updateTask(task.id, { priority, dueDate: dueDate || undefined });
       // Then auto-schedule
       await api.autoScheduleTask(task.id);
-      onScheduled();
+      setSuccessMessage('Task scheduled successfully!');
+      setTimeout(() => onScheduled(), 1000);
     } catch (error) {
       console.error('Failed to auto-schedule:', error);
-      alert('Failed to schedule task');
+      setErrorMessage('Failed to schedule task. Please try again.');
     } finally {
       setIsAutoScheduling(false);
     }
@@ -66,6 +76,7 @@ export function TaskScheduleModal({ task, onClose, onScheduled }: TaskScheduleMo
   // Schedule to a specific slot
   const handleScheduleToSlot = async (slot: TimeSlot) => {
     setIsLoading(true);
+    clearMessages();
     try {
       await api.updateTask(task.id, {
         scheduledStartTime: slot.start,
@@ -74,10 +85,11 @@ export function TaskScheduleModal({ task, onClose, onScheduled }: TaskScheduleMo
         dueDate: dueDate || undefined,
         isAutoScheduled: false
       });
-      onScheduled();
+      setSuccessMessage('Task scheduled successfully!');
+      setTimeout(() => onScheduled(), 1000);
     } catch (error) {
       console.error('Failed to schedule:', error);
-      alert('Failed to schedule task');
+      setErrorMessage('Failed to schedule task. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -87,12 +99,14 @@ export function TaskScheduleModal({ task, onClose, onScheduled }: TaskScheduleMo
   const handleClearSchedule = async () => {
     if (!task.scheduledStartTime) return;
     setIsLoading(true);
+    clearMessages();
     try {
       await api.clearTaskSchedule(task.id);
-      onScheduled();
+      setSuccessMessage('Schedule cleared.');
+      setTimeout(() => onScheduled(), 1000);
     } catch (error) {
       console.error('Failed to clear schedule:', error);
-      alert('Failed to clear schedule');
+      setErrorMessage('Failed to clear schedule. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -143,6 +157,24 @@ export function TaskScheduleModal({ task, onClose, onScheduled }: TaskScheduleMo
 
         {/* Content */}
         <div className="p-5 overflow-auto max-h-[60vh]">
+          {/* Status Messages */}
+          {errorMessage && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2">
+              <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm text-red-300">{errorMessage}</p>
+            </div>
+          )}
+          {successMessage && (
+            <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2">
+              <svg className="w-4 h-4 text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              <p className="text-sm text-green-300">{successMessage}</p>
+            </div>
+          )}
+
           {/* Current Schedule */}
           {task.scheduledStartTime && (
             <div className="mb-4 p-3 bg-indigo-500/10 border border-indigo-500/30 rounded-lg">

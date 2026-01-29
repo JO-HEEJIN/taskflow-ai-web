@@ -32,6 +32,7 @@ export function CalendarView() {
   });
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isScheduling, setIsScheduling] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Working hours (default 9 AM - 5 PM)
   const workingHours = { start: 9, end: 17 };
@@ -103,17 +104,29 @@ export function CalendarView() {
     setCurrentWeekStart(new Date(now.setDate(diff)));
   };
 
+  // Clear status message after timeout
+  useEffect(() => {
+    if (statusMessage) {
+      const timer = setTimeout(() => setStatusMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
+
   // Auto-schedule all pending tasks
   const handleAutoScheduleAll = async () => {
     setIsScheduling(true);
+    setStatusMessage(null);
     try {
       const result = await api.rescheduleAllTasks();
-      alert(`Scheduled ${result.scheduled} tasks. ${result.failed} failed.`);
+      setStatusMessage({
+        type: result.failed > 0 ? 'error' : 'success',
+        text: `Scheduled ${result.scheduled} tasks${result.failed > 0 ? `. ${result.failed} failed.` : '.'}`
+      });
       // Refresh tasks
       await useTaskStore.getState().fetchTasks();
     } catch (error) {
       console.error('Failed to auto-schedule tasks:', error);
-      alert('Failed to auto-schedule tasks');
+      setStatusMessage({ type: 'error', text: 'Failed to auto-schedule tasks' });
     } finally {
       setIsScheduling(false);
     }
@@ -209,8 +222,23 @@ export function CalendarView() {
         </div>
         <div className="flex items-center gap-2">
           {!isConnected && (
-            <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded">
-              Google Calendar not connected
+            <a
+              href="/settings"
+              className="flex items-center gap-1.5 text-xs text-yellow-500 bg-yellow-500/10 px-2 py-1 rounded hover:bg-yellow-500/20 transition-colors cursor-pointer"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Connect Google Calendar
+            </a>
+          )}
+          {statusMessage && (
+            <span className={`text-xs px-2 py-1 rounded ${
+              statusMessage.type === 'success'
+                ? 'text-green-400 bg-green-500/10'
+                : 'text-red-400 bg-red-500/10'
+            }`}>
+              {statusMessage.text}
             </span>
           )}
           <button
