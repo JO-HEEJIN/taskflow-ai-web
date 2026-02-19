@@ -46,6 +46,8 @@ export default function HomeClient() {
   // Track when authentication/guest mode is ready (userId set in localStorage)
   // This prevents race condition where TaskList fetches before userId is set
   const [isAuthReady, setIsAuthReady] = useState(false);
+  // Track when guest mode has been started from LandingPage (to skip landing and show audio permission)
+  const [guestStarted, setGuestStarted] = useState(false);
   const [audioPermissionGranted, setAudioPermissionGranted] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('audioPermissionGranted') === 'true';
@@ -229,8 +231,8 @@ export default function HomeClient() {
   }
 
   // Show landing page for new visitors (not authenticated and hasn't started guest mode)
-  if (status === 'unauthenticated' && !audioPermissionGranted) {
-    return <LandingPage />;
+  if (status === 'unauthenticated' && !audioPermissionGranted && !guestStarted) {
+    return <LandingPage onGuestStart={() => setGuestStarted(true)} />;
   }
 
   // Show audio permission screen for authenticated users who haven't granted it

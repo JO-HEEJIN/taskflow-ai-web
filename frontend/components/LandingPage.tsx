@@ -3,7 +3,11 @@
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
 
-export function LandingPage() {
+interface LandingPageProps {
+  onGuestStart?: () => void;
+}
+
+export function LandingPage({ onGuestStart }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-900 via-purple-900/20 to-gray-900 flex flex-col">
       {/* Hero Section */}
@@ -59,8 +63,9 @@ export function LandingPage() {
           </button>
           <button
             onClick={() => {
-              // Initialize guest mode and go to app
-              window.location.reload();
+              if (onGuestStart) {
+                onGuestStart();
+              }
             }}
             className="px-8 py-4 bg-purple-600 text-white rounded-xl font-semibold hover:bg-purple-700 transition-colors"
           >
