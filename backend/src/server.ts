@@ -15,6 +15,7 @@ import notesRouter from './routes/notes';
 import coachConversationsRouter from './routes/coachConversations';
 import textbooksRouter from './routes/textbooks';
 import calendarRouter from './routes/calendar';
+import { requireAuth } from './middleware/auth';
 
 dotenv.config();
 
@@ -76,7 +77,7 @@ app.get('/api', (req, res) => {
 });
 
 // Mount routers
-app.use('/api/tasks', tasksRouter);
+app.use('/api/tasks', requireAuth, tasksRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/sync', syncRouter);
 app.use('/api/notifications', notificationsRouter);

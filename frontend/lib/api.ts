@@ -1,4 +1,5 @@
 // API Client for TaskFlow AI Backend
+import { getSession } from 'next-auth/react';
 import { guestStorage } from './guestStorage';
 import { AISubtaskSuggestion, Subtask, ConfidenceLevel, SRS_INTERVALS } from '@/types';
 
@@ -44,6 +45,16 @@ async function getHeaders(): Promise<HeadersInit> {
   const userId = getUserId();
   if (userId) {
     headers['x-user-id'] = userId;
+    // Attach the verified Google id_token so the backend can authenticate the user
+    try {
+      const session = await getSession();
+      const idToken = (session as unknown as { idToken?: string } | null)?.idToken;
+      if (idToken) {
+        headers['Authorization'] = `Bearer ${idToken}`;
+      }
+    } catch {
+      // No session available; request will be rejected by the backend
+    }
   }
 
   return headers;
