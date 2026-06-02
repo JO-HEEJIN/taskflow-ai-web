@@ -284,10 +284,10 @@ class SoundManager {
       return;
     }
 
-    // 이미 heartbeat이 실행 중이면 중복 방지
+    // 이미 heartbeat이 실행 중이면 기존 인터벌을 정리하고 새로 시작 (stale interval 방지)
     if (this.heartbeatInterval !== null) {
-      console.log('⚠️ Heartbeat already running');
-      return;
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
     }
 
     console.log('💓 Starting audio heartbeat (iOS sleep prevention)');

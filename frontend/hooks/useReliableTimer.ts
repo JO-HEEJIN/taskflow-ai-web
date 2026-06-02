@@ -23,6 +23,9 @@ export function useReliableTimer({ durationMinutes, subtaskId, taskId, onComplet
     console.log(`⏰ Timer Reset for subtask: ${subtaskId}`);
     isCompletedRef.current = false; // 완료 플래그 초기화
 
+    // 이전 포커스 세션에서 살아남은 heartbeat 정리 (싱글톤 누수 방지)
+    soundManager.stopHeartbeat();
+
     const durationSec = durationMinutes * 60;
     setTimeLeft(durationSec); // UI 즉시 반영
 
@@ -95,21 +98,22 @@ export function useReliableTimer({ durationMinutes, subtaskId, taskId, onComplet
 
   // 타이머 시작/재개 함수
   const startTimer = useCallback(() => {
-    if (!targetTime) return;
+    // 남은 시간이 없으면(타이머 완료 상태) 전체 duration으로 리셋하여 재시작
+    // (과거 targetTime을 그대로 두면 시작 즉시 완료 처리되어 버림)
+    const remainingSec = timeLeft > 0 ? timeLeft : durationMinutes * 60;
 
-    // 일시정지 상태에서 재개하는 경우, 새로운 목표 시간 계산
-    if (!isRunning && timeLeft > 0) {
-      const now = Date.now();
-      const newTarget = now + (timeLeft * 1000);
-      setTargetTime(newTarget);
-      console.log(`▶️  Timer Started: Target ${new Date(newTarget).toLocaleTimeString()}`);
-    }
+    const now = Date.now();
+    const newTarget = now + (remainingSec * 1000);
+    setTargetTime(newTarget);
+    setTimeLeft(remainingSec);
+    isCompletedRef.current = false; // 재시작 시 완료 플래그 해제
+    console.log(`▶️  Timer Started: Target ${new Date(newTarget).toLocaleTimeString()}`);
 
     // [iOS FIX] Heartbeat 시작 - 절전 모드 방지
     soundManager.startHeartbeat();
 
     setIsRunning(true);
-  }, [isRunning, timeLeft, targetTime]);
+  }, [timeLeft, durationMinutes]);
 
   // 타이머 일시정지 함수
   const pauseTimer = useCallback(() => {
