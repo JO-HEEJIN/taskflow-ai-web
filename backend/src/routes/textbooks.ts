@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import { textbookService } from '../services/textbookService';
-import { claudeService } from '../services/claudeService';
+import { textbookParser } from '../services/textbookParser';
 
 import { PDFParse } from 'pdf-parse';
 
@@ -180,7 +180,7 @@ router.post('/parse/pdf', upload.single('pdf'), async (req: Request, res: Respon
     console.log(`📝 Extracted ${pdfText.length} characters from PDF`);
 
     // Use Claude to extract chapters
-    const result = await claudeService.extractChaptersFromPDF(pdfText);
+    const result = await textbookParser.extractChaptersFromPDF(pdfText);
 
     res.json({
       success: true,
@@ -213,7 +213,7 @@ router.post('/parse/url', async (req: Request, res: Response) => {
     console.log(`📝 Fetched ${htmlContent.length} characters from URL`);
 
     // Use Claude to extract chapters
-    const result = await claudeService.extractChaptersFromURL(url, htmlContent);
+    const result = await textbookParser.extractChaptersFromURL(url, htmlContent);
 
     res.json({
       success: true,
@@ -237,7 +237,7 @@ router.post('/parse/text', async (req: Request, res: Response) => {
     console.log(`📋 Parsing text: ${text.length} characters`);
 
     // Use Claude to extract chapters
-    const result = await claudeService.extractChaptersFromText(text);
+    const result = await textbookParser.extractChaptersFromText(text);
 
     res.json({
       success: true,
