@@ -9,46 +9,63 @@ function getClient(clientId: string): OAuth2Client {
   return client;
 }
 
-/**
- * Verifies a Google ID token from the Authorization: Bearer <token> header,
- * derives the trusted email, and uses it as the userId. This replaces blind
- * trust of the client-supplied x-user-id header (which allowed impersonation).
- *
- * Guests never hit these routes (they use localStorage on the client), so this
- * is safe to apply to authenticated-only data routers.
- */
-export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+// Try to verify the Authorization: Bearer <google-id-token> header.
+// Returns the trusted email on success, or a failure reason string.
+async function verifyToken(req: Request): Promise<{ email: string } | { error: string }> {
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+  if (!GOOGLE_CLIENT_ID) return { error: 'GOOGLE_CLIENT_ID not configured' };
+
+  const authHeader = req.headers['authorization'];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return { error: 'missing Authorization header' };
+  }
+
   try {
-    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-    if (!GOOGLE_CLIENT_ID) {
-      console.error('❌ GOOGLE_CLIENT_ID not configured; cannot verify auth');
-      res.status(500).json({ error: 'Authentication not configured' });
-      return;
-    }
-
-    const authHeader = req.headers['authorization'];
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Missing or invalid Authorization header' });
-      return;
-    }
-
     const idToken = authHeader.slice('Bearer '.length).trim();
-
     const ticket = await getClient(GOOGLE_CLIENT_ID).verifyIdToken({ idToken, audience: GOOGLE_CLIENT_ID });
     const payload = ticket.getPayload();
-    const email = payload?.email;
-
-    if (!email || payload?.email_verified === false) {
-      res.status(401).json({ error: 'Invalid token' });
-      return;
+    if (!payload?.email || payload.email_verified === false) {
+      return { error: 'token missing verified email' };
     }
-
-    // Trusted identity. Overwrite x-user-id so existing route code uses the
-    // verified value instead of whatever the client claimed.
-    req.headers['x-user-id'] = email;
-    next();
+    return { email: payload.email };
   } catch (err) {
-    console.error('❌ Auth verification failed:', err instanceof Error ? err.message : err);
-    res.status(401).json({ error: 'Authentication failed' });
+    return { error: `verify failed: ${err instanceof Error ? err.message : String(err)}` };
   }
+}
+
+/**
+ * Authenticates requests via a Google ID token (Authorization: Bearer ...),
+ * derives the trusted email, and overwrites x-user-id with it — replacing blind
+ * trust of the client-supplied x-user-id header (which allowed impersonation).
+ *
+ * Canary rollout: when AUTH_ENFORCE !== 'true' (default), runs in LOG-ONLY mode —
+ * it verifies and logs but never rejects, so we can confirm real users' tokens
+ * verify before enforcing. Set AUTH_ENFORCE=true to start rejecting.
+ *
+ * Guests never hit these routes (they use localStorage on the client).
+ */
+export async function requireAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const enforce = process.env.AUTH_ENFORCE === 'true';
+  const claimed = req.headers['x-user-id'];
+  const result = await verifyToken(req);
+
+  if ('email' in result) {
+    if (claimed && claimed !== result.email) {
+      console.warn(`[auth] token email (${result.email}) != x-user-id (${claimed})`);
+    }
+    req.headers['x-user-id'] = result.email; // trusted identity
+    console.log(`[auth] OK ${req.method} ${req.path} as ${result.email} (enforce=${enforce})`);
+    next();
+    return;
+  }
+
+  if (enforce) {
+    console.warn(`[auth] REJECT ${req.method} ${req.path}: ${result.error}`);
+    res.status(401).json({ error: 'Authentication failed' });
+    return;
+  }
+
+  // Log-only canary: allow through using the (untrusted) x-user-id, but record it
+  console.warn(`[auth][log-only] would REJECT ${req.method} ${req.path}: ${result.error} (x-user-id=${claimed ?? 'none'})`);
+  next();
 }
