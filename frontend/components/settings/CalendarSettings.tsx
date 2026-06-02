@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession, signIn } from 'next-auth/react';
 import { api } from '@/lib/api';
 
 interface SchedulingPreferences {
@@ -11,6 +12,7 @@ interface SchedulingPreferences {
 }
 
 export function CalendarSettings() {
+  const { status } = useSession();
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -56,6 +58,11 @@ export function CalendarSettings() {
 
   // Connect Google Calendar
   const handleConnect = async () => {
+    // Calendar requires a signed-in user — send guests to login instead of failing
+    if (status === 'unauthenticated') {
+      signIn('google');
+      return;
+    }
     setIsConnecting(true);
     setStatusMessage(null);
     try {
