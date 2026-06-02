@@ -1,11 +1,67 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
+import dns from 'dns/promises';
+import net from 'net';
 import { textbookService } from '../services/textbookService';
 import { textbookParser } from '../services/textbookParser';
 
 import { PDFParse } from 'pdf-parse';
 
 const router = Router();
+
+// --- SSRF protection for user-supplied URLs ---
+// Reject private, loopback, link-local (incl. cloud metadata 169.254.169.254) and reserved ranges
+function isPrivateIp(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const p = ip.split('.').map(Number);
+    return (
+      p[0] === 10 ||
+      p[0] === 127 ||
+      p[0] === 0 ||
+      (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
+      (p[0] === 192 && p[1] === 168) ||
+      (p[0] === 169 && p[1] === 254) ||
+      (p[0] === 100 && p[1] >= 64 && p[1] <= 127)
+    );
+  }
+  const lower = ip.toLowerCase().replace(/^::ffff:/, '');
+  if (lower !== ip.toLowerCase() && net.isIPv4(lower)) return isPrivateIp(lower);
+  return lower === '::1' || lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80');
+}
+
+async function assertSafePublicUrl(raw: string): Promise<void> {
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    throw new Error('Invalid URL');
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+    throw new Error('Only http(s) URLs are allowed');
+  }
+  const addrs = await dns.lookup(u.hostname, { all: true });
+  for (const a of addrs) {
+    if (isPrivateIp(a.address)) {
+      throw new Error('URL resolves to a private or reserved address');
+    }
+  }
+}
+
+// Fetch that validates every hop (blocks redirect-based SSRF bypass)
+async function safeFetch(raw: string, maxRedirects = 3) {
+  let current = raw;
+  for (let i = 0; i <= maxRedirects; i++) {
+    await assertSafePublicUrl(current);
+    const res = await fetch(current, { redirect: 'manual', signal: AbortSignal.timeout(15000) });
+    const location = res.headers.get('location');
+    if (res.status >= 300 && res.status < 400 && location) {
+      current = new URL(location, current).toString();
+      continue;
+    }
+    return res;
+  }
+  throw new Error('Too many redirects');
+}
 
 // Configure multer for PDF uploads (memory storage)
 const upload = multer({
@@ -203,8 +259,8 @@ router.post('/parse/url', async (req: Request, res: Response) => {
 
     console.log(`🔗 Fetching URL: ${url}`);
 
-    // Fetch the webpage content
-    const response = await fetch(url);
+    // Fetch the webpage content (SSRF-guarded: blocks private/reserved IPs and unsafe redirects)
+    const response = await safeFetch(url);
     if (!response.ok) {
       throw new Error(`Failed to fetch URL: ${response.status}`);
     }
