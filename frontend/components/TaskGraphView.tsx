@@ -718,7 +718,7 @@ export function TaskGraphView({
       {/* Reset view button */}
       <button
         onClick={handleReset}
-        className="absolute bottom-4 right-4 z-50 backdrop-blur-md rounded-lg px-4 py-3 text-sm font-medium text-white transition-all min-h-[48px]"
+        className="absolute bottom-20 right-4 z-50 backdrop-blur-md rounded-lg px-4 py-3 text-sm font-medium text-white transition-all min-h-[48px]"
         style={{
           background: 'rgba(0, 0, 0, 0.5)',
           border: '1px solid rgba(167, 139, 250, 0.3)',
