@@ -15,7 +15,6 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'TaskFlow AI - AI-Powered Task Management',
   description: 'TaskFlow AI is a productivity application that helps users overcome task overwhelm through intelligent AI-powered task decomposition. Break down complex tasks into small, actionable 2-10 minute subtasks. Features include smart scheduling with Google Calendar integration, immersive focus mode, and cross-device synchronization.',
-  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',

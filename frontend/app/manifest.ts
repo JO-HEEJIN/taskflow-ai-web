@@ -1,0 +1,39 @@
+import type { MetadataRoute } from 'next'
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: 'TaskFlow AI',
+    short_name: 'TaskFlow',
+    description: 'AI-powered task management with focus mode timer',
+    start_url: '/',
+    display: 'standalone',
+    background_color: '#1a0a28',
+    theme_color: '#c084fc',
+    orientation: 'portrait-primary',
+    scope: '/',
+    icons: [
+      {
+        src: '/icons/tick_network_icon.png',
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+      {
+        src: '/icons/tick_network_icon.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+    ],
+    categories: ['productivity', 'lifestyle'],
+    shortcuts: [
+      {
+        name: 'Start Focus Mode',
+        short_name: 'Focus',
+        description: 'Enter focus mode for your current task',
+        url: '/?focus=true',
+        icons: [{ src: '/icons/tick_network_icon.png', sizes: '192x192' }],
+      },
+    ],
+  }
+}
