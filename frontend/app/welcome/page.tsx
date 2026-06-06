@@ -68,7 +68,7 @@ export default function WelcomePage() {
       <footer className="border-t border-gray-800 py-6 px-4">
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-gray-500 text-sm">
-            © 2026 TaskFlow AI. Built for Microsoft Imagine Cup 2026.
+            © 2026 TaskFlow AI.
           </div>
           <div className="flex items-center gap-6 text-sm">
             <Link href="/privacy" className="text-gray-400 hover:text-purple-400 transition-colors">
