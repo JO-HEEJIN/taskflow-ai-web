@@ -84,9 +84,11 @@ Mapped to the 8 increments in claude-code-prompt.md section 4, adjusted to real 
 - SECURITY NOTE (for the section 6 pass): /api/study currently trusts x-user-id as ownerRef (guests must work, no token). Cross-owner read is prevented by per-owner queries, but a client could still claim another ownerRef. Entitlement and hardening land in Increment 7 and the security pass.
 - [x] No tiering yet (Increment 2).
 
-### Increment 2 — Layer 1 tiering from structural signals
-- [ ] Compute tier (1/2/3) per Region from structural signals only (emphasis, definition boxes, summaries, figure/table captions and numbered labels, end-of-chapter questions, heading hierarchy). Write `tier` to Region.
-- [ ] Leave seams: `tier_source` field and a no-op `pastExamWeight` hook; a per-user re-weighting table stub.
+### Increment 2 — Layer 1 tiering from structural signals (DONE)
+- [x] `services/studyTiering.ts` `assignTiers(regions)`: rule-based, deterministic, no LLM (per SDP "structural signals only"). Tier 1 = headings, captions, definitions/key-terms; Tier 2 = summaries, review questions; Tier 3 = body text, figures, tables. Wired into the ingest pipeline so regions persist with tier.
+- [x] Seams left: `Region.tierSource` ('structural' now; 'past-exam' and 'reweighted' reserved); `reweightTiers()` no-op hook for per-user failure re-weighting (Layer 3); a documented spot for the optional LLM term-extraction + Headroom compression.
+- [x] Verified: unit test covers all rules (heading/caption/figure/table and definition/summary/review-question/question text). Live ingest persists a valid tier on every region with tierSource=structural.
+- NOTE: v1 tiering makes no LLM call, so Headroom stays measurement-only until the term-extraction step is added.
 
 ### Increment 3 — Layer 2 viewer: faithful render + mask overlay + three toggle modes
 - [ ] Frontend study viewer route: render each page image with an absolutely-positioned overlay aligned to bboxes.

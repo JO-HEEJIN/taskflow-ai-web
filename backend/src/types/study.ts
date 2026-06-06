@@ -32,7 +32,10 @@ export interface Region {
   type: RegionType;
   bbox: FractionBox;
   content: string;
-  tier?: 1 | 2 | 3; // assigned in Increment 2; absent in Increment 1
+  tier?: 1 | 2 | 3; // assigned in Increment 2
+  // where the tier came from. 'structural' is the v1 rule-based source. Seams:
+  // 'past-exam' (premium, later) and 'reweighted' (per-user failures, Layer 3).
+  tierSource?: 'structural' | 'past-exam' | 'reweighted';
   tableStructure?: TableStructure; // only for type === 'table'
 }
 

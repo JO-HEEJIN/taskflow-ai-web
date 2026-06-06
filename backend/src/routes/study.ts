@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getDocumentAiProvider } from '../services/documentAi';
 import { studyService } from '../services/studyService';
+import { assignTiers } from '../services/studyTiering';
 import { logPayloadTokens } from '../services/headroom';
 import { Book } from '../types/study';
 
@@ -48,7 +49,10 @@ router.post('/books', upload.single('pdf'), async (req: Request, res: Response) 
     // Token baseline for the payload Headroom will compress at the tiering step.
     logPayloadTokens('document-ai layout JSON', layout.raw);
 
-    const titleFromHeading = layout.regions.find((r) => r.type === 'heading')?.content;
+    // Layer 1: assign importance tiers from structural signals.
+    const regions = assignTiers(layout.regions);
+
+    const titleFromHeading = regions.find((r) => r.type === 'heading')?.content;
     const title =
       req.file.originalname.replace(/\.pdf$/i, '').trim() || titleFromHeading || 'Untitled book';
 
@@ -62,7 +66,7 @@ router.post('/books', upload.single('pdf'), async (req: Request, res: Response) 
       provider: getDocumentAiProvider().name,
     };
 
-    await studyService.saveProcessedBook(book, layout.pages, layout.regions);
+    await studyService.saveProcessedBook(book, layout.pages, regions);
 
     res.status(201).json({
       book,
