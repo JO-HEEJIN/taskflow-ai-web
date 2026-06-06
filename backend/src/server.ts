@@ -15,6 +15,7 @@ import notesRouter from './routes/notes';
 import coachConversationsRouter from './routes/coachConversations';
 import textbooksRouter from './routes/textbooks';
 import calendarRouter from './routes/calendar';
+import studyRouter from './routes/study';
 import { requireAuth } from './middleware/auth';
 
 dotenv.config();
@@ -87,6 +88,7 @@ app.use('/api/notes', notesRouter);
 app.use('/api/coach-conversations', coachConversationsRouter);
 app.use('/api/textbooks', textbooksRouter);
 app.use('/api/calendar', calendarRouter);
+app.use('/api/study', studyRouter);
 
 // Initialize services and start server
 async function startServer() {

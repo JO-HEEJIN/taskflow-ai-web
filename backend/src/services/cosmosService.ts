@@ -15,6 +15,10 @@ class CosmosService {
   private coachConversationsContainer: Container | null = null;
   private textbooksContainer: Container | null = null;
   private schedulingPreferencesContainer: Container | null = null;
+  // AI Study Layer containers
+  private studyBooksContainer: Container | null = null;
+  private studyPagesContainer: Container | null = null;
+  private studyRegionsContainer: Container | null = null;
 
   constructor() {
     const endpoint = process.env.COSMOS_ENDPOINT || '';
@@ -106,6 +110,25 @@ class CosmosService {
       });
       this.schedulingPreferencesContainer = schedulingPreferencesContainer;
 
+      // AI Study Layer containers
+      const { container: studyBooksContainer } = await database.containers.createIfNotExists({
+        id: 'studyBooks',
+        partitionKey: { paths: ['/ownerRef'] },
+      });
+      this.studyBooksContainer = studyBooksContainer;
+
+      const { container: studyPagesContainer } = await database.containers.createIfNotExists({
+        id: 'studyPages',
+        partitionKey: { paths: ['/bookId'] },
+      });
+      this.studyPagesContainer = studyPagesContainer;
+
+      const { container: studyRegionsContainer } = await database.containers.createIfNotExists({
+        id: 'studyRegions',
+        partitionKey: { paths: ['/bookId'] },
+      });
+      this.studyRegionsContainer = studyRegionsContainer;
+
       console.log('✅ Cosmos DB initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize Cosmos DB:', error);
@@ -179,6 +202,15 @@ class CosmosService {
       case 'schedulingPreferences':
         if (!this.schedulingPreferencesContainer) throw new Error('Scheduling preferences container not initialized');
         return this.schedulingPreferencesContainer;
+      case 'studyBooks':
+        if (!this.studyBooksContainer) throw new Error('Study books container not initialized');
+        return this.studyBooksContainer;
+      case 'studyPages':
+        if (!this.studyPagesContainer) throw new Error('Study pages container not initialized');
+        return this.studyPagesContainer;
+      case 'studyRegions':
+        if (!this.studyRegionsContainer) throw new Error('Study regions container not initialized');
+        return this.studyRegionsContainer;
       default:
         throw new Error(`Unknown container: ${containerName}`);
     }
