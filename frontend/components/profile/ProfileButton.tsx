@@ -89,6 +89,8 @@ export function ProfileButton({ isOpen: externalIsOpen, onOpenChange }: ProfileB
     if (isGuest) {
       await signIn('google');
     } else {
+      // Clear the auth userId so the app falls back to guest mode cleanly
+      localStorage.removeItem('userId');
       await signOut();
     }
   };

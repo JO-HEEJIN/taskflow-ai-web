@@ -173,6 +173,9 @@ export default function HomeClient() {
         console.error('Migration error:', error);
       });
     } else if (status === 'unauthenticated') {
+      // Clear any stale userId so isGuestMode() is consistent — otherwise a
+      // leftover userId makes the client call the backend without a token (401)
+      localStorage.removeItem('userId');
       // Initialize guest mode
       initializeGuestMode();
       console.log('Guest mode active');
