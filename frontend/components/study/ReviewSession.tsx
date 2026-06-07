@@ -7,7 +7,24 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 interface FractionBox { x: number; y: number; width: number; height: number; }
 interface Region { id: string; pageIndex: number; type: string; bbox: FractionBox; content: string; tier?: number; }
 interface ReviewItem { id: string; bookId: string; kind: string; }
-interface DueEntry { item: ReviewItem; region: Region | null; }
+interface DueEntry { item: ReviewItem; region: Region | null; retention?: number; daysUntilHalf?: number }
+interface Streak { currentStreak: number; longestStreak: number; freezesAvailable: number; weeklyGoal: number; weekReviewCount: number }
+
+// Blue (safe) to red (urgent), interpolated by retention. Mirrors the PiP timer treatment.
+function retentionColor(r: number): string {
+  const clamped = Math.max(0, Math.min(1, r));
+  const red = Math.round(239 + (96 - 239) * clamped); // 0 -> 239, 1 -> 96
+  const green = Math.round(68 + (165 - 68) * clamped);
+  const blue = Math.round(68 + (250 - 68) * clamped);
+  return `rgb(${red},${green},${blue})`;
+}
+
+// Honest, decay-based message. No fake countdown.
+function retentionMessage(r: number, days: number): string {
+  const pct = Math.round(r * 100);
+  if (days <= 1) return `Memory about ${pct}%. This slips below 50% within a day. Lock it in now.`;
+  return `Memory about ${pct}%. Slips below 50% in about ${Math.round(days)} days.`;
+}
 
 const GRADES: { label: string; quality: number; tone: string }[] = [
   { label: 'Again', quality: 1, tone: 'from-red-500/40 to-red-400/20 border-red-400/50' },
@@ -28,6 +45,7 @@ export function ReviewSession() {
   const [loading, setLoading] = useState(true);
   const [renderedSize, setRenderedSize] = useState<{ w: number; h: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [streak, setStreak] = useState<Streak | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const pdfjsRef = useRef<any>(null);
   const docCache = useRef<Map<string, any>>(new Map());
@@ -42,6 +60,8 @@ export function ReviewSession() {
         if (!res.ok) throw new Error(`Failed to load due items (${res.status})`);
         const data = await res.json();
         if (!cancelled) setQueue((data.due || []).filter((d: DueEntry) => d.region));
+        const streakRes = await fetch(`${API}/api/study/review/streak`, { headers: headers() });
+        if (streakRes.ok && !cancelled) setStreak((await streakRes.json()).streak);
       } catch (e: any) {
         if (!cancelled) setError(e?.message || 'Failed to load session');
       } finally {
@@ -96,11 +116,15 @@ export function ReviewSession() {
     const entry = queue[idx];
     if (!entry) return;
     try {
-      await fetch(`${API}/api/study/review/${entry.item.id}/grade`, {
+      const res = await fetch(`${API}/api/study/review/${entry.item.id}/grade`, {
         method: 'POST',
         headers: { ...headers(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ quality }),
       });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.streak) setStreak(data.streak);
+      }
     } catch {
       // advance even if grading fails so the session is not stuck
     }
@@ -136,12 +160,31 @@ export function ReviewSession() {
           <span className="text-xs uppercase tracking-widest text-purple-300">Just one at a time</span>
           <span className="text-sm text-blue-200/70">Item {idx + 1} of {queue.length}</span>
         </div>
-        <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden mb-5">
+        <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden mb-4">
           <div
             className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all"
             style={{ width: `${(idx / queue.length) * 100}%` }}
           />
         </div>
+
+        {streak && (
+          <div data-streak className="flex flex-wrap items-center gap-x-4 gap-y-1 justify-center mb-4 text-xs text-blue-200/80">
+            <span>Streak: <span className="text-white font-semibold">{streak.currentStreak}</span> day{streak.currentStreak !== 1 ? 's' : ''}</span>
+            <span>Freezes: <span className="text-white font-semibold">{streak.freezesAvailable}</span></span>
+            <span>This week: <span className="text-white font-semibold">{streak.weekReviewCount}/{streak.weeklyGoal}</span></span>
+          </div>
+        )}
+
+        {/* Honest, decay-based urgency. Real retention, not a fake countdown. */}
+        {typeof entry.retention === 'number' && (
+          <div
+            data-retention
+            className="mx-auto mb-4 w-fit rounded-full px-4 py-1.5 text-sm font-medium"
+            style={{ color: retentionColor(entry.retention), border: `1px solid ${retentionColor(entry.retention)}`, background: 'rgba(255,255,255,0.04)' }}
+          >
+            {retentionMessage(entry.retention, entry.daysUntilHalf ?? 0)}
+          </div>
+        )}
 
         <p className="text-sm text-blue-100/80 mb-4 text-center">
           {revealed ? 'How well did you recall it?' : 'Recall what is hidden, then reveal.'}

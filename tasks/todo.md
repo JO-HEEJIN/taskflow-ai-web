@@ -112,7 +112,8 @@ Mapped to the 8 increments in claude-code-prompt.md section 4, adjusted to real 
 
 ### Increment 6 — Layer 3 honest loss-aversion + ADHD-safe streak (IN PROGRESS)
 - [x] 6.1 Backend: `/review/due` now returns real `retention` (computeRetention) and `daysUntilHalf` per item (stability*ln2 - elapsed); `daysUntilHalf` added to studyReviewService. ADHD-safe streak: `studyStreaks` container + `studyStreakService` (pure `advanceStreak`: gap 1 continues, gap>1 spends a freeze else gentle reset to 1, weekly goal window, no shame). Grade now records study and returns streak; `GET /review/streak` added. Unit tests PASS (daysUntilHalf; streak gap/freeze/reset/longest).
-- [ ] 6.2 Frontend: ReviewSession shows the honest retention message + blue-to-red color; a streak badge (current streak, freezes, weekly goal) in ADHD-safe copy.
+- [x] 6.2 Frontend: ReviewSession shows the honest retention pill (real "Memory about X%, slips below 50% in N days", blue-to-red by retention) and an ADHD-safe streak badge (current streak, freezes, weekly count/goal). Grade updates the streak from the response.
+- [x] Verified (Playwright + screenshots): retention message and blue color render, streak badge shows 0 then advances to 1 after grading, queue advances. Increment 6 complete.
 
 ### Increment 7 — Monetization (Lemon Squeezy, inline, no pricing page)
 - [ ] `entitlements` container (scope, lemonsqueezy_order_id, license_key, email). Server-side per-book gating; book 1 free, book 2+ paid.
