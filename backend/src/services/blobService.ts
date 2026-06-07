@@ -49,6 +49,27 @@ class BlobService {
   }
 
   /**
+   * Upload an arbitrary buffer at a caller-chosen blob name (used for study PDFs).
+   * Returns the blob name (not a URL); study PDFs are served through an
+   * owner-verified backend endpoint, never a public URL.
+   */
+  async uploadBuffer(buffer: Buffer, mimeType: string, blobName: string): Promise<string> {
+    const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
+    await blockBlobClient.upload(buffer, buffer.length, {
+      blobHTTPHeaders: { blobContentType: mimeType },
+    });
+    return blobName;
+  }
+
+  /**
+   * Download a blob into a Buffer.
+   */
+  async downloadToBuffer(blobName: string): Promise<Buffer> {
+    const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
+    return blockBlobClient.downloadToBuffer();
+  }
+
+  /**
    * Get file extension from MIME type
    */
   private getExtensionFromMimeType(mimeType: string): string {

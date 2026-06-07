@@ -56,4 +56,5 @@ export interface Book {
   pageCount: number;
   processedAt: string; // ISO
   provider: string; // which Document AI provider produced the regions
+  pdfBlobName?: string; // private Blob name of the original PDF; streamed via the API
 }

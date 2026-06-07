@@ -6,6 +6,7 @@ import { getDocumentAiProvider } from '../services/documentAi';
 import { studyService } from '../services/studyService';
 import { assignTiers } from '../services/studyTiering';
 import { logPayloadTokens } from '../services/headroom';
+import { blobService } from '../services/blobService';
 import { Book } from '../types/study';
 
 const router = Router();
@@ -56,14 +57,22 @@ router.post('/books', upload.single('pdf'), async (req: Request, res: Response) 
     const title =
       req.file.originalname.replace(/\.pdf$/i, '').trim() || titleFromHeading || 'Untitled book';
 
+    const bookId = uuidv4();
+
+    // Store the original PDF privately so the viewer can render it via pdf.js.
+    // Served only through the owner-verified /books/:id/pdf endpoint, not a public URL.
+    const pdfBlobName = `study/${ownerRef}/${bookId}.pdf`;
+    await blobService.uploadBuffer(pdf, 'application/pdf', pdfBlobName);
+
     const book: Book = {
-      id: uuidv4(),
+      id: bookId,
       ownerRef,
       title,
       sourceHash,
       pageCount: layout.pages.length,
       processedAt: new Date().toISOString(),
       provider: getDocumentAiProvider().name,
+      pdfBlobName,
     };
 
     await studyService.saveProcessedBook(book, layout.pages, regions);
@@ -86,6 +95,23 @@ router.get('/books', async (req: Request, res: Response) => {
   if (!ownerRef) return res.status(400).json({ error: 'Missing x-user-id header' });
   const books = await studyService.listBooks(ownerRef);
   res.json({ books });
+});
+
+// Stream the original PDF, only to its owner. Never a public URL (copyright/privacy).
+router.get('/books/:id/pdf', async (req: Request, res: Response) => {
+  const ownerRef = getOwnerRef(req);
+  if (!ownerRef) return res.status(400).json({ error: 'Missing x-user-id header' });
+  const book = await studyService.getBook(req.params.id, ownerRef);
+  if (!book || !book.pdfBlobName) return res.status(404).json({ error: 'PDF not found' });
+  try {
+    const buffer = await blobService.downloadToBuffer(book.pdfBlobName);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(buffer);
+  } catch (error: any) {
+    console.error('[study] PDF stream failed:', error?.message || error);
+    res.status(500).json({ error: 'Failed to load PDF' });
+  }
 });
 
 // Get one book with its pages and regions.

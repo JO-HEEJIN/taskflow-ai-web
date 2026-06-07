@@ -90,9 +90,12 @@ Mapped to the 8 increments in claude-code-prompt.md section 4, adjusted to real 
 - [x] Verified: unit test covers all rules (heading/caption/figure/table and definition/summary/review-question/question text). Live ingest persists a valid tier on every region with tierSource=structural.
 - NOTE: v1 tiering makes no LLM call, so Headroom stays measurement-only until the term-extraction step is added.
 
-### Increment 3 — Layer 2 viewer: faithful render + mask overlay + three toggle modes
-- [ ] Frontend study viewer route: render each page image with an absolutely-positioned overlay aligned to bboxes.
-- [ ] Toggle modes: show all; hide overlay regions; show only overlay regions.
+### Increment 3 — Layer 2 viewer: faithful render + mask overlay + three toggle modes (DONE)
+- [x] Backend: store original PDF privately in Blob on ingest (`book.pdfBlobName`); add owner-verified `GET /api/study/books/:id/pdf` that streams it (never a public URL). `blobService.uploadBuffer`/`downloadToBuffer` added. CORS allowedHeaders gains `Range` so pdf.js can fetch. Verified: owner gets 200 application/pdf (exact byte match), other owner gets 404.
+- [x] Frontend: `components/study/StudyViewer.tsx` + route `app/study/[id]/page.tsx`. Renders each page with pdf.js (pdfjs-dist 4.8.69, worker in public/) onto a canvas and overlays absolutely-positioned, tier-colored mask divs aligned to fractional bboxes.
+- [x] Three toggle modes: show all (translucent tier overlays), hide overlay regions (blank all tiered regions), show only anchors (blank tier 2 and 3, keep tier 1 visible). Chosen render approach: pdf.js client-side (no server rasterization), per owner decision.
+- [x] Verified end to end (Playwright): page route 200, PDF renders (canvas 900px), 40 overlays, hide -> opaque, anchors -> tier1 visible and tier3 blanked, zero failed requests. Fixed an SSR crash by importing pdfjs-dist dynamically inside the effect (Node 20 lacks Promise.withResolvers).
+- NOTE: no study entry UI yet (reach the viewer at /study/:id). Entry/upload UI lands with later increments.
 
 ### Increment 4 — Layer 2 blank-to-full progressive reveal
 - [ ] Stages 0..3 across text, figures (caption-to-image), tables (region-level in v1).
