@@ -4,6 +4,7 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getDocumentAiProvider } from '../services/documentAi';
 import { studyService } from '../services/studyService';
+import { studyReviewService, applyGrade } from '../services/studyReviewService';
 import { assignTiers } from '../services/studyTiering';
 import { logPayloadTokens } from '../services/headroom';
 import { blobService } from '../services/blobService';
@@ -77,11 +78,16 @@ router.post('/books', upload.single('pdf'), async (req: Request, res: Response) 
 
     await studyService.saveProcessedBook(book, layout.pages, regions);
 
+    // Layer 3: seed spaced-repetition review items for the recall-target regions,
+    // all due now so the first study session has items.
+    const reviewItemCount = await studyReviewService.generateReviewItems(book, regions);
+
     res.status(201).json({
       book,
       cached: false,
       pageCount: layout.pages.length,
       regionCount: layout.regions.length,
+      reviewItemCount,
     });
   } catch (error: any) {
     console.error('[study] PDF processing failed:', error?.message || error);
@@ -125,6 +131,39 @@ router.get('/books/:id', async (req: Request, res: Response) => {
     studyService.getRegions(book.id),
   ]);
   res.json({ book, pages, regions });
+});
+
+// Due review items for the caller, enriched with the region to render.
+router.get('/review/due', async (req: Request, res: Response) => {
+  const ownerRef = getOwnerRef(req);
+  if (!ownerRef) return res.status(400).json({ error: 'Missing x-user-id header' });
+  const items = await studyReviewService.getDueItems(ownerRef);
+
+  // Attach each item's region (bbox, page, content) so the session can render it.
+  const bookIds = Array.from(new Set(items.map((i) => i.bookId)));
+  const regionsByBook = new Map<string, Awaited<ReturnType<typeof studyService.getRegions>>>();
+  await Promise.all(bookIds.map(async (b) => regionsByBook.set(b, await studyService.getRegions(b))));
+
+  const enriched = items.map((item) => {
+    const region = regionsByBook.get(item.bookId)?.find((r) => r.id === item.regionId) || null;
+    return { item, region };
+  });
+  res.json({ due: enriched });
+});
+
+// Grade a review item (quality 0..5). Applies SM-2 and reschedules.
+router.post('/review/:itemId/grade', async (req: Request, res: Response) => {
+  const ownerRef = getOwnerRef(req);
+  if (!ownerRef) return res.status(400).json({ error: 'Missing x-user-id header' });
+  const quality = Number(req.body?.quality);
+  if (!Number.isFinite(quality)) return res.status(400).json({ error: 'quality (0..5) is required' });
+
+  const item = await studyReviewService.getItem(req.params.itemId, ownerRef);
+  if (!item) return res.status(404).json({ error: 'Review item not found' });
+
+  const updated = applyGrade(item, quality);
+  await studyReviewService.saveItem(updated);
+  res.json({ item: updated });
 });
 
 export default router;

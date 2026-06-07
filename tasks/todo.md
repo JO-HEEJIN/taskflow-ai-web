@@ -101,9 +101,11 @@ Mapped to the 8 increments in claude-code-prompt.md section 4, adjusted to real 
 - [x] Added a 'reveal' mode to StudyViewer with a stage stepper (0..3, Back / Reveal next). Stage 0 shows only tier-1 anchors; stage 1 adds tier 2; stage 2 adds tier-3 text; figures and tables reveal last at stage 3 (caption-to-figure recall, since captions are tier 1). Masked regions are blanked; revealed regions show the page underneath.
 - [x] Verified (Playwright) on the sample: masked-region count steps 37 -> 37 -> 2 -> 0 across stages (monotonic to zero), figures/tables reveal last, tier-1 anchors never masked.
 
-### Increment 5 — Layer 3 scheduler + TaskFlow task generation
-- [ ] `reviewItems` container with SM-2 (ease, interval, due_at, retention_estimate, last_result).
-- [ ] On due, generate Tasks reusing `taskService` + `notificationService` (due reminders) + `createLinkedTask` (item-to-item) + Focus Mode (one at a time).
+### Increment 5 — Layer 3 scheduler + TaskFlow task generation (IN PROGRESS)
+- [x] 5.1 Data + scheduler: `studyReviewItems` Cosmos container (partition /ownerRef); `ReviewItem` type; `studyReviewService` with pure SM-2 `applyGrade`, `computeRetention`, `isRecallTarget`, `generateReviewItems` (recall targets = tier 1/2 + figures/tables, due now, idempotent), `getDueItems`, `booksWithDueItems`. Wired `generateReviewItems` into ingest. Unit tests PASS (interval 1->6->16, fail reset, ease floor 1.3, retention decay; recall-target selection).
+- [x] 5.2 Routes: `GET /api/study/review/due` (enriched with each item's region) and `POST /api/study/review/:itemId/grade`. Live verified: ingest creates 5 items (3 tier1 + 2 tables), due returns them with region, grade q5 reschedules to future, due count drops.
+- [ ] 5.3 TaskFlow task generation: daily sweep creates one Task per book with due items, reusing taskService.createTask + notificationService.notifyDueDateReminder; createLinkedTask for momentum.
+- [ ] 5.4 Frontend review-session UI (reuse Focus Mode + StudyViewer overlay): load first due item, recall then reveal, grade control, auto-advance.
 
 ### Increment 6 — Layer 3 honest loss-aversion + ADHD-safe streak
 - [ ] Show real retention estimate (no fake countdown); reuse PiP blue-to-red where practical.

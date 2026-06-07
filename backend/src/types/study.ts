@@ -46,6 +46,22 @@ export interface Page {
   renderUri?: string; // Blob URI of the rendered page image (set when render is added)
 }
 
+// A spaced-repetition review item for one recall-target region. SM-2 state.
+export interface ReviewItem {
+  id: string;
+  ownerRef: string;
+  bookId: string;
+  regionId: string;
+  kind: 'text' | 'figure' | 'table';
+  ease: number; // SM-2 easiness factor (>= 1.3), default 2.5
+  intervalDays: number; // current interval; 0 before first successful review
+  repetitions: number; // count of consecutive successful reviews
+  dueAt: string; // ISO; item is due when dueAt <= now
+  lastResult?: number; // last grade 0..5
+  lastReviewedAt?: string; // ISO
+  retentionEstimate: number; // 0..1 estimate (drives Increment 6 loss-aversion UI)
+}
+
 // A processed book. owner_ref is the existing identity value (email or guest id),
 // matching the syncCode/partition convention used elsewhere.
 export interface Book {

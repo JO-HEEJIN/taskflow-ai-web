@@ -19,6 +19,7 @@ class CosmosService {
   private studyBooksContainer: Container | null = null;
   private studyPagesContainer: Container | null = null;
   private studyRegionsContainer: Container | null = null;
+  private studyReviewItemsContainer: Container | null = null;
 
   constructor() {
     const endpoint = process.env.COSMOS_ENDPOINT || '';
@@ -129,6 +130,12 @@ class CosmosService {
       });
       this.studyRegionsContainer = studyRegionsContainer;
 
+      const { container: studyReviewItemsContainer } = await database.containers.createIfNotExists({
+        id: 'studyReviewItems',
+        partitionKey: { paths: ['/ownerRef'] },
+      });
+      this.studyReviewItemsContainer = studyReviewItemsContainer;
+
       console.log('✅ Cosmos DB initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize Cosmos DB:', error);
@@ -211,6 +218,9 @@ class CosmosService {
       case 'studyRegions':
         if (!this.studyRegionsContainer) throw new Error('Study regions container not initialized');
         return this.studyRegionsContainer;
+      case 'studyReviewItems':
+        if (!this.studyReviewItemsContainer) throw new Error('Study review items container not initialized');
+        return this.studyReviewItemsContainer;
       default:
         throw new Error(`Unknown container: ${containerName}`);
     }
