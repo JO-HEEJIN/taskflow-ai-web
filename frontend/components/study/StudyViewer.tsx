@@ -12,7 +12,20 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 // all      - show the full page with tier-colored overlays (encode/study)
 // hide     - blank every tiered region (self-test by recalling them)
 // anchors  - show only tier-1 anchors; blank tier 2 and 3 (reconstruct the rest)
-type Mode = 'all' | 'hide' | 'anchors';
+// reveal   - blank-to-full progressive reveal driven by a stage stepper (0..3)
+type Mode = 'all' | 'hide' | 'anchors' | 'reveal';
+
+// Reveal stages (blank to full). A region is revealed when its tier (and, for
+// tier 3, whether it is a figure/table) is at or below the current stage.
+const REVEAL_MAX_STAGE = 3;
+function isRevealed(type: string, tier: number, stage: number): boolean {
+  if (stage >= REVEAL_MAX_STAGE) return true; // full page
+  if (tier === 1) return true; // anchors are the starting point
+  if (tier === 2) return stage >= 1;
+  // tier 3: text reveals at stage 2; figures/tables reveal last (stage 3)
+  if (type === 'figure' || type === 'table') return false;
+  return stage >= 2;
+}
 
 interface FractionBox {
   x: number;
@@ -45,6 +58,7 @@ export function StudyViewer({ bookId }: { bookId: string }) {
   const [pageCount, setPageCount] = useState(0);
   const [renderedSizes, setRenderedSizes] = useState<Record<number, { w: number; h: number }>>({});
   const [mode, setMode] = useState<Mode>('all');
+  const [revealStage, setRevealStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const canvasRefs = useRef<Array<HTMLCanvasElement | null>>([]);
 
@@ -122,13 +136,20 @@ export function StudyViewer({ bookId }: { bookId: string }) {
         // blank every tiered region
         return { ...base, background: `rgb(${rgb})` };
       }
+      if (mode === 'reveal') {
+        // revealed regions show the page underneath (no cover); masked ones are blanked
+        if (isRevealed(r.type, tier, revealStage)) {
+          return tier === 1 ? { ...base, border: `1px solid rgba(${rgb},0.6)` } : null;
+        }
+        return { ...base, background: 'rgb(15,10,40)' };
+      }
       // anchors: keep tier 1 visible (faint outline), blank tier 2 and 3
       if (tier === 1) {
         return { ...base, border: `1px solid rgba(${rgb},0.8)` };
       }
       return { ...base, background: 'rgb(15,10,40)' };
     },
-    [mode]
+    [mode, revealStage]
   );
 
   const modeButton = (m: Mode, label: string) => (
@@ -160,7 +181,32 @@ export function StudyViewer({ bookId }: { bookId: string }) {
         {modeButton('all', 'Show all')}
         {modeButton('hide', 'Hide overlay regions')}
         {modeButton('anchors', 'Show only anchors')}
+        {modeButton('reveal', 'Progressive reveal')}
       </div>
+
+      {mode === 'reveal' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <button
+            data-reveal="prev"
+            onClick={() => setRevealStage((s) => Math.max(0, s - 1))}
+            disabled={revealStage === 0}
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(167,139,250,0.4)', background: 'rgba(0,0,0,0.4)', color: 'white', cursor: 'pointer', opacity: revealStage === 0 ? 0.4 : 1 }}
+          >
+            Back
+          </button>
+          <span data-reveal-stage={revealStage} style={{ fontSize: 14, minWidth: 90, textAlign: 'center' }}>
+            Stage {revealStage} / {REVEAL_MAX_STAGE}
+          </span>
+          <button
+            data-reveal="next"
+            onClick={() => setRevealStage((s) => Math.min(REVEAL_MAX_STAGE, s + 1))}
+            disabled={revealStage === REVEAL_MAX_STAGE}
+            style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(167,139,250,0.4)', background: 'rgba(167,139,250,0.35)', color: 'white', cursor: 'pointer', opacity: revealStage === REVEAL_MAX_STAGE ? 0.4 : 1 }}
+          >
+            Reveal next
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24 }}>
         {Array.from({ length: pageCount }).map((_, pageIndex) => {

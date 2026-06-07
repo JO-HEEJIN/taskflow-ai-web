@@ -97,8 +97,9 @@ Mapped to the 8 increments in claude-code-prompt.md section 4, adjusted to real 
 - [x] Verified end to end (Playwright): page route 200, PDF renders (canvas 900px), 40 overlays, hide -> opaque, anchors -> tier1 visible and tier3 blanked, zero failed requests. Fixed an SSR crash by importing pdfjs-dist dynamically inside the effect (Node 20 lacks Promise.withResolvers).
 - NOTE: no study entry UI yet (reach the viewer at /study/:id). Entry/upload UI lands with later increments.
 
-### Increment 4 — Layer 2 blank-to-full progressive reveal
-- [ ] Stages 0..3 across text, figures (caption-to-image), tables (region-level in v1).
+### Increment 4 — Layer 2 blank-to-full progressive reveal (DONE)
+- [x] Added a 'reveal' mode to StudyViewer with a stage stepper (0..3, Back / Reveal next). Stage 0 shows only tier-1 anchors; stage 1 adds tier 2; stage 2 adds tier-3 text; figures and tables reveal last at stage 3 (caption-to-figure recall, since captions are tier 1). Masked regions are blanked; revealed regions show the page underneath.
+- [x] Verified (Playwright) on the sample: masked-region count steps 37 -> 37 -> 2 -> 0 across stages (monotonic to zero), figures/tables reveal last, tier-1 anchors never masked.
 
 ### Increment 5 — Layer 3 scheduler + TaskFlow task generation
 - [ ] `reviewItems` container with SM-2 (ease, interval, due_at, retention_estimate, last_result).
