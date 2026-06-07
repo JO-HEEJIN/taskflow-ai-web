@@ -6,6 +6,8 @@ import { getDocumentAiProvider } from '../services/documentAi';
 import { studyService } from '../services/studyService';
 import { studyReviewService, applyGrade } from '../services/studyReviewService';
 import { assignTiers } from '../services/studyTiering';
+import { taskService } from '../services/taskService';
+import { notificationService } from '../services/notificationService';
 import { logPayloadTokens } from '../services/headroom';
 import { blobService } from '../services/blobService';
 import { Book } from '../types/study';
@@ -149,6 +151,41 @@ router.get('/review/due', async (req: Request, res: Response) => {
     return { item, region };
   });
   res.json({ due: enriched });
+});
+
+// Materialize due review items as TaskFlow tasks so the existing notification
+// system owns the trigger. One task per book with due items, idempotent per day.
+// Note: backend tasks surface for signed-in users; guests (localStorage tasks)
+// use the review session UI and /review/due directly.
+router.post('/review/sync-tasks', async (req: Request, res: Response) => {
+  const ownerRef = getOwnerRef(req);
+  if (!ownerRef) return res.status(400).json({ error: 'Missing x-user-id header' });
+
+  const counts = await studyReviewService.booksWithDueItems(ownerRef);
+  const bookIds = Object.keys(counts);
+  if (bookIds.length === 0) return res.json({ created: [], skipped: [] });
+
+  const books = await studyService.listBooks(ownerRef);
+  const titleById = new Map(books.map((b) => [b.id, b.title]));
+  const existing = await taskService.getTasksBySyncCode(ownerRef);
+  const today = new Date().toISOString().slice(0, 10);
+
+  const created: string[] = [];
+  const skipped: string[] = [];
+  for (const bookId of bookIds) {
+    const taskTitle = `Review: ${titleById.get(bookId) || 'book'} (${counts[bookId]} due)`;
+    const alreadyToday = existing.some(
+      (t) => t.title === taskTitle && new Date(t.createdAt).toISOString().slice(0, 10) === today
+    );
+    if (alreadyToday) {
+      skipped.push(taskTitle);
+      continue;
+    }
+    await taskService.createTask(taskTitle, undefined, ownerRef);
+    await notificationService.notifyDueDateReminder(ownerRef, taskTitle, 'today');
+    created.push(taskTitle);
+  }
+  res.json({ created, skipped });
 });
 
 // Grade a review item (quality 0..5). Applies SM-2 and reschedules.
