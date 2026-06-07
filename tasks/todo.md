@@ -105,7 +105,10 @@ Mapped to the 8 increments in claude-code-prompt.md section 4, adjusted to real 
 - [x] 5.1 Data + scheduler: `studyReviewItems` Cosmos container (partition /ownerRef); `ReviewItem` type; `studyReviewService` with pure SM-2 `applyGrade`, `computeRetention`, `isRecallTarget`, `generateReviewItems` (recall targets = tier 1/2 + figures/tables, due now, idempotent), `getDueItems`, `booksWithDueItems`. Wired `generateReviewItems` into ingest. Unit tests PASS (interval 1->6->16, fail reset, ease floor 1.3, retention decay; recall-target selection).
 - [x] 5.2 Routes: `GET /api/study/review/due` (enriched with each item's region) and `POST /api/study/review/:itemId/grade`. Live verified: ingest creates 5 items (3 tier1 + 2 tables), due returns them with region, grade q5 reschedules to future, due count drops.
 - [ ] 5.3 TaskFlow task generation: daily sweep creates one Task per book with due items, reusing taskService.createTask + notificationService.notifyDueDateReminder; createLinkedTask for momentum.
-- [ ] 5.4 Frontend review-session UI (reuse Focus Mode + StudyViewer overlay): load first due item, recall then reveal, grade control, auto-advance.
+- [x] 5.4 Frontend review-session UI: `components/study/ReviewSession.tsx` + route `app/study/review`. Loads /review/due, shows one item at a time (progress bar, "just one at a time"), renders its page with pdf.js, masks the target region, Reveal unmasks it, grade buttons (Again/Hard/Good/Easy -> q 1/3/4/5) POST grade and auto-advance.
+- [x] UI redesigned to match TaskFlow: StudyViewer and ReviewSession use the app's Tailwind dark/purple-glass language (glass panels, gradient pill buttons, purple accents) instead of bare inline styles.
+- [x] Verified end to end (Playwright + screenshots): viewer renders with tier overlays and styled mode buttons; review session renders a page, masks then reveals the target, four grade buttons advance the queue (Item 1 of 5 -> Item 2 of 5).
+- NOTE (5.3 limitation): backend review tasks surface for signed-in users; guest task-list mirroring is a follow-up. No background cron yet; sync-tasks is called on demand.
 
 ### Increment 6 — Layer 3 honest loss-aversion + ADHD-safe streak
 - [ ] Show real retention estimate (no fake countdown); reuse PiP blue-to-red where practical.
