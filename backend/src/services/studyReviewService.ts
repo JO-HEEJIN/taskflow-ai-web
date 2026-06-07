@@ -56,6 +56,15 @@ export function computeRetention(item: ReviewItem, nowMs: number = Date.now()): 
   return Math.exp(-Math.max(0, elapsedDays) / stability);
 }
 
+// Days from now until estimated retention falls to 0.5. Drives the honest
+// "slips below about 50 percent in N days" message. Real decay, not a countdown.
+export function daysUntilHalf(item: ReviewItem, nowMs: number = Date.now()): number {
+  const stability = Math.max(1, item.intervalDays);
+  let elapsedDays = 0;
+  if (item.lastReviewedAt) elapsedDays = Math.max(0, (nowMs - Date.parse(item.lastReviewedAt)) / DAY_MS);
+  return Math.max(0, stability * Math.LN2 - elapsedDays);
+}
+
 class StudyReviewService {
   async hasItemsForBook(ownerRef: string, bookId: string): Promise<boolean> {
     const container = cosmosService.getContainer('studyReviewItems');

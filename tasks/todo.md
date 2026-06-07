@@ -110,9 +110,9 @@ Mapped to the 8 increments in claude-code-prompt.md section 4, adjusted to real 
 - [x] Verified end to end (Playwright + screenshots): viewer renders with tier overlays and styled mode buttons; review session renders a page, masks then reveals the target, four grade buttons advance the queue (Item 1 of 5 -> Item 2 of 5).
 - NOTE (5.3 limitation): backend review tasks surface for signed-in users; guest task-list mirroring is a follow-up. No background cron yet; sync-tasks is called on demand.
 
-### Increment 6 — Layer 3 honest loss-aversion + ADHD-safe streak
-- [ ] Show real retention estimate (no fake countdown); reuse PiP blue-to-red where practical.
-- [ ] Streak with freeze, forgiving recovery, weekly goals, no guilt messaging.
+### Increment 6 — Layer 3 honest loss-aversion + ADHD-safe streak (IN PROGRESS)
+- [x] 6.1 Backend: `/review/due` now returns real `retention` (computeRetention) and `daysUntilHalf` per item (stability*ln2 - elapsed); `daysUntilHalf` added to studyReviewService. ADHD-safe streak: `studyStreaks` container + `studyStreakService` (pure `advanceStreak`: gap 1 continues, gap>1 spends a freeze else gentle reset to 1, weekly goal window, no shame). Grade now records study and returns streak; `GET /review/streak` added. Unit tests PASS (daysUntilHalf; streak gap/freeze/reset/longest).
+- [ ] 6.2 Frontend: ReviewSession shows the honest retention message + blue-to-red color; a streak badge (current streak, freezes, weekly goal) in ADHD-safe copy.
 
 ### Increment 7 — Monetization (Lemon Squeezy, inline, no pricing page)
 - [ ] `entitlements` container (scope, lemonsqueezy_order_id, license_key, email). Server-side per-book gating; book 1 free, book 2+ paid.

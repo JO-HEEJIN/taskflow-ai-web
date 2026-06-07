@@ -4,7 +4,8 @@ import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getDocumentAiProvider } from '../services/documentAi';
 import { studyService } from '../services/studyService';
-import { studyReviewService, applyGrade } from '../services/studyReviewService';
+import { studyReviewService, applyGrade, computeRetention, daysUntilHalf } from '../services/studyReviewService';
+import { studyStreakService } from '../services/studyStreakService';
 import { assignTiers } from '../services/studyTiering';
 import { taskService } from '../services/taskService';
 import { notificationService } from '../services/notificationService';
@@ -148,7 +149,13 @@ router.get('/review/due', async (req: Request, res: Response) => {
 
   const enriched = items.map((item) => {
     const region = regionsByBook.get(item.bookId)?.find((r) => r.id === item.regionId) || null;
-    return { item, region };
+    // Honest decay: real retention estimate now and days until it reaches 50%.
+    return {
+      item,
+      region,
+      retention: computeRetention(item),
+      daysUntilHalf: daysUntilHalf(item),
+    };
   });
   res.json({ due: enriched });
 });
@@ -200,7 +207,16 @@ router.post('/review/:itemId/grade', async (req: Request, res: Response) => {
 
   const updated = applyGrade(item, quality);
   await studyReviewService.saveItem(updated);
-  res.json({ item: updated });
+  const streak = await studyStreakService.recordStudy(ownerRef);
+  res.json({ item: updated, streak });
+});
+
+// ADHD-safe study streak for the caller (current/longest streak, freezes, weekly goal).
+router.get('/review/streak', async (req: Request, res: Response) => {
+  const ownerRef = getOwnerRef(req);
+  if (!ownerRef) return res.status(400).json({ error: 'Missing x-user-id header' });
+  const streak = await studyStreakService.getStreak(ownerRef);
+  res.json({ streak });
 });
 
 export default router;

@@ -62,6 +62,21 @@ export interface ReviewItem {
   retentionEstimate: number; // 0..1 estimate (drives Increment 6 loss-aversion UI)
 }
 
+// ADHD-safe study streak. One document per owner (id = ownerRef). Forgiving:
+// streak freezes absorb a missed day; a real break resets gently with no shame;
+// goals are weekly, not daily.
+export interface StudyStreak {
+  id: string;
+  ownerRef: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastStudyDate: string; // YYYY-MM-DD ('' if never)
+  freezesAvailable: number;
+  weeklyGoal: number;
+  weekStartDate: string; // YYYY-MM-DD (Monday of the tracked week)
+  weekReviewCount: number;
+}
+
 // A processed book. owner_ref is the existing identity value (email or guest id),
 // matching the syncCode/partition convention used elsewhere.
 export interface Book {
