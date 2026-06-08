@@ -53,7 +53,8 @@ app.use(cors(corsOptions));
 // Enable pre-flight requests for all routes
 app.options('*', cors(corsOptions));
 
-app.use(express.json());
+// Capture the raw body so the Lemon Squeezy webhook can verify its HMAC signature.
+app.use(express.json({ verify: (req, _res, buf) => { (req as any).rawBody = buf; } }));
 
 // Health check
 app.get('/health', (req, res) => {

@@ -249,4 +249,70 @@ router.get('/review/streak', async (req: Request, res: Response) => {
   res.json({ streak });
 });
 
+// Frontend reads this to open the inline checkout (no secrets; slug and variant
+// are public). API key and webhook secret stay server-side only.
+router.get('/checkout-config', (_req: Request, res: Response) => {
+  res.json({
+    storeSlug: process.env.LEMONSQUEEZY_STORE_SLUG || '',
+    variantBooks: process.env.LEMONSQUEEZY_VARIANT_BOOKS || '',
+  });
+});
+
+// Lemon Squeezy webhook. Verifies the HMAC signature over the raw body, then on
+// order_created grants 'books' to the owner_ref passed as checkout custom data.
+// This is the only path that creates an entitlement.
+router.post('/lemonsqueezy/webhook', async (req: Request, res: Response) => {
+  const secret = process.env.LEMONSQUEEZY_WEBHOOK_SECRET;
+  const sig = req.headers['x-signature'] as string | undefined;
+  const raw = (req as any).rawBody as Buffer | undefined;
+  if (!secret || !sig || !raw) return res.status(400).json({ error: 'Bad webhook request' });
+
+  const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');
+  const sigBuf = Buffer.from(sig, 'utf8');
+  const expBuf = Buffer.from(expected, 'utf8');
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  const event = req.body?.meta?.event_name;
+  const ownerRef = req.body?.meta?.custom_data?.owner_ref;
+  if (event === 'order_created' && ownerRef) {
+    const attrs = req.body?.data?.attributes || {};
+    await studyEntitlementService.grant(ownerRef, 'books', {
+      lemonsqueezyOrderId: String(req.body?.data?.id || ''),
+      email: attrs.user_email,
+    });
+    console.log(`[study] entitlement granted to ${ownerRef} via order ${req.body?.data?.id}`);
+  }
+  res.json({ received: true });
+});
+
+// Passwordless recovery: re-grant on a new device from the order email by looking
+// up paid orders via the Lemon Squeezy API (server-side).
+router.post('/entitlements/restore', async (req: Request, res: Response) => {
+  const ownerRef = getOwnerRef(req);
+  if (!ownerRef) return res.status(400).json({ error: 'Missing x-user-id header' });
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  if (!email) return res.status(400).json({ error: 'email is required' });
+
+  const apiKey = process.env.LEMONSQUEEZY_API_KEY;
+  const storeId = process.env.LEMONSQUEEZY_STORE_ID;
+  if (!apiKey || !storeId) return res.status(500).json({ error: 'Billing not configured' });
+
+  try {
+    const r = await fetch(
+      `https://api.lemonsqueezy.com/v1/orders?filter[store_id]=${storeId}&filter[user_email]=${encodeURIComponent(email)}`,
+      { headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/vnd.api+json' } }
+    );
+    const data = (await r.json()) as any;
+    const orders = data.data || [];
+    if (orders.length === 0) return res.json({ restored: false });
+    await studyEntitlementService.grant(ownerRef, 'books', { email, lemonsqueezyOrderId: String(orders[0].id) });
+    res.json({ restored: true });
+  } catch (e: any) {
+    console.error('[study] restore failed:', e?.message || e);
+    res.status(502).json({ error: 'Recovery lookup failed' });
+  }
+});
+
 export default router;
