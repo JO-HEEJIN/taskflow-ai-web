@@ -33,6 +33,7 @@ export function StudyViewer({ bookId }: { bookId: string }) {
   const [title, setTitle] = useState<string>('');
   const [regions, setRegions] = useState<Region[]>([]);
   const [pageCount, setPageCount] = useState(0);
+  const [numPages, setNumPages] = useState(0);
   const [renderedSizes, setRenderedSizes] = useState<Record<number, { w: number; h: number }>>({});
   const [mode, setMode] = useState<Mode>('all');
   const [revealStage, setRevealStage] = useState(0);
@@ -60,6 +61,7 @@ export function StudyViewer({ bookId }: { bookId: string }) {
           disableRange: true,
           disableStream: true,
         }).promise;
+        if (!cancelled) setNumPages(doc.numPages);
 
         for (let i = 1; i <= doc.numPages; i++) {
           const page = await doc.getPage(i);
@@ -172,7 +174,7 @@ export function StudyViewer({ bookId }: { bookId: string }) {
       )}
 
       <div className="flex flex-col items-center gap-6">
-        {Array.from({ length: pageCount }).map((_, pageIndex) => {
+        {Array.from({ length: Math.max(pageCount, numPages) }).map((_, pageIndex) => {
           const size = renderedSizes[pageIndex];
           const pageRegions = regions.filter((r) => r.pageIndex === pageIndex);
           return (

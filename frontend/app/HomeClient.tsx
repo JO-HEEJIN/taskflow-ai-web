@@ -248,6 +248,16 @@ export default function HomeClient() {
       {/* Background Music Player */}
       <BackgroundMusicPlayer />
 
+      {/* Study layer entry */}
+      {!isFocusMode && (
+        <Link
+          href="/study"
+          className="fixed bottom-24 left-4 z-[55] px-4 py-2 rounded-full text-sm font-medium text-white border border-purple-400/40 bg-gradient-to-r from-purple-500/30 to-pink-500/20 backdrop-blur-md transition-all hover:scale-105 active:scale-95"
+        >
+          Study
+        </Link>
+      )}
+
       {/* Profile Button - always available, but button only shows on desktop */}
       {!isMobile && <ProfileButton />}
 
