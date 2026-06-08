@@ -6,6 +6,7 @@ import { getDocumentAiProvider } from '../services/documentAi';
 import { studyService } from '../services/studyService';
 import { studyReviewService, applyGrade, computeRetention, daysUntilHalf } from '../services/studyReviewService';
 import { studyStreakService } from '../services/studyStreakService';
+import { studyEntitlementService } from '../services/studyEntitlementService';
 import { assignTiers } from '../services/studyTiering';
 import { taskService } from '../services/taskService';
 import { notificationService } from '../services/notificationService';
@@ -46,6 +47,22 @@ router.post('/books', upload.single('pdf'), async (req: Request, res: Response) 
     const cached = await studyService.findCachedBook(ownerRef, sourceHash);
     if (cached) {
       return res.json({ book: cached, cached: true });
+    }
+
+    // Gate: the first book is free. Book 2+ requires a 'books' (or 'premium')
+    // entitlement, enforced server-side before any Document AI cost is incurred.
+    const existingBooks = await studyService.listBooks(ownerRef);
+    if (existingBooks.length >= 1) {
+      const entitled =
+        (await studyEntitlementService.has(ownerRef, 'books')) ||
+        (await studyEntitlementService.has(ownerRef, 'premium'));
+      if (!entitled) {
+        return res.status(402).json({
+          error: 'payment_required',
+          gate: 'books',
+          message: 'The first book is free. Unlock additional books to continue.',
+        });
+      }
     }
 
     console.log(`[study] processing PDF "${req.file.originalname}" (${pdf.length} bytes) for ${ownerRef}`);
@@ -96,6 +113,19 @@ router.post('/books', upload.single('pdf'), async (req: Request, res: Response) 
     console.error('[study] PDF processing failed:', error?.message || error);
     res.status(500).json({ error: error?.message || 'Failed to process PDF' });
   }
+});
+
+// The caller's entitlements (what they have unlocked). Read-only; clients can
+// never write entitlements, only the verified webhook can.
+router.get('/entitlements', async (req: Request, res: Response) => {
+  const ownerRef = getOwnerRef(req);
+  if (!ownerRef) return res.status(400).json({ error: 'Missing x-user-id header' });
+  const entitlements = await studyEntitlementService.list(ownerRef);
+  res.json({
+    entitlements,
+    books: entitlements.some((e) => e.scope === 'books' || e.scope === 'premium'),
+    premium: entitlements.some((e) => e.scope === 'premium'),
+  });
 });
 
 // List the caller's processed books.

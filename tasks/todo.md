@@ -115,10 +115,10 @@ Mapped to the 8 increments in claude-code-prompt.md section 4, adjusted to real 
 - [x] 6.2 Frontend: ReviewSession shows the honest retention pill (real "Memory about X%, slips below 50% in N days", blue-to-red by retention) and an ADHD-safe streak badge (current streak, freezes, weekly count/goal). Grade updates the streak from the response.
 - [x] Verified (Playwright + screenshots): retention message and blue color render, streak badge shows 0 then advances to 1 after grading, queue advances. Increment 6 complete.
 
-### Increment 7 — Monetization (Lemon Squeezy, inline, no pricing page)
-- [ ] `entitlements` container (scope, lemonsqueezy_order_id, license_key, email). Server-side per-book gating; book 1 free, book 2+ paid.
-- [ ] Inline Lemon Squeezy checkout (Lemon.js overlay) showing price + one-line value; unlock in place on success.
-- [ ] Webhook signature verification server-side; license-key activation/validation via Lemon Squeezy API; email/license recovery; no forced signup; communicate device-local nature.
+### Increment 7 — Monetization (Lemon Squeezy, inline, no pricing page) (IN PROGRESS)
+- [x] 7A Server-side entitlement + gating (no LS keys needed): `studyEntitlements` container + `studyEntitlementService` (list/has/grant; grant is webhook-only, no client write path). `POST /books` gates: first book free, book 2+ returns 402 {gate:'books'} unless entitled, checked before any Document AI cost. `GET /entitlements` (read-only). Verified live: book1 201, book2 402, after grant 201. Client cannot self-grant.
+- [ ] 7B Lemon Squeezy inline checkout (Lemon.js overlay) with price + value; unlock in place. NEEDS store id, API key, webhook secret (variant id 1760879 received).
+- [ ] 7B Webhook signature verification (order_created -> grant entitlement); email/license recovery; no forced signup; device-local notice.
 
 ### Increment 8 — Premium seam only
 - [ ] Gate + entitlement scope for past-exam mapping. Engine NOT built.

@@ -62,6 +62,19 @@ export interface ReviewItem {
   retentionEstimate: number; // 0..1 estimate (drives Increment 6 loss-aversion UI)
 }
 
+// An unlock the user owns. 'books' = additional books past the free first book;
+// 'premium' = past-exam mapping (Increment 8 gate). Created server-side only
+// (by the verified Lemon Squeezy webhook), never trusted from the client.
+export interface Entitlement {
+  id: string;
+  ownerRef: string;
+  scope: 'books' | 'premium';
+  lemonsqueezyOrderId?: string;
+  licenseKey?: string;
+  email?: string;
+  createdAt: string;
+}
+
 // ADHD-safe study streak. One document per owner (id = ownerRef). Forgiving:
 // streak freezes absorb a missed day; a real break resets gently with no shame;
 // goals are weekly, not daily.
