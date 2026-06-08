@@ -15,7 +15,8 @@ function ownerRef(): string {
 export function StudyHome() {
   const [books, setBooks] = useState<Book[]>([]);
   const [entitled, setEntitled] = useState(false);
-  const [config, setConfig] = useState<{ storeSlug: string; variantBooks: string } | null>(null);
+  const [premium, setPremium] = useState(false);
+  const [config, setConfig] = useState<{ storeSlug: string; variantBooks: string; variantPremium: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [restoreEmail, setRestoreEmail] = useState('');
@@ -26,10 +27,11 @@ export function StudyHome() {
   const refresh = useCallback(async () => {
     const [b, e] = await Promise.all([
       fetch(`${API}/api/study/books`, { headers: headers() }).then((r) => r.json()).catch(() => ({ books: [] })),
-      fetch(`${API}/api/study/entitlements`, { headers: headers() }).then((r) => r.json()).catch(() => ({ books: false })),
+      fetch(`${API}/api/study/entitlements`, { headers: headers() }).then((r) => r.json()).catch(() => ({ books: false, premium: false })),
     ]);
     setBooks(b.books || []);
     setEntitled(!!e.books);
+    setPremium(!!e.premium);
   }, [headers]);
 
   useEffect(() => {
@@ -45,13 +47,13 @@ export function StudyHome() {
     refresh();
   }, [refresh]);
 
-  const openCheckout = () => {
-    if (!config?.storeSlug || !config?.variantBooks) {
-      setMessage('Checkout is not configured yet.');
+  const openCheckout = (variant: string) => {
+    if (!config?.storeSlug || !variant) {
+      setMessage('This is coming soon.');
       return;
     }
     const url =
-      `https://${config.storeSlug}.lemonsqueezy.com/buy/${config.variantBooks}` +
+      `https://${config.storeSlug}.lemonsqueezy.com/buy/${variant}` +
       `?embed=1&media=0&logo=0&checkout[custom][owner_ref]=${encodeURIComponent(ownerRef())}`;
     const ls = (window as any).LemonSqueezy;
     if (ls?.Url?.Open) {
@@ -78,7 +80,7 @@ export function StudyHome() {
       const res = await fetch(`${API}/api/study/books`, { method: 'POST', headers: headers(), body: fd });
       if (res.status === 402) {
         setMessage('The first book is free. Unlock more books to add this one.');
-        openCheckout();
+        openCheckout(config?.variantBooks || '');
         return;
       }
       if (!res.ok) throw new Error(`Upload failed (${res.status})`);
@@ -119,7 +121,7 @@ export function StudyHome() {
         Upload a textbook PDF to study it with active recall. The first book is free.
       </p>
 
-      <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 mb-6">
+      <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md p-6 mb-4">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <div className="font-medium">Add a book</div>
@@ -140,13 +142,35 @@ export function StudyHome() {
         {!entitled && books.length >= 1 && (
           <button
             data-action="unlock"
-            onClick={openCheckout}
+            onClick={() => openCheckout(config?.variantBooks || '')}
             className="mt-4 px-5 py-2.5 rounded-full text-sm font-semibold text-white border border-purple-400/50 bg-gradient-to-r from-purple-500/50 to-pink-500/40 transition-all hover:scale-105 active:scale-95"
           >
             Unlock more books
           </button>
         )}
         {message && <p className="mt-3 text-sm text-blue-100/90">{message}</p>}
+      </div>
+
+      <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-5 mb-6">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div className="font-medium text-amber-200">Past-exam mapping</div>
+            <div className="text-xs text-amber-100/60">
+              Premium. Rank importance by real past-exam frequency, not just structure.
+            </div>
+          </div>
+          {premium ? (
+            <span className="text-xs text-emerald-300">Unlocked — coming soon</span>
+          ) : (
+            <button
+              data-action="premium"
+              onClick={() => openCheckout(config?.variantPremium || '')}
+              className="px-5 py-2.5 rounded-full text-sm font-semibold text-white border border-amber-400/50 bg-gradient-to-r from-amber-500/40 to-orange-500/30 transition-all hover:scale-105 active:scale-95"
+            >
+              Unlock premium
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mb-6">

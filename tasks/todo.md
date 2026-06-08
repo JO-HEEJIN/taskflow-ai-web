@@ -117,11 +117,12 @@ Mapped to the 8 increments in claude-code-prompt.md section 4, adjusted to real 
 
 ### Increment 7 — Monetization (Lemon Squeezy, inline, no pricing page) (IN PROGRESS)
 - [x] 7A Server-side entitlement + gating (no LS keys needed): `studyEntitlements` container + `studyEntitlementService` (list/has/grant; grant is webhook-only, no client write path). `POST /books` gates: first book free, book 2+ returns 402 {gate:'books'} unless entitled, checked before any Document AI cost. `GET /entitlements` (read-only). Verified live: book1 201, book2 402, after grant 201. Client cannot self-grant.
-- [ ] 7B Lemon Squeezy inline checkout (Lemon.js overlay) with price + value; unlock in place. NEEDS store id, API key, webhook secret (variant id 1760879 received).
-- [ ] 7B Webhook signature verification (order_created -> grant entitlement); email/license recovery; no forced signup; device-local notice.
+- [x] 7B Backend: webhook (HMAC verify over raw body; order_created -> grant 'books' to custom_data.owner_ref), GET /checkout-config, POST /entitlements/restore (email recovery via LS orders API). Frontend /study (StudyHome): upload + gated 2nd book opens Lemon.js inline checkout with owner_ref, device-local restore. LS store 400789 / variant 1760879 / $9.99 one-time.
+- [x] Verified live on prod: webhook bad sig 401, good sig 200 + grant, checkout-config + /study load, zero-downtime. Increment 7 complete and deployed.
 
-### Increment 8 — Premium seam only
-- [ ] Gate + entitlement scope for past-exam mapping. Engine NOT built.
+### Increment 8 — Premium seam only (DONE)
+- [x] Webhook grants 'premium' when the purchased variant equals LEMONSQUEEZY_VARIANT_PREMIUM, else 'books'. checkout-config returns variantPremium. POST /api/study/past-exam is the gate seam: 402 gate:premium if not entitled, 501 not-implemented if entitled (engine not built). StudyHome shows a premium upsell card.
+- [x] Verified: premium webhook grants premium; past-exam 402 without premium and 501 with; tsc both. A purchasable premium variant needs a second LS product (env LEMONSQUEEZY_VARIANT_PREMIUM, currently unset).
 
 ### Cross-cutting (per prompt 4a and 6)
 - [ ] Keep code-accurate Mermaid diagrams updated (data model, module view, upload-to-task sequence) using real names.

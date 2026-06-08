@@ -255,7 +255,24 @@ router.get('/checkout-config', (_req: Request, res: Response) => {
   res.json({
     storeSlug: process.env.LEMONSQUEEZY_STORE_SLUG || '',
     variantBooks: process.env.LEMONSQUEEZY_VARIANT_BOOKS || '',
+    variantPremium: process.env.LEMONSQUEEZY_VARIANT_PREMIUM || '',
   });
+});
+
+// Premium seam: past-exam mapping. v1 ships the gate and entitlement only; the
+// mapping engine is a later phase. Requires a 'premium' entitlement.
+router.post('/past-exam', async (req: Request, res: Response) => {
+  const ownerRef = getOwnerRef(req);
+  if (!ownerRef) return res.status(400).json({ error: 'Missing x-user-id header' });
+  const premium = await studyEntitlementService.has(ownerRef, 'premium');
+  if (!premium) {
+    return res.status(402).json({
+      error: 'payment_required',
+      gate: 'premium',
+      message: 'Past-exam mapping is a premium feature.',
+    });
+  }
+  return res.status(501).json({ error: 'not_implemented', message: 'Past-exam mapping is coming soon.' });
 });
 
 // Lemon Squeezy webhook. Verifies the HMAC signature over the raw body, then on
@@ -278,7 +295,10 @@ router.post('/lemonsqueezy/webhook', async (req: Request, res: Response) => {
   const ownerRef = req.body?.meta?.custom_data?.owner_ref;
   if (event === 'order_created' && ownerRef) {
     const attrs = req.body?.data?.attributes || {};
-    await studyEntitlementService.grant(ownerRef, 'books', {
+    const variantId = String(attrs?.first_order_item?.variant_id || '');
+    const premiumVariant = process.env.LEMONSQUEEZY_VARIANT_PREMIUM || '';
+    const scope: 'books' | 'premium' = premiumVariant && variantId === premiumVariant ? 'premium' : 'books';
+    await studyEntitlementService.grant(ownerRef, scope, {
       lemonsqueezyOrderId: String(req.body?.data?.id || ''),
       email: attrs.user_email,
     });
